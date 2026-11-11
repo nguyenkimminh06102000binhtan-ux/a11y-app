@@ -1,22 +1,40 @@
+import { redirect } from "next/navigation";
+import { db, sites, eq } from "@app/db";
+import { getCurrentUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
-import { connection } from "next/server";
-import { db, sites } from "@app/db";
 
-// With cacheComponents on, uncached data already runs per request.
-// The static shell (h1) is prerendered; the DB part streams in at request time.
+async function signOut() {
+  "use server";
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
+
 export default function Home() {
   return (
     <main>
       <h1>a11y-app</h1>
-      <Suspense fallback={<p>Loading sites…</p>}>
-        <SiteCount />
+      <Suspense fallback={<p>Loading…</p>}>
+        <Dashboard />
       </Suspense>
     </main>
   );
 }
 
-async function SiteCount() {
-  await connection(); // explicitly opt this component into request-time rendering
-  const rows = await db.select().from(sites); // SELECT * FROM sites
-  return <p>Sites: {rows.length}</p>;
+async function Dashboard() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const rows = await db.select().from(sites).where(eq(sites.accountId, user.id));
+
+  return (
+    <>
+      <p>Signed in as {user.email}</p>
+      <p>Sites: {rows.length}</p>
+      <form action={signOut}>
+        <button type="submit">Sign out</button>
+      </form>
+    </>
+  );
 }
