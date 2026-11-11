@@ -48,6 +48,7 @@ async function main() {
           siteId: site.id,
           fingerprint: fingerprint(v.id, url, selector),
           ruleId: v.id,
+          help: v.help,
           impact: v.impact ?? null,
           pageUrl: url,
           selector,

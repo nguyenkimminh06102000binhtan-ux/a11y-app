@@ -15,6 +15,13 @@
       "when": 1794418447838,
       "tag": "0001_loud_kylun",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794419535108,
+      "tag": "0002_free_jocasta",
+      "breakpoints": true
     }
   ]
 }

@@ -49,6 +49,7 @@ export const issues = pgTable(
     selector: text("selector").notNull(),       // where it is
     html: text("html").notNull(),               // the offending element's HTML
     summary: text("summary"),                   // what's wrong / how to fix
+    help: text("help"),
     helpUrl: text("help_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

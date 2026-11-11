@@ -4,6 +4,7 @@ import { db, sites, eq } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { addSite, deleteSite } from "./actions";
+import Link from "next/link";
 
 const ERRORS: Record<string, string> = {
   invalid: "That doesn't look like a valid domain. Try something like shop.com.",
@@ -102,7 +103,7 @@ async function SiteList() {
         <ul>
           {rows.map((site) => (
             <li key={site.id}>
-              <h3>{site.domain}</h3>
+              <h3><Link href={`/sites/${site.id}`}>{site.domain}</Link></h3>
               <p>Embed code:</p>
               <pre>
                 <code>{`<script src="https://cdn.example.com/l.js" data-site="${site.siteKey}" async></script>`}</code>
