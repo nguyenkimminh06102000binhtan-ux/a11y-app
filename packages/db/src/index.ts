@@ -16,6 +16,13 @@ const client =
   });
 if (process.env.NODE_ENV !== "production") globalForDb.pgClient = client;
 
+
 export const db = drizzle(client, { schema });
+// For scripts (like the worker) that need to exit cleanly.
+// Clears the cached client so nothing reuses a closed connection.
+export async function closeDb() {
+  await client.end();
+  globalForDb.pgClient = undefined;
+}
 export * from "./schema";
 export { eq, and } from "drizzle-orm";

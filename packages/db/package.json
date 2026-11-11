@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "private": "true",
-  "exports": { 
-    ".": "./src/index.ts" 
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -21,7 +21,9 @@
     "postgres": "^4.1.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "dotenv": "^18.0.10",
-    "drizzle-kit": "^0.31.11"
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^7.0.2"
   }
 }
