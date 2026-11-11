@@ -18,3 +18,4 @@ if (process.env.NODE_ENV !== "production") globalForDb.pgClient = client;
 
 export const db = drizzle(client, { schema });
 export * from "./schema";
+export { eq, and } from "drizzle-orm";
