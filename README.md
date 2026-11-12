@@ -61,7 +61,7 @@ These names are a public contract: never rename one once customers use it.
 | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
 | Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
 
-Settings are saved per site in the visitor's browser (`localStorage`), applied inside open web components too,
+Settings are saved per site in the visitor's browser (`localStorage`), applied inside open web components and same-origin iframes too
 and survive single-page-app navigation. Turning a setting off restores the page exactly.
 
 ## Widget: known limits
@@ -80,6 +80,10 @@ and survive single-page-app navigation. Turning a setting off restores the page 
 - **If the page removes the widget more than 10 times a minute**, it stays removed (one console warning).
 - **Browsers without `:has()`** (Firefox < 121, Safari < 15.4): an opted-out area inside adjusted text inherits Text spacing and Highlight links from the element around it.
 - **Browsers without constructable stylesheets** (Safari < 16.4) get settings on the main page only, not inside web components.
+- **Iframes**: iframes from another domain (videos, maps, payments) can't be reached by any setting. Same-origin
+  iframes get Highlight links, Text spacing, Stronger focus outline and the CSS part of Pause animations,
+  but not Text size, the rest of Pause animations, web components or iframes inside them.
+  An iframe page that runs the widget itself is left to its own widget.
 
 
 

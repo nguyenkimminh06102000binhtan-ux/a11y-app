@@ -3,13 +3,16 @@ import { h, render } from "preact";
 import { mount } from "../ui/mount";
 import { Widget } from "../ui/Widget";
 import { loadSettings } from "../settings/settings";
-import { adoptInto, applyToPage } from "../settings/apply";
+import { adoptInto, applyToFrame, applyToPage } from "../settings/apply";
 import { watchShadowRoots } from "../core/shadow-roots";
 import { keepMounted } from "../ui/keep-mounted";
 import { restoreDocumentCss } from "../settings/apply";
 import { textSize } from "../features/text-size";
 import { FEATURES } from "../features";
 import { warnUnknownIgnoreIds } from "../core/ignore";
+import { watchIframes } from "../core/iframes";
+
+
 
 
 
@@ -21,6 +24,7 @@ console.log("[a11y-widget] app loaded", { account, host: location.hostname });
 // Apply saved settings now, not after load, so the visitor doesn't see the page unadjusted first.
 applyToPage(loadSettings());
 watchShadowRoots(adoptInto); // from now on, every open shadow root on the page gets the shared stylesheet
+watchIframes(applyToFrame); // same-origin iframes get the CSS settings too (after watchShadowRoots: it starts the observer)
 
 
 /** The widget isn't needed for first paint: wait for the page so we don't compete with it. */

@@ -1115,3 +1115,81 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
         expect(warnings.find((w) => w.includes("data-a11yw-ignore"))).not.toContain("value: highlight-links");
     });
 });
+
+test.describe("same-origin iframes (/)", () => {
+    const YELLOW = "rgb(255, 255, 0)";
+    // A same-origin page without the widget, served by the test instead of a file
+    const FRAME_PAGE = `<!doctype html><html lang="en"><head><title>Frame</title></head>
+                        <body><a href="/x" id="in-frame">Link in a frame</a></body></html>`;
+
+    const addFrame = (page: Page, id: string, src = "/frame.html", attrs = "") =>
+        page.evaluate(
+            ([id, src, attrs]) =>
+                new Promise<void>((resolve) => {
+                    document.body.insertAdjacentHTML("beforeend", `<iframe id="${id}" title="${id}" src="${src}" ${attrs}></iframe>`);
+                    document.getElementById(id)!.addEventListener("load", () => resolve(), { once: true });
+                }),
+            [id, src, attrs]
+        );
+    const frameLink = (page: Page, id: string) => page.frameLocator(`#${id}`).locator("#in-frame");
+    const background = (page: Page, id: string) => frameLink(page, id).evaluate((el) => getComputedStyle(el).backgroundColor);
+    const hasOurStyle = (page: Page, id: string) =>
+        page.locator(`#${id}`).evaluate((f) => !!(f as HTMLIFrameElement).contentDocument?.getElementById("a11yw-page-adjustments"));
+
+    test.beforeEach(async ({ page }) => {
+        await page.route("**/frame.html*", (route) => route.fulfill({ contentType: "text/html", body: FRAME_PAGE }));
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    });
+
+    test("CSS settings reach iframes already there, added later and loading a new page", async ({ page }) => {
+        await addFrame(page, "f1");
+        await turnOn(page, "Highlight links");
+        await expect.poll(() => background(page, "f1")).toBe(YELLOW);
+
+        await addFrame(page, "f2"); // added after the setting was on
+        await expect.poll(() => background(page, "f2")).toBe(YELLOW);
+
+        await page.locator("#f1").evaluate( // a new page wipes what we added: it's put back on load
+            (f) =>
+                new Promise<void>((resolve) => {
+                    f.addEventListener("load", () => resolve(), { once: true });
+                    (f as HTMLIFrameElement).src = "/frame.html?again";
+                })
+        );
+        await expect.poll(() => background(page, "f1")).toBe(YELLOW);
+
+        await page.getByRole("checkbox", { name: "Highlight links" }).uncheck();
+        await expect.poll(() => background(page, "f1")).not.toBe(YELLOW);
+        expect(await hasOurStyle(page, "f1")).toBe(false); // no trace left
+        expect(await hasOurStyle(page, "f2")).toBe(false);
+    });
+
+    test("an <iframe> with data-a11yw-ignore skips only the settings it names", async ({ page }) => {
+        await addFrame(page, "f-ignored", "/frame.html", 'data-a11yw-ignore="highlight-links"');
+        await turnOn(page, "Highlight links");
+        await page.getByRole("checkbox", { name: "Text spacing" }).check();
+
+        const letterSpacing = () => frameLink(page, "f-ignored").evaluate((el) => getComputedStyle(el).letterSpacing);
+        await expect.poll(letterSpacing).not.toBe("normal"); // Text spacing applies...
+        expect(await background(page, "f-ignored")).not.toBe(YELLOW); // ...Highlight links doesn't
+    });
+
+    test("iframes running their own widget and other-origin iframes are left alone, without errors", async ({ page }) => {
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+
+        await addFrame(page, "own", "/"); // a page with our snippet: its own widget handles it
+        await expect(page.frameLocator("#own").getByRole("button", { name: "Accessibility" })).toBeVisible();
+        await addFrame(page, "other", "http://127.0.0.1:4002/frame.html"); // another origin (127.0.0.1 ≠ localhost)
+
+        await turnOn(page, "Highlight links");
+        await addFrame(page, "f1"); // proves iframes are being handled at all
+        await expect.poll(() => background(page, "f1")).toBe(YELLOW);
+
+        expect(await hasOurStyle(page, "own")).toBe(false);
+        expect(await page.locator("#other").evaluate((f) => (f as HTMLIFrameElement).contentDocument)).toBeNull();
+        expect(errors).toEqual([]);
+    });
+});
+
