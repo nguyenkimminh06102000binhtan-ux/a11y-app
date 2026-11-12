@@ -5,6 +5,10 @@ import { Widget } from "./Widget";
 import { loadSettings } from "./settings";
 import { adoptInto, applyToPage } from "./page-styles";
 import { watchShadowRoots } from "./shadow-roots";
+import { keepMounted } from "./keep-mounted";
+import { restoreDocumentCss } from "./page-styles";
+import { textSize } from "./text-size";
+
 
 
 const thisScript = document.currentScript as HTMLScriptElement | null; // only valid right now, not later
@@ -24,5 +28,14 @@ function whenPageLoaded(): Promise<void> {
 }
 
 whenPageLoaded().then(() => {
-  render(h(Widget, {}), mount());
+  const container = mount();
+  render(h(Widget, {}), container);
+
+  // Single-page apps can remove the widget, our <style> or the text-size variable while navigating: put them back.
+  const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
+  keepMounted(host, () => {
+    restoreDocumentCss();
+    textSize.restore();
+  });
 });
+

@@ -23,80 +23,86 @@ let scale = 1;
 let waitingForLoad = false;
 
 function hasOwnText(el: Element): boolean {
-  if (FORM_TAGS.has(el.localName)) return true;
-  for (let i = 0; i < el.childNodes.length; i++) {
-    const node = el.childNodes[i];
-    if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) return true;
-  }
-  return false;
+    if (FORM_TAGS.has(el.localName)) return true;
+    for (let i = 0; i < el.childNodes.length; i++) {
+        const node = el.childNodes[i];
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) return true;
+    }
+    return false;
 }
 
 function textElementsIn(start: Document | ShadowRoot | Element): HTMLElement[] {
-  return deepQueryAll("*", start).filter(
-    (el): el is HTMLElement =>
-      el instanceof HTMLElement && !enlarged.has(el) && !SKIP_TAGS.has(el.localName) && hasOwnText(el) && !isIgnored(el)
-  );
+    return deepQueryAll("*", start).filter(
+        (el): el is HTMLElement =>
+            el instanceof HTMLElement && !enlarged.has(el) && !SKIP_TAGS.has(el.localName) && hasOwnText(el) && !isIgnored(el)
+    );
 }
 
 function enlarge(elements: HTMLElement[]): void {
-  if (!elements.length || scale === 1) return;
-  const rootStyle = document.documentElement.style;
+    if (!elements.length || scale === 1) return;
+    const rootStyle = document.documentElement.style;
 
-  rootStyle.setProperty(VAR, "1"); // everything we enlarged is back to its original size for a moment...
-  const originals = elements.map((el) => parseFloat(getComputedStyle(el).fontSize)); // ...so we read true sizes (one layout pass)
-  rootStyle.setProperty(VAR, String(scale));
+    rootStyle.setProperty(VAR, "1"); // everything we enlarged is back to its original size for a moment...
+    const originals = elements.map((el) => parseFloat(getComputedStyle(el).fontSize)); // ...so we read true sizes (one layout pass)
+    rootStyle.setProperty(VAR, String(scale));
 
-  elements.forEach((el, i) => {
-    const px = originals[i];
-    if (!px) return; // 0 or unreadable (e.g. icon-font tricks): leave alone
-    enlarged.set(el, { value: el.style.getPropertyValue("font-size"), priority: el.style.getPropertyPriority("font-size") });
-    el.style.setProperty("font-size", `calc(${px}px * var(${VAR}, 1))`, "important");
-  });
+    elements.forEach((el, i) => {
+        const px = originals[i];
+        if (!px) return; // 0 or unreadable (e.g. icon-font tricks): leave alone
+        enlarged.set(el, { value: el.style.getPropertyValue("font-size"), priority: el.style.getPropertyPriority("font-size") });
+        el.style.setProperty("font-size", `calc(${px}px * var(${VAR}, 1))`, "important");
+    });
 }
 
 function start(): void {
-  if (document.readyState !== "complete") {
-    // The page's stylesheets may still be loading: sizes read now could be wrong for good. Start at load.
-    if (!waitingForLoad) {
-      waitingForLoad = true;
-      window.addEventListener("load", onLoad, { once: true });
+    if (document.readyState !== "complete") {
+        // The page's stylesheets may still be loading: sizes read now could be wrong for good. Start at load.
+        if (!waitingForLoad) {
+            waitingForLoad = true;
+            window.addEventListener("load", onLoad, { once: true });
+        }
+        return;
     }
-    return;
-  }
-  enlarge(textElementsIn(document));
-  unsubscribes.push(
-    onElementsAdded((added) => enlarge([...new Set(added.flatMap(textElementsIn))])),
-    onNewShadowRoot((root) => enlarge(textElementsIn(root)))
-  );
+    enlarge(textElementsIn(document));
+    unsubscribes.push(
+        onElementsAdded((added) => enlarge([...new Set(added.flatMap(textElementsIn))])),
+        onNewShadowRoot((root) => enlarge(textElementsIn(root)))
+    );
 }
 
 function onLoad(): void {
-  waitingForLoad = false;
-  if (scale !== 1) start();
+    waitingForLoad = false;
+    if (scale !== 1) start();
 }
 
 function stop(): void {
-  window.removeEventListener("load", onLoad);
-  waitingForLoad = false;
-  unsubscribes.splice(0).forEach((unsubscribe) => unsubscribe());
-  enlarged.forEach((prev, el) => {
-    if (prev.value) el.style.setProperty("font-size", prev.value, prev.priority);
-    else el.style.removeProperty("font-size");
-  });
-  enlarged.clear();
-  document.documentElement.style.removeProperty(VAR);
+    window.removeEventListener("load", onLoad);
+    waitingForLoad = false;
+    unsubscribes.splice(0).forEach((unsubscribe) => unsubscribe());
+    enlarged.forEach((prev, el) => {
+        if (prev.value) el.style.setProperty("font-size", prev.value, prev.priority);
+        else el.style.removeProperty("font-size");
+    });
+    enlarged.clear();
+    document.documentElement.style.removeProperty(VAR);
 }
 
 export const textSize = {
-  /** scale 1 = the page's own size (off). Moving between levels only changes one CSS variable. */
-  apply(next: number): void {
-    const wasOn = scale !== 1;
-    scale = next;
-    if (scale === 1) {
-      if (wasOn) stop();
-      return;
-    }
-    document.documentElement.style.setProperty(VAR, String(scale));
-    if (!wasOn) start();
-  },
+    /** scale 1 = the page's own size (off). Moving between levels only changes one CSS variable. */
+    apply(next: number): void {
+        const wasOn = scale !== 1;
+        scale = next;
+        if (scale === 1) {
+            if (wasOn) stop();
+            return;
+        }
+        document.documentElement.style.setProperty(VAR, String(scale));
+        if (!wasOn) start();
+    },
+    /** Put the variable back if the page rewrote <html>'s style attribute (enlarged text would shrink silently). */
+    restore(): void {
+        if (scale !== 1 && document.documentElement.style.getPropertyValue(VAR) !== String(scale)) {
+            document.documentElement.style.setProperty(VAR, String(scale));
+        }
+    },
 };

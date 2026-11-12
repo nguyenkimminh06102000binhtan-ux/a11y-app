@@ -460,6 +460,50 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             await expect.poll(() => size("t-late")).toBeCloseTo(15, 1);
             await expect.poll(() => size("t-new")).toBeCloseTo(30, 1); // 20 × 1.5, not 20 × 1.5 × 1.5 = 45
         });
+                test("comes back with the visitor's settings when a single-page app replaces the page", async ({ page }) => {
+            await turnOn(page, "Highlight links");
+            const yellow = (selector: string) =>
+                page.locator(selector).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+            // 1. The app re-renders <body>'s contents (client-side navigation)
+            await page.evaluate(() => {
+                document.body.innerHTML = '<main><h1>New page</h1><p><a href="/next">Next link</a></p></main>';
+            });
+            await expect(toggle(page)).toBeVisible();
+            await expect.poll(() => yellow("a[href='/next']")).toBe("rgb(255, 255, 0)");
+
+            // 2. The app swaps in a brand-new <body>
+            await page.evaluate(() => {
+                const body = document.createElement("body");
+                body.innerHTML = '<h1>Another page</h1><p><a href="/other">Other link</a></p>';
+                document.documentElement.replaceChild(body, document.body);
+            });
+            await expect(toggle(page)).toBeVisible();
+
+            // 3. Something removes the widget and our page styles directly
+            await page.evaluate(() => {
+                document.querySelector("a11yw-root")!.remove();
+                document.getElementById("a11yw-page-adjustments")!.remove();
+            });
+            await expect(toggle(page)).toBeVisible();
+            await expect(page.locator("#a11yw-page-adjustments")).toHaveCount(1);
+            await expect.poll(() => yellow("a[href='/other']")).toBe("rgb(255, 255, 0)");
+
+            // Same widget, same state: the panel and the visitor's choice survived
+            if ((await toggle(page).getAttribute("aria-expanded")) !== "true") await toggle(page).click();
+            await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked();
+        });
+
+        test("Text size survives the page rewriting <html>'s style attribute", async ({ page }) => {
+            const h1 = () => page.locator("h1").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+            const original = await h1();
+            await toggle(page).click();
+            await page.getByRole("radio", { name: "Larger (150%)" }).check();
+            expect(await h1()).toBeCloseTo(original * 1.5, 0);
+
+            await page.evaluate(() => document.documentElement.removeAttribute("style")); // e.g. a framework resetting <html>
+            await expect.poll(h1).toBeCloseTo(original * 1.5, 0);
+        });
     });
 }
 
@@ -850,5 +894,30 @@ test.describe("Pause animations: other animation engines (/)", () => {
         await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
         // Endless ones resume; finished ones stay at their end state (harmless, like our CSS rule)
         await expect.poll(state).toEqual({ gsapEndlessPaused: false, gsapFadeFinished: true, animeLoopPaused: false, animeOnceAtEnd: true });
+    });
+});
+
+test.describe("staying mounted (/)", () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    });
+
+    test("gives up, with one warning, if the page keeps removing it", async ({ page }) => {
+        const warnings: string[] = [];
+        page.on("console", (msg) => {
+            if (msg.type() === "warning") warnings.push(msg.text());
+        });
+
+        await page.evaluate(async () => {
+            for (let i = 0; i < 15; i++) {
+                document.querySelector("a11yw-root")?.remove();
+                await new Promise((resolve) => setTimeout(resolve, 20)); // let the widget put itself back
+            }
+        });
+        await page.waitForTimeout(200);
+
+        await expect(page.locator("a11yw-root")).toHaveCount(0); // left removed: no fight with the page
+        expect(warnings.filter((w) => w.includes("keeps removing"))).toHaveLength(1);
     });
 });

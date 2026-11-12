@@ -32,6 +32,9 @@ pnpm --filter widget typecheck
 ```html
 <script src="https://cdn.example.com/l.js" data-account="acct_…" async></script>
 ```
+The widget mounts after the page's `load` event, inside its own shadow root, and stays mounted across
+single-page-app navigation. It adds nothing to your HTML except one `<style>` while a setting is on.
+
 
 **Exclude part of a page** from every setting:
 ```html
@@ -42,6 +45,18 @@ the CSS-based settings (Highlight links, Text spacing, Stronger focus outline) s
 
 **YouTube embeds:** add `enablejsapi=1` to the embed URL so *Pause animations* can pause them.
 
+## Widget: settings
+| Setting | What it does |
+|---|---|
+| Text size | Default, 125%, 150%, 200%. Enlarges text only (no page zoom), so pages reflow instead of scrolling sideways. |
+| Highlight links | Yellow background and underline on every link. |
+| Text spacing | WCAG 1.4.12 values: line height 1.5, letters 0.12em, words 0.16em, paragraphs 2em. |
+| Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
+| Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
+
+Settings are saved per site in the visitor's browser (`localStorage`), applied inside open web components too,
+and survive single-page-app navigation. Turning a setting off restores the page exactly.
+
 ## Widget: known limits
 - **Closed shadow roots** can't be reached by any setting.
 - **Browsers without constructable stylesheets** (Safari < 16.4) get settings on the main page only, not inside web components.
@@ -51,3 +66,12 @@ the CSS-based settings (Highlight links, Text spacing, Stronger focus outline) s
   - Cross-origin CSS background GIFs, backgrounds on `::before`/`::after`, and background GIFs added later by changing `class`/`style` aren't frozen.
   - Canvas/WebGL animation loops aren't paused.
   - YouTube embeds without `enablejsapi=1`; Bootstrap loaded as an ES module; Splide, Glide, Flickity, Owl Carousel; anime.js v4 (no global); `<dotlottie-wc>` unless it exposes `pause()`.
+- **Text size** starts once the page has fully loaded (text is normal size until then, so sizes are measured
+  correctly); if the page later changes an element's size itself, the size we measured wins; fixed-height boxes
+  may overflow (they'd fail WCAG 1.4.4 anyway).
+- **Web components defined late** (no DOM change) get settings at the next settings change, page change or load.
+- **If the page removes the widget more than 10 times a minute**, it stays removed (one console warning).
+
+
+
+
