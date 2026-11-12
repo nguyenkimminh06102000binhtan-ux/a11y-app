@@ -78,6 +78,8 @@ and survive single-page-app navigation. Turning a setting off restores the page 
   may overflow (they'd fail WCAG 1.4.4 anyway).
 - **Web components defined late** (no DOM change) get settings at the next settings change, page change or load.
 - **If the page removes the widget more than 10 times a minute**, it stays removed (one console warning).
+- **Browsers without `:has()`** (Firefox < 121, Safari < 15.4): an opted-out area inside adjusted text inherits Text spacing and Highlight links from the element around it.
+- **Browsers without constructable stylesheets** (Safari < 16.4) get settings on the main page only, not inside web components.
 
 
 
