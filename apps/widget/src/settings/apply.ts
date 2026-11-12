@@ -1,6 +1,6 @@
-import { FEATURES, type ToggleFeature } from "./features";
+import { FEATURES, type ToggleFeature } from "../features";
 import type { Settings } from "./settings";
-import { rescanShadowRoots } from "./shadow-roots";
+import { rescanShadowRoots } from "../core/shadow-roots";
 import { applyBehaviors } from "./behaviors";
 
 const STYLE_ID = "a11yw-page-adjustments";

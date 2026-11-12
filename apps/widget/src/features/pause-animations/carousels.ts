@@ -1,5 +1,5 @@
-import { isIgnored } from "../ignore";
-import { deepQueryAll } from "../shadow-roots";
+import { isIgnored } from "../../core/ignore";
+import { deepQueryAll } from "../../core/shadow-roots";
 import type { MotionPart } from "./part";
 
 /*

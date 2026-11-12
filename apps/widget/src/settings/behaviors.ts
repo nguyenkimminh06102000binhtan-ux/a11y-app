@@ -1,5 +1,5 @@
-import { FEATURES } from "./features";
-import { safely } from "./safely";
+import { FEATURES } from "../features";
+import { safely } from "../core/safely";
 import type { Settings } from "./settings";
 
 const running = new Set<string>();

@@ -1,6 +1,7 @@
-import { onElementsAdded } from "./dom-watcher";
-import { isIgnored } from "./ignore";
-import { deepQueryAll, onNewShadowRoot } from "./shadow-roots";
+import { onElementsAdded } from "../core/dom-watcher";
+import { isIgnored } from "../core/ignore";
+import { deepQueryAll, onNewShadowRoot } from "../core/shadow-roots";
+import type { LevelFeature } from "./types";
 
 /*
  * Text size: enlarges the font size of every element with its own text, without zooming the layout
@@ -105,4 +106,18 @@ export const textSize = {
             document.documentElement.style.setProperty(VAR, String(scale));
         }
     },
+};
+
+export const textSizeFeature: LevelFeature = {
+    kind: "levels",
+    key: "textSize",
+    label: "Text size",
+    hint: "Makes the page's text bigger without zooming the whole page.",
+    levels: [
+        { label: "Default", scale: 1 },
+        { label: "Large (125%)", scale: 1.25 },
+        { label: "Larger (150%)", scale: 1.5 },
+        { label: "Largest (200%)", scale: 2 },
+    ],
+    apply: textSize.apply,
 };

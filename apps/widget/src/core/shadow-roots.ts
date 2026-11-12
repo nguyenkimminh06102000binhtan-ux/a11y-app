@@ -1,5 +1,5 @@
 import { onElementsAdded, watchTree } from "./dom-watcher";
-import { HOST_TAG } from "./mount";
+import { HOST_TAG } from "./host";
 import { safely } from "./safely";
 
 type Tree = Document | ShadowRoot | Element;

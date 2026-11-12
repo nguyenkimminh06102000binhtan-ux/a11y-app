@@ -18,7 +18,7 @@ await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
 
 // 1. Build the app and hash its exact bytes.
-const app = await esbuild.build({ ...shared, entryPoints: ["src/app.ts"], outfile: "app.js" });
+const app = await esbuild.build({ ...shared, entryPoints: ["src/entries/app.ts"], outfile: "app.js" });
 const appBytes = app.outputFiles[0].contents;
 const digest = createHash("sha384").update(appBytes).digest();
 
@@ -29,7 +29,7 @@ await writeFile(`${OUT}/${appFile}`, appBytes);
 // 2. Build the loader with the app's file name and integrity baked in.
 const loader = await esbuild.build({
   ...shared,
-  entryPoints: ["src/loader.ts"],
+  entryPoints: ["src/entries/loader.ts"],
   outfile: "l.js",
   define: {
     __APP_FILE__: JSON.stringify(appFile),

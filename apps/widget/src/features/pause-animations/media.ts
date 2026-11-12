@@ -1,6 +1,6 @@
-import { isIgnored } from "../ignore";
-import { HOST_TAG } from "../mount";
-import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../shadow-roots";
+import { isIgnored } from "../../core/ignore";
+import { HOST_TAG } from "../../core/host";
+import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../../core/shadow-roots";
 import type { MotionPart } from "./part";
 
 /*

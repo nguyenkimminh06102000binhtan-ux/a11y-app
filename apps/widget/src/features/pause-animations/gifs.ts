@@ -1,6 +1,6 @@
-import { onElementsAdded } from "../dom-watcher";
-import { isIgnored } from "../ignore";
-import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../shadow-roots";
+import { onElementsAdded } from "../../core/dom-watcher";
+import { isIgnored } from "../../core/ignore";
+import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../../core/shadow-roots";
 import type { MotionPart } from "./part";
 
 /*

@@ -1,6 +1,7 @@
-import type { Behavior } from "../features";
-import { safely } from "../safely";
-import { rescanShadowRoots } from "../shadow-roots";
+import { SCOPE } from "../scope";
+import type { Behavior, ToggleFeature } from "../types";
+import { safely } from "../../core/safely";
+import { rescanShadowRoots } from "../../core/shadow-roots";
 import { engines } from "./engines";
 import { gifs } from "./gifs";
 import { libraries } from "./libraries";
@@ -34,4 +35,26 @@ export const pauseMotion: Behavior = {
     timer = undefined;
     parts.forEach((part) => safely(() => part.stop()));
   },
+};
+
+export const pauseAnimations: ToggleFeature = {
+    key: "pauseAnimations",
+    label: "Pause animations",
+    hint: "Stops moving effects, GIFs, carousels, and autoplaying video and sound. You can still press play.",
+    // Not `animation: none` or `paused`: both can leave fade-in content invisible.
+    // A tiny duration (not 0s) jumps to the end state and still fires animationend/transitionend,
+    // which some sites wait for (e.g. to finish closing a modal).
+    css: `
+      *${SCOPE},
+      *${SCOPE}::before,
+      *${SCOPE}::after {
+        animation-duration: 0.001ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+      }
+    `,
+    behavior: pauseMotion,
 };

@@ -1,7 +1,7 @@
 import * as esbuild from "esbuild";
 
 const ctx = await esbuild.context({
-  entryPoints: { l: "src/loader.ts", app: "src/app.ts" }, // → public/l.js, public/app.js
+  entryPoints: { l: "src/entries/loader.ts", app: "src/entries/app.ts" }, // → public/l.js, public/app.js
   outdir: "public",
   bundle: true,
   format: "iife",

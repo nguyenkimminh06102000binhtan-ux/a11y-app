@@ -1,13 +1,13 @@
 // The real widget. Mounts an isolated UI once the page has finished loading.
 import { h, render } from "preact";
-import { mount } from "./mount";
-import { Widget } from "./Widget";
-import { loadSettings } from "./settings";
-import { adoptInto, applyToPage } from "./page-styles";
-import { watchShadowRoots } from "./shadow-roots";
-import { keepMounted } from "./keep-mounted";
-import { restoreDocumentCss } from "./page-styles";
-import { textSize } from "./text-size";
+import { mount } from "../ui/mount";
+import { Widget } from "../ui/Widget";
+import { loadSettings } from "../settings/settings";
+import { adoptInto, applyToPage } from "../settings/apply";
+import { watchShadowRoots } from "../core/shadow-roots";
+import { keepMounted } from "../ui/keep-mounted";
+import { restoreDocumentCss } from "../settings/apply";
+import { textSize } from "../features/text-size";
 
 
 

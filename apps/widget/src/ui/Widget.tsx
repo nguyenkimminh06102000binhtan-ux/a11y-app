@@ -1,7 +1,7 @@
 import { useRef, useState } from "preact/hooks";
-import { FEATURES } from "./features";
-import { applyToPage } from "./page-styles";
-import { DEFAULTS, loadSettings, saveSettings, type Settings } from "./settings";
+import { FEATURES } from "../features";
+import { applyToPage } from "../settings/apply";
+import { DEFAULTS, loadSettings, saveSettings, type Settings } from "../settings/settings";
 
 export function Widget() {
     const [open, setOpen] = useState(false);
