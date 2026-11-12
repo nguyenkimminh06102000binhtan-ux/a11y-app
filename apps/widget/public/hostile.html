@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Boutique hostile (widget test page)</title>
+    <style>
+      /* Each rule below is something real sites ship. The widget must survive all of them. */
+
+      /* Shrinks anything sized in rem */
+      html { font-size: 10px; }
+
+      /* Inherited properties: these flow INTO shadow DOM through the host element */
+      * {
+        font-family: "Comic Sans MS", cursive !important;
+        color: #c00 !important;
+        line-height: 3 !important;
+        letter-spacing: 2px !important;
+        box-sizing: content-box !important;
+      }
+
+      /* Accessibility crimes the widget must not inherit */
+      *:focus { outline: none !important; }
+
+      /* Aggressive resets on elements */
+      button { all: unset; background: hotpink; }
+      div, span { display: block; padding: 4px; }
+
+      /* Ad-blocker-style rules that hide anything that looks like a widget */
+      [class*="widget"], [id*="widget"], [class*="a11y"] { display: none !important; }
+
+      /* Breaks position: fixed for everything inside <body> */
+      body { transform: translateZ(0); margin: 0; }
+
+      /* Things fighting for the corners */
+      .sticky-header {
+        position: fixed; top: 0; left: 0; right: 0; height: 60px;
+        background: #222; z-index: 2147483647;
+      }
+      .cookie-banner {
+        position: fixed; bottom: 0; left: 0; right: 0; padding: 16px;
+        background: #ffd; border-top: 2px solid #c90; z-index: 999999;
+      }
+      main { padding: 80px 16px 200px; }
+    </style>
+  </head>
+  <body>
+    <header class="sticky-header">En-tête fixe</header>
+    <main>
+      <h1>Boutique de démonstration</h1>
+      <p>Cette page essaie de casser le widget. <a href="/">Page normale</a></p>
+      <div class="widget">This decoy should be hidden by the page's own CSS.</div>
+      <!-- Tall content so we can check that the widget stays fixed while scrolling -->
+      <div style="height: 3000px">Contenu long…</div>
+    </main>
+    <div class="cookie-banner">Nous utilisons des cookies. <button>Accepter</button></div>
+    <script src="/l.js" data-account="acct_test" async></script>
+  </body>
+</html>
