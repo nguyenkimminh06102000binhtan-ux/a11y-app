@@ -11,6 +11,8 @@ Accessibility widget + audit dashboard that pinpoints unfixed issues and shows e
 - `packages/db` — Drizzle schema + database client
 - `packages/*` — shared engine, types                _(coming)_
 - `packages/tokens` — shared design tokens (Iris colors) + contrast check
+- `packages/widget-config` — the widget ⇄ dashboard config contract (types, validation, color contrast check)
+
 
 ## Dev
 ```bash
