@@ -718,6 +718,40 @@ test.describe("web components (/components.html)", () => {
         await expect.poll(() => link.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeCloseTo(original * 1.5, 0);
     });
 
+    test("browsers without constructable stylesheets get a <style> in each shadow root", async ({ page }) => {
+        // Pretend to be Safari < 16.4
+        await page.addInitScript(() => {
+            delete (CSSStyleSheet.prototype as Partial<CSSStyleSheet>).replaceSync;
+        });
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+
+        await turnOnHighlightLinks(page);
+        for (const name of ["Open shadow link", "Nested shadow link"]) {
+            await expect.poll(() => background(page, name), { message: name }).toBe(YELLOW);
+        }
+        await page.getByRole("button", { name: "Add cards" }).click(); // components added after the setting was on
+        await expect.poll(() => background(page, "Late card link")).toBe(YELLOW);
+
+        // Turning it off removes every <style> we added
+        await page.getByRole("checkbox", { name: "Highlight links" }).uncheck();
+        await expect.poll(() => background(page, "Open shadow link")).not.toBe(YELLOW);
+        const leftovers = await page.evaluate(() => {
+            const roots: ShadowRoot[] = [];
+            const walk = (node: Document | ShadowRoot) =>
+                node.querySelectorAll("*").forEach((el) => {
+                    if (el.shadowRoot && el.localName !== "a11yw-root") {
+                        roots.push(el.shadowRoot);
+                        walk(el.shadowRoot);
+                    }
+                });
+            walk(document);
+            return roots.filter((r) => r.getElementById("a11yw-page-adjustments")).length;
+        });
+        expect(leftovers).toBe(0);
+    });
+
+
 
 });
 
