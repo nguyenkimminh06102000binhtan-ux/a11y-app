@@ -219,6 +219,9 @@ importers:
       '@app/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@app/widget-config':
+        specifier: workspace:*
+        version: link:../../packages/widget-config
       '@supabase/ssr':
         specifier: ^0.12.7
         version: 0.12.7(@supabase/supabase-js@2.119.0)

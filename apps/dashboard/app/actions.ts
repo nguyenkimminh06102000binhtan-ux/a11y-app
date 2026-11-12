@@ -1,11 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db, sites, eq, and, scans, inArray } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeDomain } from "@/lib/domain";
 import { isUuid } from "@/lib/ids";
+import { widgetConfigTag } from "@/lib/widget-config";
+
+
 
 export async function addSite(formData: FormData) {
   const user = await getCurrentUser();
@@ -24,6 +27,7 @@ export async function addSite(formData: FormData) {
     .returning({ id: sites.id });
 
   if (inserted.length === 0) redirect("/?error=duplicate");
+    updateTag(widgetConfigTag(user.id)); // the widget shows on the new domain right away
 
   revalidatePath("/");
   redirect("/");
@@ -37,6 +41,8 @@ export async function deleteSite(formData: FormData) {
   await db
     .delete(sites)
     .where(and(eq(sites.id, id), eq(sites.accountId, user.id)));
+  
+    updateTag(widgetConfigTag(user.id)); // and stops showing on the removed one
 
   revalidatePath("/");
 }
