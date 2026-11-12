@@ -11,11 +11,13 @@
   position: fixed !important;
   right: 16px !important;
   bottom: 16px !important;
-  z-index: 2147483647 !important; /* ties with the page's max are won by DOM order: we're appended last */
+  z-index: 2147483647 !important;
+  /* ties with the page's max are won by DOM order: we're appended last */
 
   /* Our own base text styles, inherited by everything inside the shadow root */
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
-  font-size: medium !important; /* the visitor's browser default text size, unaffected by the page's html font-size */
+  font-size: medium !important;
+  /* the visitor's browser default text size, unaffected by the page's html font-size */
   line-height: 1.5 !important;
   color: var(--bcn-text) !important;
   letter-spacing: normal !important;
@@ -39,59 +41,133 @@
   position: relative;
 }
 
+/* Icons draw with the text color around them (see icons.tsx) */
+.icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mark .mark-core {
+  fill: currentColor;
+  stroke: none;
+}
+
+/*
+ * The launcher: a round button in the state color (a site owner's brand color, once they set one),
+ * with a white ring so it stays visible on dark and light pages alike.
+ */
 .toggle {
   font: inherit;
-  min-height: 2.75em;
-  padding: 0.5em 1.25em;
+  width: 3.5em;
+  /* 56px at default text size */
+  height: 3.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   color: var(--bcn-bg);
-  background: var(--bcn-text);
-  border: 2px solid var(--bcn-bg); /* keeps the button visible against dark page backgrounds */
-  border-radius: 999px;
+  background: var(--bcn-state);
+  border: 3px solid var(--bcn-bg);
+  border-radius: 50%;
   box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.3);
   cursor: pointer;
+}
+
+.toggle .icon {
+  width: 2em;
+  height: 2em;
 }
 
 .panel {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 0.5em); /* above the button */
-  width: min(22em, calc(100vw - 32px)); /* fits small screens: 16px gap on each side */
-  max-height: calc(100vh - 6em);
-  overflow: auto;
-  padding: 1em;
+  bottom: calc(100% + 0.75em);
+  /* above the button */
+  width: min(24em, calc(100vw - 32px));
+  /* fits small screens: 16px gap on each side */
+  max-height: calc(100vh - 6.5em);
+  display: flex;
+  flex-direction: column;
   background: var(--bcn-bg);
   border: 2px solid var(--bcn-frame);
-  border-radius: 0.5em;
-  box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.2);
-}
-
-.title {
-  margin: 0 0 0.5em;
-  font-size: 1.125em;
+  border-radius: 1em;
+  box-shadow: 0 0.25em 1.5em rgb(0 0 0 / 0.2);
+  overflow: hidden;
+  /* rounded corners clip the header and footer; .panel-body scrolls */
 }
 
 .panel-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5em;
+  align-items: center;
+  gap: 0.625em;
+  padding: 0.75em 0.75em 0.75em 1em;
+  border-bottom: 1px solid var(--bcn-frame);
+}
+
+/* The mark in the header, in color: frame ring, state beam, text core */
+.brand-mark {
+  width: 1.75em;
+  height: 1.75em;
+}
+
+.brand-mark .mark-ring {
+  stroke: var(--bcn-frame);
+}
+
+.brand-mark .mark-beam {
+  stroke: var(--bcn-state);
+}
+
+.brand-mark .mark-core {
+  fill: var(--bcn-text);
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.125em;
+  font-weight: 700;
 }
 
 .close {
   font: inherit;
   flex: none;
-  min-height: 2.75em; /* ~44px at default text size; WCAG 2.5.8 requires at least 24px */
-  padding: 0.25em 0.75em;
+  width: 2.75em;
+  /* ~44px at default text size; WCAG 2.5.8 requires at least 24px */
+  height: 2.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   color: var(--bcn-text);
   background: var(--bcn-bg);
   border: 2px solid var(--bcn-frame);
-  border-radius: 0.375em;
+  border-radius: 50%;
   cursor: pointer;
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  /* lets it shrink and scroll inside the panel */
+  overflow: auto;
+  padding: 0 1em;
+}
+
+.panel-footer {
+  padding: 0.75em 1em;
+  border-top: 1px solid var(--bcn-frame);
 }
 
 .features {
   list-style: none;
-  margin: 0 0 1em;
+  margin: 0;
   padding: 0;
 }
 
@@ -101,11 +177,15 @@
   column-gap: 0.75em;
   align-items: center;
   padding: 0.75em 0;
+}
+
+.feature+.feature {
   border-top: 1px solid var(--bcn-frame);
 }
 
 .feature-input {
-  width: 1.5em; /* 24px at default text size: the WCAG 2.5.8 minimum */
+  width: 1.5em;
+  /* 24px at default text size: the WCAG 2.5.8 minimum */
   height: 1.5em;
   margin: 0;
   accent-color: var(--bcn-state);
@@ -118,7 +198,8 @@
 }
 
 .feature-hint {
-  grid-column: 2; /* sits under the label, lined up with it */
+  grid-column: 2;
+  /* sits under the label, lined up with it */
   margin: 0.25em 0 0;
   font-size: 0.875em;
   color: var(--bcn-frame);
@@ -126,17 +207,28 @@
 
 .reset {
   font: inherit;
+  font-weight: 700;
   width: 100%;
   min-height: 2.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
   color: var(--bcn-text);
   background: var(--bcn-bg);
   border: 2px solid var(--bcn-frame);
-  border-radius: 0.375em;
+  border-radius: 0.625em;
   cursor: pointer;
 }
 
+.reset .icon {
+  color: var(--bcn-frame);
+}
+
+
 .levels {
-  grid-column: 1 / -1; /* the whole row of the .feature grid */
+  grid-column: 1 / -1;
+  /* the whole row of the .feature grid */
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -158,7 +250,8 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
-  min-height: 2.75em; /* ~44px target at default text size */
+  min-height: 2.75em;
+  /* ~44px target at default text size */
   padding: 0 0.5em;
   border: 2px solid var(--bcn-frame);
   border-radius: 0.375em;
@@ -199,6 +292,7 @@
 
 /* Any animation added later is disabled for visitors who ask for reduced motion */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

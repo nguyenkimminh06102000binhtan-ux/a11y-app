@@ -1,12 +1,24 @@
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { DEFAULTS, loadSettings, saveSettings, type Settings } from "../settings/settings";
+import { CloseIcon, Mark, ResetIcon } from "./icons";
+
 
 export function Widget() {
     const [open, setOpen] = useState(false);
     const [settings, setSettings] = useState<Settings>(loadSettings);
     const toggleRef = useRef<HTMLButtonElement>(null);
+
+    const closeRef = useRef<HTMLButtonElement>(null);
+
+    // Opening moves focus into the panel (to Close, its first control), so keyboard and screen reader users
+    // start where the settings are; screen readers also announce the "Accessibility settings" region.
+    // Closing puts focus back on the launcher (see close()).
+    useEffect(() => {
+        if (open) closeRef.current?.focus();
+    }, [open]);
+
 
     function update(next: Settings) {
         setSettings(next);
@@ -35,71 +47,79 @@ export function Widget() {
                 class="toggle"
                 aria-expanded={open}
                 aria-controls="panel"
-                onClick={() => setOpen(!open)}
+                aria-label="Accessibility"
+                onClick={() => (open ? close() : setOpen(true))}
             >
-                Accessibility
+                <Mark />
             </button>
 
             {/* A disclosure, not a modal: no focus trap, and it stays open while the visitor uses the page */}
             <section id="panel" class="panel" aria-labelledby="panel-title" hidden={!open}>
                 <div class="panel-header">
+                    <Mark class="brand-mark" />
                     <h2 id="panel-title" class="title">Accessibility settings</h2>
-                    <button type="button" class="close" onClick={close}>
-                        Close
+                    <button ref={closeRef} type="button" class="close" aria-label="Close" onClick={close}>
+
+                        <CloseIcon />
                     </button>
                 </div>
+                <div class="panel-body">
 
-                <ul class="features">
-                    {FEATURES.map((f) =>
-                        f.kind === "levels" ? (
-                            <li key={f.key} class="feature" data-feature-id={f.id}>
-                                {/* Native radios in a fieldset: arrow keys move between levels, and the legend names the group */}
-                                <fieldset class="levels" aria-describedby={`${f.key}-hint`}>
-                                    <legend class="feature-label">{f.label}</legend>
+                    <ul class="features">
+                        {FEATURES.map((f) =>
+                            f.kind === "levels" ? (
+                                <li key={f.key} class="feature" data-feature-id={f.id}>
+                                    {/* Native radios in a fieldset: arrow keys move between levels, and the legend names the group */}
+                                    <fieldset class="levels" aria-describedby={`${f.key}-hint`}>
+                                        <legend class="feature-label">{f.label}</legend>
+                                        <p id={`${f.key}-hint`} class="feature-hint">
+                                            {f.hint}
+                                        </p>
+                                        <div class="level-options">
+                                            {f.levels.map((level, i) => (
+                                                <label key={level.label} class="level">
+                                                    <input
+                                                        type="radio"
+                                                        name={f.key}
+                                                        class="level-input"
+                                                        checked={settings[f.key] === i}
+                                                        onChange={() => update({ ...settings, [f.key]: i })}
+                                                    />
+                                                    {level.label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </fieldset>
+                                </li>
+                            ) : (
+                                <li key={f.key} class="feature" data-feature-id={f.id}>
+                                    <input
+                                        id={f.key}
+                                        type="checkbox"
+                                        class="feature-input"
+                                        checked={settings[f.key]}
+                                        aria-describedby={`${f.key}-hint`}
+                                        onChange={(e) => update({ ...settings, [f.key]: e.currentTarget.checked })}
+                                    />
+                                    <label for={f.key} class="feature-label">
+                                        {f.label}
+                                    </label>
                                     <p id={`${f.key}-hint`} class="feature-hint">
                                         {f.hint}
                                     </p>
-                                    <div class="level-options">
-                                        {f.levels.map((level, i) => (
-                                            <label key={level.label} class="level">
-                                                <input
-                                                    type="radio"
-                                                    name={f.key}
-                                                    class="level-input"
-                                                    checked={settings[f.key] === i}
-                                                    onChange={() => update({ ...settings, [f.key]: i })}
-                                                />
-                                                {level.label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </fieldset>
-                            </li>
-                        ) : (
-                            <li key={f.key} class="feature" data-feature-id={f.id}>
-                                <input
-                                    id={f.key}
-                                    type="checkbox"
-                                    class="feature-input"
-                                    checked={settings[f.key]}
-                                    aria-describedby={`${f.key}-hint`}
-                                    onChange={(e) => update({ ...settings, [f.key]: e.currentTarget.checked })}
-                                />
-                                <label for={f.key} class="feature-label">
-                                    {f.label}
-                                </label>
-                                <p id={`${f.key}-hint`} class="feature-hint">
-                                    {f.hint}
-                                </p>
-                            </li>
-                        )
-                    )}
+                                </li>
+                            )
+                        )}
 
-                </ul>
+                    </ul>
+                </div>
+                <div class="panel-footer">
+                    <button type="button" class="reset" onClick={() => update({ ...DEFAULTS })}>
+                        <ResetIcon />
+                        Reset all
+                    </button>
+                </div>
 
-                <button type="button" class="reset" onClick={() => update({ ...DEFAULTS })}>
-                    Reset all
-                </button>
             </section>
         </div>
     );

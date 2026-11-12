@@ -239,10 +239,13 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             await page.keyboard.press("Enter");
             await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
             await expect(panel(page)).toBeVisible();
-            await expect(toggle(page)).toBeFocused(); // disclosure: focus doesn't jump into the panel
+            await expect(closeButton(page)).toBeFocused(); // focus moves into the panel: keyboard users start at the settings
 
+            await page.keyboard.press("Shift+Tab"); // and can step straight back to the launcher
+            await expect(toggle(page)).toBeFocused();
             await page.keyboard.press("Tab");
             await expect(closeButton(page)).toBeFocused();
+
 
             await page.keyboard.press("Escape");
             await expect(panel(page)).toBeHidden();
@@ -255,6 +258,8 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 await page.keyboard.press("Escape");
                 await expect.poll(() => pageEscapes.length).toBe(1); // ...and the widget's Escape earlier was not.
             }
+
+
         });
 
         test("Close button closes and returns focus", async ({ page }) => {
