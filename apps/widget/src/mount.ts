@@ -1,6 +1,6 @@
 import css from "./widget.css";
 
-const HOST_TAG = "a11yw-root"; // custom tag: no class or id for page CSS like [class*="widget"] to match
+export const HOST_TAG = "a11yw-root"; // custom tag: no class or id for page CSS like [class*="widget"] to match
 
 /** Create the widget's isolated container and return the element to render into. */
 export function mount(): HTMLElement {

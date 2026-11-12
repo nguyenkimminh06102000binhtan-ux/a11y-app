@@ -14,7 +14,7 @@ async function widgetViolations(page: Page) {
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
 }
 
-for (const path of ["/", "/hostile.html"]) {
+for (const path of ["/", "/hostile.html", "/components.html"]) {
   test.describe(`widget on ${path}`, () => {
     test.beforeEach(async ({ page }) => {
       await page.goto(path);
@@ -155,5 +155,57 @@ for (const path of ["/", "/hostile.html"]) {
       await expect(toggle(page)).toBeVisible();
       expect(errors).toEqual([]);
     });
+    test.describe("web components (/components.html)", () => {
+  const YELLOW = "rgb(255, 255, 0)";
+  const background = (page: Page, name: string) =>
+    page.getByRole("link", { name, exact: true }).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+  async function turnOnHighlightLinks(page: Page) {
+    await toggle(page).click();
+    await page.getByRole("checkbox", { name: "Highlight links" }).check();
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/components.html");
+    await expect(toggle(page)).toBeVisible();
+  });
+
+  test("Highlight links reaches open shadow roots, nested ones and slotted links", async ({ page }) => {
+    await turnOnHighlightLinks(page);
+    for (const name of ["Light DOM link", "Open shadow link", "Nested shadow link", "Slotted link"]) {
+      await expect.poll(() => background(page, name), { message: name }).toBe(YELLOW);
+    }
+  });
+
+  test("components added later are adjusted too", async ({ page }) => {
+    await turnOnHighlightLinks(page);
+    await page.getByRole("button", { name: "Add cards" }).click();
+    for (const name of ["Late card link", "Late nested card link"]) {
+      await expect.poll(() => background(page, name), { message: name }).toBe(YELLOW); // waits for the observer's batch
+    }
+  });
+
+  test("a component defined late is adjusted on the next settings change", async ({ page }) => {
+    await page.getByRole("button", { name: "Define late component" }).click();
+    await turnOnHighlightLinks(page); // the settings change rescans the page
+    await expect.poll(() => background(page, "Late-defined link")).toBe(YELLOW);
+  });
+
+  test("closed shadow roots are left alone, without errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.reload();
+    await expect(toggle(page)).toBeVisible();
+
+    await turnOnHighlightLinks(page);
+    await expect.poll(() => background(page, "Open shadow link")).toBe(YELLOW); // proves the setting is on
+    const closed = await page.evaluate(() => {
+      const root = (window as unknown as { closedRoot: ShadowRoot }).closedRoot;
+      return getComputedStyle(root.querySelector("a")!).backgroundColor;
+    });
+    expect(closed).not.toBe(YELLOW); // known limit: closed roots can't be reached by any outside script
+    expect(errors).toEqual([]);
+  });
+});
   });
 }

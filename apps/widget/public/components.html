@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web components test page</title>
+  </head>
+  <body>
+    <main>
+      <h1>Web components test page</h1>
+      <p><a href="/">Light DOM link</a> · <a href="/hostile.html">Hostile page</a></p>
+
+      <!-- A link rendered inside an open shadow root -->
+      <link-card label="Open shadow link"></link-card>
+
+      <!-- A component whose shadow root contains another component -->
+      <outer-card></outer-card>
+
+      <!-- A link that belongs to the page but is displayed through a component's <slot> -->
+      <slot-card><a href="/slotted">Slotted link</a></slot-card>
+
+      <!-- Closed shadow root: no outside script can reach it -->
+      <closed-card></closed-card>
+
+      <!-- Defined later (see "Define late component"), like a lazily loaded component library -->
+      <late-defined-card></late-defined-card>
+
+      <p>
+        <button type="button" id="add-cards">Add cards</button>
+        <button type="button" id="define-late">Define late component</button>
+      </p>
+    </main>
+
+    <script>
+      // Rendering in connectedCallback (not the constructor) so attributes set after createElement are available.
+      class LinkCard extends HTMLElement {
+        connectedCallback() {
+          if (this.shadowRoot) return;
+          this.attachShadow({ mode: "open" }).innerHTML =
+            `<style>a { color: green; }</style><p>Card: <a href="/card">${this.getAttribute("label")}</a></p>`;
+        }
+      }
+      class OuterCard extends HTMLElement {
+        connectedCallback() {
+          if (this.shadowRoot) return;
+          this.attachShadow({ mode: "open" }).innerHTML = `<div><link-card label="Nested shadow link"></link-card></div>`;
+        }
+      }
+      class SlotCard extends HTMLElement {
+        connectedCallback() {
+          if (this.shadowRoot) return;
+          this.attachShadow({ mode: "open" }).innerHTML = `<p>Slotted: <slot></slot></p>`;
+        }
+      }
+      class ClosedCard extends HTMLElement {
+        connectedCallback() {
+          if (this.root) return;
+          this.root = this.attachShadow({ mode: "closed" });
+          this.root.innerHTML = `<p>Closed: <a href="/closed">Closed shadow link</a></p>`;
+          window.closedRoot = this.root; // test-only handle; real pages give outside scripts no way in
+        }
+      }
+      customElements.define("link-card", LinkCard); // first, so cards nested in outer-card upgrade straight away
+      customElements.define("outer-card", OuterCard);
+      customElements.define("slot-card", SlotCard);
+      customElements.define("closed-card", ClosedCard);
+
+      // Like a single-page app rendering a new section: one card in the page, one inside an existing component.
+      document.getElementById("add-cards").addEventListener("click", () => {
+        const card = document.createElement("link-card");
+        card.setAttribute("label", "Late card link");
+        document.querySelector("main").appendChild(card);
+
+        const nested = document.createElement("link-card");
+        nested.setAttribute("label", "Late nested card link");
+        document.querySelector("outer-card").shadowRoot.appendChild(nested);
+      });
+
+      // Upgrading an element that's already on the page adds no elements: no observer can see this.
+      document.getElementById("define-late").addEventListener("click", () => {
+        customElements.define(
+          "late-defined-card",
+          class extends HTMLElement {
+            connectedCallback() {
+              if (this.shadowRoot) return;
+              this.attachShadow({ mode: "open" }).innerHTML = `<p>Late-defined: <a href="/late">Late-defined link</a></p>`;
+            }
+          }
+        );
+      });
+    </script>
+    <script src="/l.js" data-account="acct_test" async></script>
+  </body>
+</html>
