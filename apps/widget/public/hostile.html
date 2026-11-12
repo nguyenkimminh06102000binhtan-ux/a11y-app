@@ -42,6 +42,15 @@
         background: #ffd; border-top: 2px solid #c90; z-index: 999999;
       }
       main { padding: 80px 16px 200px; }
+      * {
+        font-family: "Comic Sans MS", cursive !important;
+        color: #c00 !important;
+        line-height: 3 !important;
+        letter-spacing: 2px !important;
+        box-sizing: content-box !important;
+        direction: rtl !important;
+      }
+
     </style>
   </head>
   <body>
@@ -54,6 +63,12 @@
       <div style="height: 3000px">Contenu long…</div>
     </main>
     <div class="cookie-banner">Nous utilisons des cookies. <button>Accepter</button></div>
+    <script>
+      // Stands in for a page that closes its own modal on Escape. It must not fire when Escape is pressed inside the widget.
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") console.log("PAGE saw Escape");
+      });
+    </script>
     <script src="/l.js" data-account="acct_test" async></script>
   </body>
 </html>

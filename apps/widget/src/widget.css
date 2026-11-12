@@ -69,3 +69,50 @@
   font-size: 1.125em;
 }
 
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.close {
+  font: inherit;
+  flex: none;
+  min-height: 2.75em; /* ~44px at default text size; WCAG 2.5.8 requires at least 24px */
+  padding: 0.25em 0.75em;
+  color: #1a1a1a;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 0.375em;
+  cursor: pointer;
+}
+
+/*
+ * Focus ring that's visible on any page background: a dark ring next to the element and a
+ * white ring outside it. The page's `*:focus { outline: none }` can't reach in here.
+ */
+:focus-visible {
+  outline: 3px solid #1a1a1a;
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px #fff;
+}
+
+/* Windows high contrast: box-shadows are removed, so use the system highlight color for the outline */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* Any animation added later is disabled for visitors who ask for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+

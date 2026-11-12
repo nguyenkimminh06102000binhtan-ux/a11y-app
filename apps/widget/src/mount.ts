@@ -18,6 +18,8 @@ export function mount(): HTMLElement {
   // Preact gets its own container: rendering straight into the shadow root could remove our <style>.
   const app = document.createElement("div");
   app.className = "app";
+  app.lang = "en";
+  app.dir = "ltr";
   shadow.appendChild(app);
 
   pickParent().appendChild(host);
