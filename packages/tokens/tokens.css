@@ -11,10 +11,19 @@
  */
 :root,
 :host {
-  --bcn-bg: #ffffff;    /* every background and surface; also the check mark on a state badge */
-  --bcn-text: #1c1a33;  /* text, headings, primary buttons */
-  --bcn-frame: #5b6475; /* icons, borders, dividers, secondary text (dark enough for small text too) */
-  --bcn-state: #5b47c8; /* state only: a setting that's on, the current page, a critical issue */
+  --bcn-bg: #ffffff;
+  /* every background and surface; also the check mark on a state badge */
+  --bcn-text: #1c1a33;
+  /* text, headings, primary buttons */
+  --bcn-frame: #5b6475;
+  /* icons, borders, dividers, secondary text (dark enough for small text too) */
+  --bcn-state: #5b47c8;
+  /* state only, as a fill: the launcher, check badges. A site owner's brand color may replace it */
+  --bcn-on-state: #ffffff;
+  /* icons and check marks on --bcn-state: black or white, whichever reads */
+  --bcn-state-ink: #5b47c8;
+  /* state text, borders and icons on white: --bcn-state when it's dark enough, else --bcn-text */
+
 
   /* Not a fifth color: the state color, 10% over the background. This fallback is for browsers without color-mix(). */
   --bcn-state-tint: #efedfa;
@@ -22,6 +31,7 @@
 
 /* Recomputed from the tokens, so a re-themed state color gets a matching tint */
 @supports (color: color-mix(in srgb, red 10%, white)) {
+
   :root,
   :host {
     --bcn-state-tint: color-mix(in srgb, var(--bcn-state) 10%, var(--bcn-bg));

@@ -1,13 +1,16 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { db, sites, scans, issues, eq, and, desc, inArray } from "@app/db";
+import { db, sites, scans, issues, widgetSettings, eq, and, desc, inArray } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { isUuid } from "@/lib/ids";
 import { CopyButton } from "@/components/CopyButton";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { requestScan } from "@/app/actions";
 import { ImpactPill } from "@/components/ImpactPill";
+import { readSiteSettings } from "@app/widget-config";
+import { WidgetSettingsForm } from "./WidgetSettingsForm";
+
 
 
 const IMPACT_ORDER: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
@@ -47,6 +50,13 @@ async function SiteDetails({ params, searchParams }: PageProps) {
     .from(sites)
     .where(and(eq(sites.id, id), eq(sites.accountId, user.id))); // ownership check
   if (!site) notFound();
+
+  // No row yet = our defaults
+  const [widgetRow] = await db
+    .select({ settings: widgetSettings.settings })
+    .from(widgetSettings)
+    .where(eq(widgetSettings.siteId, site.id));
+
 
   // latest scan of any status, for the progress message
   const [latest] = await db
@@ -91,6 +101,11 @@ async function SiteDetails({ params, searchParams }: PageProps) {
   return (
     <>
       <h1>{site.domain}</h1>
+
+      <section aria-labelledby="widget-heading">
+        <h2 id="widget-heading">Widget on this site</h2>
+        <WidgetSettingsForm siteId={site.id} settings={readSiteSettings(widgetRow?.settings)} />
+      </section>
 
       <section aria-labelledby="run-heading">
         <h2 id="run-heading">Run a scan</h2>
@@ -145,7 +160,7 @@ async function SiteDetails({ params, searchParams }: PageProps) {
               {sorted.map((group) => {
                 const first = group[0];
                 return (
-                                   <details key={first.ruleId} className="mb-3 rounded-xl border-2 border-frame px-4">
+                  <details key={first.ruleId} className="mb-3 rounded-xl border-2 border-frame px-4">
                     <summary className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
                       <ImpactPill impact={first.impact} />
                       <span className="font-bold">{first.help ?? first.ruleId}</span>

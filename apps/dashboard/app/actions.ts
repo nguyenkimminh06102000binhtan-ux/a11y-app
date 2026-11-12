@@ -2,11 +2,14 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { db, sites, eq, and, scans, inArray } from "@app/db";
+import { db, sites, widgetSettings, eq, and, scans, inArray } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeDomain } from "@/lib/domain";
 import { isUuid } from "@/lib/ids";
 import { widgetConfigTag } from "@/lib/widget-config";
+import * as v from "valibot";
+import { DefaultSettingsSchema, SETTINGS_VERSION, StateColorSchema, type SiteSettings } from "@app/widget-config";
+
 
 
 
@@ -84,4 +87,53 @@ export async function requestScan(formData: FormData) {
 
   revalidatePath(back);
   redirect(back);
+}
+
+
+export type WidgetSettingsState = {
+  status: "idle" | "saved" | "invalid";
+  errors?: { stateColor?: string }; // one message per field, shown next to it
+  settings?: SiteSettings; // what was submitted, so the form keeps it (also when invalid)
+};
+
+/** Save one site's widget settings. Each field is checked by its schema from @app/widget-config. */
+export async function saveWidgetSettings(_previous: WidgetSettingsState, formData: FormData): Promise<WidgetSettingsState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const siteId = String(formData.get("siteId") ?? "");
+  if (!isUuid(siteId)) redirect("/");
+  const [site] = await db
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.accountId, user.id))); // ownership check
+  if (!site) redirect("/");
+
+  const errors: NonNullable<WidgetSettingsState["errors"]> = {};
+
+  // Appearance: no color = our default
+  const submittedColor = formData.get("colorChoice") === "custom" ? String(formData.get("stateColor") ?? "") : undefined;
+  let stateColor: string | undefined;
+  if (submittedColor !== undefined) {
+    const color = v.safeParse(StateColorSchema, submittedColor);
+    if (color.success) stateColor = color.output;
+    else errors.stateColor = color.issues[0].message;
+  }
+
+  // On by default: unknown values are dropped, never an error
+  const defaults = v.parse(DefaultSettingsSchema, formData.getAll("defaults").map(String));
+
+  if (Object.keys(errors).length > 0) {
+    return { status: "invalid", errors, settings: { v: SETTINGS_VERSION, appearance: { stateColor: submittedColor }, defaults } };
+  }
+
+  const settings: SiteSettings = { v: SETTINGS_VERSION, appearance: stateColor ? { stateColor } : {}, defaults };
+  await db
+    .insert(widgetSettings)
+    .values({ siteId: site.id, settings })
+    .onConflictDoUpdate({ target: widgetSettings.siteId, set: { settings, updatedAt: new Date() } });
+
+  updateTag(widgetConfigTag(user.id)); // the config endpoint answers with the new settings right away
+  revalidatePath(`/sites/${site.id}`);
+  return { status: "saved", settings };
 }

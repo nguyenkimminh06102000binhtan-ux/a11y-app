@@ -27,12 +27,13 @@ else if (mixed !== tokens["state-tint"]) fail(`--bcn-state-tint fallback is ${to
 const PAIRS = [
   ["text", "bg", 4.5, "body text"],
   ["frame", "bg", 4.5, "icons, borders and secondary text"],
-  ["state", "bg", 4.5, "state-colored text and borders on white"],
-  ["bg", "state", 4.5, "the check mark on a state badge"],
+  ["state-ink", "bg", 4.5, "state text, borders and icons on white"],
+  ["on-state", "state", 4.5, "icons and check marks on the state color"],
   ["bg", "text", 4.5, "text on primary buttons"],
   ["text", "state-tint", 4.5, "the label on a tile that's on"],
-  ["state", "state-tint", 4.5, "the chosen Text size level, the current nav item"],
+  ["state-ink", "state-tint", 4.5, "the chosen Text size level, the current nav item"],
 ];
+
 
 function luminance(hex) {
   const [r, g, b] = channels(hex).map((v) => {

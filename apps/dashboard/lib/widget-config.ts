@@ -1,6 +1,8 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { db, accounts, sites, widgetSettings, eq } from "@app/db";
 import { CONFIG_VERSION, readSiteSettings, toWidgetConfig, type WidgetConfig } from "@app/widget-config";
+import { isLocalHost } from "@/lib/domain";
+
 
 /** Cache tag for one account's widget configs. Expire it (updateTag) whenever a config input changes: sites, settings. */
 export function widgetConfigTag(accountId: string): string {
@@ -39,8 +41,6 @@ export async function getWidgetConfig(widgetKey: string, host: string): Promise<
     if (!account) return disabled; // same answer as an unregistered domain: doesn't reveal which keys exist
     cacheTag(widgetConfigTag(account.id));
 
-    if (isLocal(host)) return { ...disabled, enabled: true };
-
     const rows = await db
         .select({ domain: sites.domain, settings: widgetSettings.settings })
         .from(sites)
@@ -52,7 +52,9 @@ export async function getWidgetConfig(widgetKey: string, host: string): Promise<
     const site = rows
         .filter(({ domain }) => host === domain || host.endsWith(`.${domain}`))
         .sort((a, b) => b.domain.length - a.domain.length)[0];
-    if (!site) return disabled;
+    if (site) return toWidgetConfig(readSiteSettings(site.settings), true);
 
-    return toWidgetConfig(readSiteSettings(site.settings), true);
+    // Local development without a "localhost" site: still shows, with our defaults
+    return isLocalHost(host) ? { ...disabled, enabled: true } : disabled;
+
 }

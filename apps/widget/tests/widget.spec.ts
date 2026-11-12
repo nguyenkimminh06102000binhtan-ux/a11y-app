@@ -1248,18 +1248,33 @@ test.describe("site owner's config (/)", () => {
         expect(await linkBackground(page)).not.toBe("rgb(255, 255, 0)");
     });
 
-    test("uses the owner's brand color, and ignores one without enough contrast", async ({ page }) => {
+    test("uses the owner's exact brand color, light ones too, and keeps everything readable", async ({ page }) => {
+        const launcherIcon = () => toggle(page).evaluate((el) => getComputedStyle(el).color); // the icon draws in this color
+
         await serveConfig(page, { ...CONFIG, theme: { state: "#c62828" } });
         await page.goto("/");
         await expect(toggle(page)).toBeVisible();
         expect(await launcherColor(page)).toBe("rgb(198, 40, 40)");
+        expect(await launcherIcon()).toBe("rgb(255, 255, 255)"); // white icon on dark red
 
-        await serveConfig(page, { ...CONFIG, theme: { state: "#ffd400" } }); // yellow: white marks on it would be unreadable
+        await serveConfig(page, { ...CONFIG, theme: { state: "#ffd400" } }); // yellow
         await page.evaluate(() => localStorage.clear());
         await page.reload();
         await expect(toggle(page)).toBeVisible();
-        expect(await launcherColor(page)).toBe(VIOLET);
+        expect(await launcherColor(page)).toBe("rgb(255, 212, 0)"); // exactly their color
+        expect(await launcherIcon()).toBe("rgb(0, 0, 0)"); // with a black icon
+
+        // State borders and text on white use our ink instead of yellow, and the open panel passes axe
+        await toggle(page).click();
+        await page.getByRole("checkbox", { name: "Highlight links" }).check();
+        const tileBorder = await page
+            .locator("a11yw-root li[data-feature-id='highlight-links'] .tile-face")
+            .evaluate((el) => getComputedStyle(el).borderTopColor);
+        expect(tileBorder).toBe("rgb(28, 26, 51)");
+        expect(await widgetViolations(page)).toEqual([]);
     });
+
+
 
     test("turns on the owner's defaults for new visitors; the visitor's own choice wins and Reset all brings them back", async ({ page }) => {
         await serveConfig(page, { ...CONFIG, defaults: { highlightLinks: true } });

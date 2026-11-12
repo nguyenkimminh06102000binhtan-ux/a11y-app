@@ -71,7 +71,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  color: var(--bcn-bg);
+  color: var(--bcn-on-state); /* the icon: black or white, whichever reads on the brand color */
   background: var(--bcn-state);
   border: 3px solid var(--bcn-bg);
   border-radius: 50%;
@@ -121,7 +121,7 @@
 }
 
 .brand-mark .mark-beam {
-  stroke: var(--bcn-state);
+  stroke: var(--bcn-state-ink);
 }
 
 .brand-mark .mark-core {
@@ -242,7 +242,7 @@
 
 .check-badge path {
   fill: none;
-  stroke: var(--bcn-bg);
+  stroke: var(--bcn-on-state);
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -251,7 +251,7 @@
 /* On: the shared "on" look (tint, state border) plus the check badge. Uses ~, not :has(), so older browsers get it too. */
 .tile-input:checked~.tile-face {
   background: var(--bcn-state-tint);
-  border-color: var(--bcn-state);
+  border-color: var(--bcn-state-ink);
 }
 
 .tile-input:checked~.tile-face .check-badge {
@@ -259,7 +259,7 @@
 }
 
 .tile-input:checked~.tile-face .feature-icon {
-  color: var(--bcn-state);
+  color: var(--bcn-state-ink);
 }
 
 .reset {
@@ -341,9 +341,9 @@
 
 .level-input:checked+.level-face {
   font-weight: 700;
-  color: var(--bcn-state);
+  color: var(--bcn-state-ink);
   background: var(--bcn-state-tint);
-  box-shadow: inset 0 0 0 2px var(--bcn-state);
+  box-shadow: inset 0 0 0 2px var(--bcn-state-ink);
 }
 
 /* Read by screen readers, not shown */
