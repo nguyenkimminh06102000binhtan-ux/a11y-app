@@ -1,5 +1,7 @@
 // The real widget. Mounts an isolated UI once the page has finished loading.
+import { h, render } from "preact";
 import { mount } from "./mount";
+import { Widget } from "./Widget";
 
 const thisScript = document.currentScript as HTMLScriptElement | null; // only valid right now, not later
 const account = thisScript?.dataset.account;
@@ -13,11 +15,5 @@ function whenPageLoaded(): Promise<void> {
 }
 
 whenPageLoaded().then(() => {
-  const root = mount();
-
-  // Placeholder until chunk 3 brings the real UI.
-  const box = document.createElement("p");
-  box.className = "box";
-  box.textContent = "Widget mounted";
-  root.appendChild(box);
+  render(h(Widget, {}), mount());
 });

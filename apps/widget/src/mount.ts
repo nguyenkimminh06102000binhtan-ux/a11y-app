@@ -2,10 +2,10 @@ import css from "./widget.css";
 
 const HOST_TAG = "a11yw-root"; // custom tag: no class or id for page CSS like [class*="widget"] to match
 
-/** Create the widget's isolated container and return the shadow root to render into. */
-export function mount(): ShadowRoot {
-  const existing = document.querySelector(HOST_TAG);
-  if (existing?.shadowRoot) return existing.shadowRoot; // the app ran twice: reuse the same root
+/** Create the widget's isolated container and return the element to render into. */
+export function mount(): HTMLElement {
+  const existing = document.querySelector(HOST_TAG)?.shadowRoot?.querySelector<HTMLElement>(".app");
+  if (existing) return existing; // the app ran twice: reuse the same container
 
   const host = document.createElement(HOST_TAG);
   // "open" so axe-core, Playwright and our own scanner can look inside. "closed" adds no real security.
@@ -15,9 +15,15 @@ export function mount(): ShadowRoot {
   style.textContent = css;
   shadow.appendChild(style);
 
+  // Preact gets its own container: rendering straight into the shadow root could remove our <style>.
+  const app = document.createElement("div");
+  app.className = "app";
+  shadow.appendChild(app);
+
   pickParent().appendChild(host);
-  return shadow;
+  return app;
 }
+
 
 /**
  * <body> by default: React 19 hydration tolerates extra elements there.

@@ -29,11 +29,43 @@
   box-sizing: border-box;
 }
 
-.box {
-  margin: 0;
-  padding: 0.75em 1em;
+/* Our own display rules would otherwise beat the hidden attribute */
+[hidden] {
+  display: none !important;
+}
+
+.widget {
+  position: relative;
+}
+
+.toggle {
+  font: inherit;
+  min-height: 2.75em;
+  padding: 0.5em 1.25em;
+  color: #fff;
+  background: #1a1a1a;
+  border: 2px solid #fff; /* keeps the button visible against dark page backgrounds */
+  border-radius: 999px;
+  box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.3);
+  cursor: pointer;
+}
+
+.panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.5em); /* above the button */
+  width: min(22em, calc(100vw - 32px)); /* fits small screens: 16px gap on each side */
+  max-height: calc(100vh - 6em);
+  overflow: auto;
+  padding: 1em;
   background: #fff;
   border: 2px solid #1a1a1a;
   border-radius: 0.5em;
   box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.2);
 }
+
+.title {
+  margin: 0 0 0.5em;
+  font-size: 1.125em;
+}
+

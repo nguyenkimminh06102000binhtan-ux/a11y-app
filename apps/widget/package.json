@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-  "dev": "node scripts/dev.mjs",
-  "build": "node scripts/build.mjs",
-  "preview": "node scripts/build.mjs && cp public/*.html dist/ && python3 -m http.server 4001 --directory dist",
-  "typecheck": "tsc --noEmit"
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/build.mjs && cp public/*.html dist/ && python3 -m http.server 4001 --directory dist",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +16,8 @@
   "devDependencies": {
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "preact": "^11.2.0"
   }
 }
