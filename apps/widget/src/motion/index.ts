@@ -6,9 +6,12 @@ import { gifs } from "./gifs";
 import { libraries } from "./libraries";
 import { media } from "./media";
 import type { MotionPart } from "./part";
+import { carousels } from "./carousels";
+import { embeds } from "./embeds";
+
 
 // One part per kind of motion. 4d adds third-party adapters (carousels, video iframes, GSAP).
-const parts: MotionPart[] = [media, gifs, engines, libraries];
+const parts: MotionPart[] = [media, gifs, engines, libraries, carousels, embeds];
 
 // Some things give no signal we can listen for: element.animate(), lottie-web's list, players restarting
 // themselves, and components defined late (the browser upgrades them with no DOM change). Check once a second.

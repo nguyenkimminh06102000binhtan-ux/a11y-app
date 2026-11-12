@@ -631,4 +631,102 @@ test.describe("Pause animations: other animation engines (/)", () => {
         await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
         await expect.poll(state).toMatchObject({ lottieWebPaused: false, player: "playing", jqueryFxOff: false });
     });
+    test("pauses YouTube and Vimeo embeds; stops re-pausing one the visitor clicks into", async ({ page }) => {
+        // Fake players on the real hosts (no network): each reports every message it receives back to the page
+        await page.route(/youtube\.com\/embed|player\.vimeo\.com\/video/, (route) =>
+            route.fulfill({
+                contentType: "text/html",
+                body: `<body style="margin:0;height:100px"><script>
+                         addEventListener("message", (e) => parent.postMessage({ testEmbed: location.hostname, data: e.data }, "*"));
+                       </script></body>`,
+            })
+        );
+        await page.evaluate(() => {
+            const w = window as unknown as { testEmbedMessages: Array<{ testEmbed: string; data: string }> };
+            w.testEmbedMessages = [];
+            addEventListener("message", (e) => {
+                if (e.data?.testEmbed) w.testEmbedMessages.push(e.data);
+            });
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<iframe id="yt" title="YouTube video" width="200" height="100" src="https://www.youtube.com/embed/abc?enablejsapi=1"></iframe>
+                 <iframe id="vimeo" title="Vimeo video" width="200" height="100" src="https://player.vimeo.com/video/123"></iframe>`
+            );
+        });
+        await page.frameLocator("#yt").locator("body").waitFor();
+        await page.frameLocator("#vimeo").locator("body").waitFor();
+
+        const received = (host: string) =>
+            page.evaluate(
+                (host) =>
+                    (window as unknown as { testEmbedMessages: Array<{ testEmbed: string; data: string }> }).testEmbedMessages
+                        .filter((m) => m.testEmbed === host)
+                        .map((m) => m.data),
+                host
+            );
+
+        await turnOn(page, "Pause animations");
+        await expect.poll(() => received("www.youtube.com")).toContain(JSON.stringify({ event: "command", func: "pauseVideo", args: "" }));
+        await expect.poll(() => received("player.vimeo.com")).toContain(JSON.stringify({ method: "pause" }));
+
+        // It keeps asking while the player may still be loading...
+        await expect.poll(async () => (await received("player.vimeo.com")).length).toBeGreaterThanOrEqual(2);
+
+        // ...until the visitor clicks into that player to watch
+        await page.frameLocator("#vimeo").locator("body").click();
+        await page.waitForTimeout(200);
+        const countAfterClick = (await received("player.vimeo.com")).length;
+        await page.waitForTimeout(1500); // more than one re-check
+        expect((await received("player.vimeo.com")).length).toBe(countAfterClick);
+    });
+
+    test("stops Swiper, Bootstrap and Slick carousels; resumes only auto-advancing ones", async ({ page }) => {
+        // Small fakes that follow each library's public API
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div class="swiper" id="test-swiper"></div>
+                 <div class="carousel" id="test-bootstrap" data-bs-ride="carousel"></div>
+                 <div class="slick-initialized" id="test-slick" data-playing="yes"></div>`
+            );
+            const w = window as unknown as Record<string, unknown>;
+
+            const swiperEl = document.getElementById("test-swiper") as HTMLElement & { swiper: unknown };
+            swiperEl.swiper = { autoplay: { running: true, stop() { this.running = false; }, start() { this.running = true; } } };
+
+            const bootstrapCarousel = { cycling: true, pause() { this.cycling = false; }, cycle() { this.cycling = true; } };
+            w.testBootstrapCarousel = bootstrapCarousel;
+            w.bootstrap = {
+                Carousel: { getInstance: (el: Element) => (el.id === "test-bootstrap" ? bootstrapCarousel : null) },
+            };
+
+            // Slick is a jQuery plugin: $(el).slick("method"). No `fx` here, so the jQuery animation code leaves it alone.
+            w.jQuery = (el: HTMLElement) => ({
+                slick(method: string, option?: string) {
+                    if (method === "slickGetOption") return option === "autoplay";
+                    if (method === "slickPause") el.dataset.playing = "no";
+                    if (method === "slickPlay") el.dataset.playing = "yes";
+                },
+            });
+        });
+
+        const state = () =>
+            page.evaluate(() => ({
+                swiper: (document.getElementById("test-swiper") as HTMLElement & { swiper: { autoplay: { running: boolean } } })
+                    .swiper.autoplay.running,
+                bootstrap: (window as unknown as { testBootstrapCarousel: { cycling: boolean } }).testBootstrapCarousel.cycling,
+                slick: document.getElementById("test-slick")!.dataset.playing,
+            }));
+
+        await turnOn(page, "Pause animations");
+        await expect.poll(state).toEqual({ swiper: false, bootstrap: false, slick: "no" });
+
+        // Bootstrap restarts a carousel when the mouse leaves it: the re-check pauses it again
+        await page.evaluate(() => (window as unknown as { testBootstrapCarousel: { cycle(): void } }).testBootstrapCarousel.cycle());
+        await expect.poll(state).toMatchObject({ bootstrap: false });
+
+        await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
+        await expect.poll(state).toEqual({ swiper: true, bootstrap: true, slick: "yes" });
+    });
+
 });
