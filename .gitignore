@@ -2,3 +2,5 @@ node_modules
 .next
 .turbo
 .env*
+apps/widget/dist
+apps/widget/public/widget.js
