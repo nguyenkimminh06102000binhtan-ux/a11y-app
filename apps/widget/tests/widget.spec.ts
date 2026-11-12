@@ -295,6 +295,20 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             }
         });
 
+        test("a setting's whole tile toggles it, and 'on' is shown by more than color", async ({ page }) => {
+            await toggle(page).click();
+            const tile = page.locator("a11yw-root li[data-feature-id='highlight-links']");
+            const badge = tile.locator(".check-badge");
+            await expect(badge).toBeHidden();
+
+            const box = (await tile.boundingBox())!;
+            await page.mouse.click(box.x + 12, box.y + box.height - 12); // a corner, away from the label text
+            await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked();
+            await expect(badge).toBeVisible(); // the check mark, not only the tint
+        });
+
+
+
         test("Highlight links: applies to the page, survives reload, resets", async ({ page }) => {
             const linkBackground = () =>
                 page.locator("a[href]").first().evaluate((el) => getComputedStyle(el).backgroundColor);

@@ -31,3 +31,59 @@ export function ResetIcon() {
         </svg>
     );
 }
+
+
+/** A setting's icon, by its public id. Settings without one get none. */
+export function FeatureIcon({ id }: { id: string }) {
+    const paths = FEATURE_PATHS[id];
+    if (!paths) return null;
+    return (
+        <svg class="icon feature-icon" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+            {paths}
+        </svg>
+    );
+}
+
+/** Shown on a tile that's on: the non-color sign that goes with the tint (never color alone). */
+export function CheckBadge() {
+    return (
+        <svg class="check-badge" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="10" cy="10" r="10" />
+            <path d="M5.5 10.5 L8.5 13.5 L14.5 7" />
+        </svg>
+    );
+}
+
+const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
+    "text-size": (
+        <>
+            <path d="M3 23 L10 5 L17 23 M5.6 16.5 H14.4" />
+            <path d="M23 22 V8 M19.5 11.5 L23 8 L26.5 11.5" />
+        </>
+    ),
+    "text-spacing": (
+        <>
+            <path d="M3 14 H25 M7 10 L3 14 L7 18 M21 10 L25 14 L21 18" />
+            <path d="M11 6 V22 M17 6 V22" />
+        </>
+    ),
+    "highlight-links": (
+        <>
+            <path d="M11 17 L17 11" />
+            <path d="M12.5 8.5 L15 6 a4.2 4.2 0 0 1 6 6 L18.5 14.5" />
+            <path d="M15.5 19.5 L13 22 a4.2 4.2 0 0 1 -6 -6 L9.5 13.5" />
+        </>
+    ),
+    "focus-outline": (
+        <>
+            <rect x="3" y="5" width="22" height="18" rx="4" stroke-dasharray="3.5 3" />
+            <rect x="8.5" y="10.5" width="11" height="7" rx="2" />
+        </>
+    ),
+    "pause-animations": (
+        <>
+            <circle cx="14" cy="14" r="11" />
+            <path d="M11 9.5 V18.5 M17 9.5 V18.5" />
+        </>
+    ),
+};

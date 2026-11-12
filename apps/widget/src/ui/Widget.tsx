@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { DEFAULTS, loadSettings, saveSettings, type Settings } from "../settings/settings";
-import { CloseIcon, Mark, ResetIcon } from "./icons";
-
+import { CheckBadge, CloseIcon, FeatureIcon, Mark, ResetIcon } from "./icons";
 
 export function Widget() {
     const [open, setOpen] = useState(false);
@@ -68,10 +67,13 @@ export function Widget() {
                     <ul class="features">
                         {FEATURES.map((f) =>
                             f.kind === "levels" ? (
-                                <li key={f.key} class="feature" data-feature-id={f.id}>
+                                <li key={f.key} class="feature feature-levels" data-feature-id={f.id}>
                                     {/* Native radios in a fieldset: arrow keys move between levels, and the legend names the group */}
                                     <fieldset class="levels" aria-describedby={`${f.key}-hint`}>
-                                        <legend class="feature-label">{f.label}</legend>
+                                        <legend class="levels-legend">
+                                            <FeatureIcon id={f.id} />
+                                            {f.label}
+                                        </legend>
                                         <p id={`${f.key}-hint`} class="feature-hint">
                                             {f.hint}
                                         </p>
@@ -85,32 +87,41 @@ export function Widget() {
                                                         checked={settings[f.key] === i}
                                                         onChange={() => update({ ...settings, [f.key]: i })}
                                                     />
-                                                    {level.label}
+                                                    {/* Short on screen ("150%"); the full name ("Larger (150%)") contains it, for speech input */}
+                                                    <span class="level-face">
+                                                        <span class="visually-hidden">{level.label}</span>
+                                                        <span aria-hidden="true">{level.scale === 1 ? level.label : `${Math.round(level.scale * 100)}%`}</span>
+                                                    </span>
                                                 </label>
                                             ))}
                                         </div>
                                     </fieldset>
                                 </li>
                             ) : (
-                                <li key={f.key} class="feature" data-feature-id={f.id}>
+                                <li key={f.key} class="feature tile" data-feature-id={f.id}>
+                                    {/* A real checkbox laid over the whole tile: the tile is its click target, and keyboard,
+                                        screen readers and forced-colors mode all work as with any checkbox */}
                                     <input
                                         id={f.key}
                                         type="checkbox"
-                                        class="feature-input"
+                                        class="tile-input"
                                         checked={settings[f.key]}
                                         aria-describedby={`${f.key}-hint`}
                                         onChange={(e) => update({ ...settings, [f.key]: e.currentTarget.checked })}
                                     />
-                                    <label for={f.key} class="feature-label">
-                                        {f.label}
-                                    </label>
-                                    <p id={`${f.key}-hint`} class="feature-hint">
-                                        {f.hint}
-                                    </p>
+                                    <div class="tile-face">
+                                        <CheckBadge />
+                                        <FeatureIcon id={f.id} />
+                                        <label for={f.key} class="tile-label">
+                                            {f.label}
+                                        </label>
+                                        <p id={`${f.key}-hint`} class="feature-hint">
+                                            {f.hint}
+                                        </p>
+                                    </div>
                                 </li>
                             )
                         )}
-
                     </ul>
                 </div>
                 <div class="panel-footer">

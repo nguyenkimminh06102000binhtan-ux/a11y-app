@@ -165,44 +165,101 @@
   border-top: 1px solid var(--bcn-frame);
 }
 
+/* Settings: a level setting (Text size) across the full width, then on/off tiles two per row */
 .features {
   list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.feature {
   display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 0.75em;
-  align-items: center;
-  padding: 0.75em 0;
-}
-
-.feature+.feature {
-  border-top: 1px solid var(--bcn-frame);
-}
-
-.feature-input {
-  width: 1.5em;
-  /* 24px at default text size: the WCAG 2.5.8 minimum */
-  height: 1.5em;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625em;
   margin: 0;
-  accent-color: var(--bcn-state);
-  cursor: pointer;
+  padding: 0.875em 0;
 }
 
-.feature-label {
-  font-weight: 600;
-  cursor: pointer;
+.feature-levels {
+  grid-column: 1 / -1;
+}
+
+.feature-icon {
+  width: 1.75em;
+  height: 1.75em;
+  color: var(--bcn-frame);
 }
 
 .feature-hint {
-  grid-column: 2;
-  /* sits under the label, lined up with it */
-  margin: 0.25em 0 0;
+  margin: 0;
   font-size: 0.875em;
+  line-height: 1.4;
   color: var(--bcn-frame);
+}
+
+/* Off/on tile. The checkbox is invisible but covers the whole tile, so it gets every click and keypress. */
+.tile {
+  position: relative;
+  display: grid;
+  /* the face fills the cell, so tiles in a row share one height */
+}
+
+.tile-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tile-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375em;
+  padding: 1em 0.625em 0.875em;
+  text-align: center;
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
+  border-radius: 0.875em;
+}
+
+.tile-label {
+  font-weight: 700;
+}
+
+.check-badge {
+  display: none;
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.check-badge circle {
+  fill: var(--bcn-state);
+}
+
+.check-badge path {
+  fill: none;
+  stroke: var(--bcn-bg);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* On: the shared "on" look (tint, state border) plus the check badge. Uses ~, not :has(), so older browsers get it too. */
+.tile-input:checked~.tile-face {
+  background: var(--bcn-state-tint);
+  border-color: var(--bcn-state);
+}
+
+.tile-input:checked~.tile-face .check-badge {
+  display: block;
+}
+
+.tile-input:checked~.tile-face .feature-icon {
+  color: var(--bcn-state);
 }
 
 .reset {
@@ -225,68 +282,125 @@
   color: var(--bcn-frame);
 }
 
-
 .levels {
-  grid-column: 1 / -1;
-  /* the whole row of the .feature grid */
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-.levels .feature-label {
-  padding: 0;
-}
-
-.level-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5em;
-  margin-top: 0.5em;
-}
-
-.level {
+.levels-legend {
   display: flex;
   align-items: center;
   gap: 0.5em;
-  min-height: 2.75em;
-  /* ~44px target at default text size */
-  padding: 0 0.5em;
-  border: 2px solid var(--bcn-frame);
-  border-radius: 0.375em;
-  cursor: pointer;
+  padding: 0;
+  font-weight: 700;
 }
 
-/* The chosen level: the shared "on" look (tint, state border, bold) on top of the radio dot */
-.level:has(:checked) {
-  font-weight: 700;
-  color: var(--bcn-state);
-  background: var(--bcn-state-tint);
-  border-color: var(--bcn-state);
+.levels .feature-hint {
+  margin: 0.25em 0 0.625em;
+}
+
+/* A row of 4 segments: real radios, laid over each segment like the tiles */
+.level-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 2px solid var(--bcn-frame);
+  border-radius: 0.625em;
+  overflow: hidden;
+}
+
+.level {
+  position: relative;
+  display: grid;
+}
+
+.level+.level .level-face {
+  border-left: 1px solid var(--bcn-frame);
 }
 
 .level-input {
-  width: 1.25em;
-  height: 1.25em;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
   margin: 0;
-  accent-color: var(--bcn-state);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.level-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75em;
+  /* ~44px target at default text size */
+  padding: 0 0.25em;
+}
+
+.level-input:checked+.level-face {
+  font-weight: 700;
+  color: var(--bcn-state);
+  background: var(--bcn-state-tint);
+  box-shadow: inset 0 0 0 2px var(--bcn-state);
+}
+
+/* Read by screen readers, not shown */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /*
  * Focus ring that's visible on any page background: a dark ring next to the element and a
  * white ring outside it. The page's `*:focus { outline: none }` can't reach in here.
+ * The tiles' and segments' inputs are invisible, so their ring is drawn on the face next to them.
  */
-:focus-visible {
+:focus-visible,
+.tile-input:focus-visible~.tile-face,
+.level-input:focus-visible+.level-face {
   outline: 3px solid var(--bcn-text);
   outline-offset: 0;
   box-shadow: 0 0 0 6px var(--bcn-bg);
 }
 
+/* The segments sit inside a clipped row: draw their ring inside so it isn't cut off */
+.level-input:focus-visible+.level-face {
+  outline-offset: -5px;
+  box-shadow: none;
+}
+
 /* Windows high contrast: box-shadows are removed, so use the system highlight color for the outline */
 @media (forced-colors: active) {
-  :focus-visible {
+
+  :focus-visible,
+  .tile-input:focus-visible~.tile-face,
+  .level-input:focus-visible+.level-face {
     outline-color: Highlight;
+  }
+
+  /* Backgrounds are replaced in this mode: show "on" with system colors instead of the tint */
+  .tile-input:checked~.tile-face {
+    border-color: Highlight;
+  }
+
+  .level-input:checked+.level-face {
+    forced-color-adjust: none;
+    color: HighlightText;
+    background: Highlight;
+  }
+
+  .check-badge circle {
+    fill: Highlight;
+  }
+
+  .check-badge path {
+    stroke: HighlightText;
   }
 }
 
