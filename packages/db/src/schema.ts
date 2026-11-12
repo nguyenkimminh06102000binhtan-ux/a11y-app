@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, uuid, text, integer, timestamp, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, uuid, text, integer, timestamp, unique, index, jsonb } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const accounts = pgTable("accounts", {
@@ -22,6 +22,20 @@ export const sites = pgTable(
   },
   (t) => [unique().on(t.accountId, t.domain)]
 ).enableRLS();
+
+/**
+ * The widget's settings for one site: what the owner chose. No row = our defaults.
+ * One JSON document, so new options need no migration. Its shape is SiteSettings in @app/widget-config:
+ * always read it with readSiteSettings(), never trust it as is.
+ */
+export const widgetSettings = pgTable("widget_settings", {
+  siteId: uuid("site_id")
+    .primaryKey()
+    .references(() => sites.id, { onDelete: "cascade" }),
+  settings: jsonb("settings").notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}).enableRLS();
+
 
 export const scanStatus = pgEnum("scan_status", ["queued", "running", "done", "failed"]);
 
