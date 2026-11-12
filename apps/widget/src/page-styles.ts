@@ -1,6 +1,7 @@
 import { FEATURES } from "./features";
 import type { Settings } from "./settings";
 import { rescanShadowRoots } from "./shadow-roots";
+import { applyBehaviors } from "./behaviors";
 
 const STYLE_ID = "a11yw-page-adjustments";
 
@@ -10,7 +11,7 @@ const shadowSheet = "replaceSync" in CSSStyleSheet.prototype ? new CSSStyleSheet
 
 /** The CSS for every active setting. Empty when nothing is on. */
 export function cssFor(settings: Settings): string {
-  return FEATURES.filter((f) => settings[f.key]).map((f) => f.css).join("\n");
+  return FEATURES.filter((f) => settings[f.key] && f.css).map((f) => f.css).join("\n");
 }
 
 /** Apply the visitor's settings to the page and to every open shadow root on it. */
@@ -19,6 +20,7 @@ export function applyToPage(settings: Settings): void {
   setDocumentCss(css);
   shadowSheet?.replaceSync(css);
   rescanShadowRoots(); // also catches components that appeared without any change an observer could see
+  applyBehaviors(settings);
 }
 
 /** Give an open shadow root the shared stylesheet. Called once per root by watchShadowRoots. */

@@ -1,6 +1,8 @@
 import { onElementsAdded, watchTree } from "./dom-watcher";
 import { HOST_TAG } from "./mount";
 
+type Tree = Document | ShadowRoot | Element;
+
 let onRoot: ((root: ShadowRoot) => void) | null = null;
 const seen = new WeakSet<ShadowRoot>();
 
@@ -10,7 +12,7 @@ export function watchShadowRoots(callback: (root: ShadowRoot) => void): void {
   onRoot = callback;
 
   watchTree(document);
-  onElementsAdded((added) => added.forEach(scan));
+  onElementsAdded((added) => added.forEach((el) => openShadowRootsIn(el).forEach(register)));
   rescanShadowRoots();
 
   // Components defined after our first scan attach shadow roots without adding any elements,
@@ -21,22 +23,38 @@ export function watchShadowRoots(callback: (root: ShadowRoot) => void): void {
 
 /** Scan the whole page, including inside every open shadow root. Cheap enough for milestones and settings changes. */
 export function rescanShadowRoots(): void {
-  if (onRoot) scan(document);
+  if (onRoot) openShadowRootsIn(document).forEach(register);
 }
 
-function scan(start: Document | ShadowRoot | Element): void {
-  if (start.nodeType === Node.ELEMENT_NODE) visit(start as Element);
-  start.querySelectorAll("*").forEach(visit);
+function register(root: ShadowRoot): void {
+  if (seen.has(root)) return;
+  seen.add(root);
+  watchTree(root);
+  onRoot?.(root);
 }
 
-function visit(el: Element): void {
-  if (el.localName === HOST_TAG) return; // our own widget: page adjustments must never style it
-  const root = el.shadowRoot; // null for closed roots: those can't be reached, by design
-  if (!root) return;
-  if (!seen.has(root)) {
-    seen.add(root);
-    watchTree(root);
-    onRoot?.(root);
+/** Every open shadow root inside `start`, including nested ones. Never our widget's; closed roots can't be reached. */
+export function openShadowRootsIn(start: Tree): ShadowRoot[] {
+  const found: ShadowRoot[] = [];
+  const check = (el: Element) => {
+    if (el.localName === HOST_TAG || !el.shadowRoot) return;
+    found.push(el.shadowRoot);
+    walk(el.shadowRoot);
+  };
+  const walk = (node: Tree) => {
+    if (node.nodeType === Node.ELEMENT_NODE) check(node as Element);
+    node.querySelectorAll("*").forEach(check);
+  };
+  walk(start);
+  return found;
+}
+
+/** querySelectorAll that also searches inside every open shadow root (never our widget's). */
+export function deepQueryAll<T extends Element = Element>(selector: string, start: Tree = document): T[] {
+  const results: T[] = [];
+  for (const tree of [start, ...openShadowRootsIn(start)]) {
+    if (tree.nodeType === Node.ELEMENT_NODE && (tree as Element).matches(selector)) results.push(tree as T);
+    tree.querySelectorAll<T>(selector).forEach((el) => results.push(el));
   }
-  scan(root); // components nested inside this component, including ones defined since the last scan
+  return results;
 }

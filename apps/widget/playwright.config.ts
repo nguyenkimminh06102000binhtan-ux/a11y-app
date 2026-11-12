@@ -12,7 +12,12 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure", // open with `pnpm exec playwright show-trace` when a test fails
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+    projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] } },
+    },
+  ],
   webServer: {
     // Test what customers get: the minified, hashed, integrity-checked production build.
     command: "node scripts/build.mjs && cp public/*.html dist/ && node scripts/serve.mjs",

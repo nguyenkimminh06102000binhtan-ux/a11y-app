@@ -1,12 +1,16 @@
 import type { Settings } from "./settings";
+import { pauseMotion } from "./motion";
 
 type BooleanKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+
+export type Behavior = { start(): void; stop(): void };
 
 export type ToggleFeature = {
   key: BooleanKey;
   label: string; // the control's accessible name
   hint: string;  // short description, linked with aria-describedby
   css: string;   // added to the page while the setting is on
+  behavior?: Behavior; // JavaScript run while the setting is on
 };
 
 /**
@@ -62,5 +66,26 @@ export const FEATURES: ToggleFeature[] = [
         }
       }
     `,
+  },
+    {
+    key: "pauseAnimations",
+    label: "Pause animations",
+    hint: "Stops moving effects and autoplaying video and sound. You can still press play.",
+    // Not `animation: none` or `paused`: both can leave fade-in content invisible.
+    // A tiny duration (not 0s) jumps to the end state and still fires animationend/transitionend,
+    // which some sites wait for (e.g. to finish closing a modal).
+    css: `
+      *:not(#a11yw-x),
+      *:not(#a11yw-x)::before,
+      *:not(#a11yw-x)::after {
+        animation-duration: 0.001ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+      }
+    `,
+    behavior: pauseMotion,
   },
 ];

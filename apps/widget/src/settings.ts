@@ -3,12 +3,14 @@ export type Settings = {
   highlightLinks: boolean;
   textSpacing: boolean;
   focusOutline: boolean;
+  pauseAnimations: boolean;
 };
 
 export const DEFAULTS: Settings = {
   highlightLinks: false,
   textSpacing: false,
   focusOutline: false,
+  pauseAnimations: false,
 };
 
 const KEY = "a11yw:settings:v1"; // bump the version if the shape changes incompatibly
