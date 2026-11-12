@@ -53,6 +53,12 @@
   stroke-linejoin: round;
 }
 
+/* Filled parts of an icon (e.g. the figure's silhouette) */
+.icon .solid {
+  fill: currentColor;
+  stroke: none;
+}
+
 .mark .mark-core {
   fill: currentColor;
   stroke: none;

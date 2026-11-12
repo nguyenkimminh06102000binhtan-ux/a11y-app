@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { loadSettings, saveSettings, startingSettings, type Settings } from "../settings/settings";
-import { CheckBadge, CloseIcon, FeatureIcon, Mark, ResetIcon } from "./icons";
+import { AccessibilityIcon, CheckBadge, CloseIcon, FeatureIcon, Mark, ResetIcon } from "./icons";
+
 
 export function Widget() {
     const [open, setOpen] = useState(false);
@@ -49,7 +50,7 @@ export function Widget() {
                 aria-label="Accessibility"
                 onClick={() => (open ? close() : setOpen(true))}
             >
-                <Mark />
+                <AccessibilityIcon />
             </button>
 
             {/* A disclosure, not a modal: no focus trap, and it stays open while the visitor uses the page */}
