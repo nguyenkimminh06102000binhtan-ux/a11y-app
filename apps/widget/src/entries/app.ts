@@ -8,6 +8,8 @@ import { watchShadowRoots } from "../core/shadow-roots";
 import { keepMounted } from "../ui/keep-mounted";
 import { restoreDocumentCss } from "../settings/apply";
 import { textSize } from "../features/text-size";
+import { FEATURES } from "../features";
+import { warnUnknownIgnoreIds } from "../core/ignore";
 
 
 
@@ -37,5 +39,8 @@ whenPageLoaded().then(() => {
     restoreDocumentCss();
     textSize.restore();
   });
+
+  // Help site owners spot typos like data-a11yw-ignore="text-sise"
+  warnUnknownIgnoreIds(FEATURES.map((f) => f.id));
 });
 

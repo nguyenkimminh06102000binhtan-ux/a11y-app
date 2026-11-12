@@ -117,6 +117,61 @@ async function addGifs(page: Page) {
     );
 }
 
+/**
+ * How to check each setting inside a given area, keyed by the setting's public id. A test fails if a
+ * setting in the panel has no entry here: adding a setting means adding its ignore check too.
+ */
+type Probe = {
+    fixture: string; // HTML placed both in an area that opts out of the setting and in a normal area
+    turnOn: (page: Page) => Promise<void>;
+    read: (page: Page, area: string) => Promise<string>; // something the setting changes, read inside #area
+};
+
+const PROBES: Record<string, Probe> = {
+    "text-size": {
+        fixture: `<p class="probe">Some text</p>`,
+        turnOn: async (page) => {
+            await toggle(page).click();
+            await page.getByRole("radio", { name: "Larger (150%)" }).check();
+        },
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).fontSize),
+    },
+    "highlight-links": {
+        fixture: `<a class="probe" href="/probe">A link</a>`,
+        turnOn: (page) => turnOn(page, "Highlight links"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).backgroundColor),
+    },
+    "text-spacing": {
+        fixture: `<p class="probe">Some text</p>`,
+        turnOn: (page) => turnOn(page, "Text spacing"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).letterSpacing),
+    },
+    "focus-outline": {
+        fixture: `<button type="button" class="start">Start</button> <a class="probe" href="/probe">Focus me</a>`,
+        turnOn: (page) => turnOn(page, "Stronger focus outline"),
+        read: async (page, area) => {
+            // Focus by keyboard (Tab), so :focus-visible applies
+            await page.locator(`#${area} .start`).focus();
+            await page.keyboard.press("Tab");
+            return page.locator(`#${area} .probe`).evaluate((el) => `${document.activeElement === el}:${getComputedStyle(el).outlineStyle}`);
+        },
+    },
+    "pause-animations": {
+        // A CSS animation (handled by the setting's CSS) and an SVG animation (handled by its JavaScript)
+        fixture: `<style>@keyframes probe-spin { to { transform: rotate(1turn); } } .spin { animation: probe-spin 1s linear infinite; }</style>
+                  <div class="spin">spin</div>
+                  <svg class="probe-svg" width="10" height="10"><circle cx="5" cy="5" r="3">
+                    <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" /></circle></svg>`,
+        turnOn: (page) => turnOn(page, "Pause animations"),
+        read: (page, area) =>
+            page.locator(`#${area}`).evaluate((root) => {
+                const css = root.querySelector(".spin")!.getAnimations().some((a) => a.playState === "running");
+                const svg = (root.querySelector(".probe-svg") as unknown as SVGSVGElement).animationsPaused();
+                return `css:${css ? "running" : "stopped"} svg:${svg ? "paused" : "running"}`;
+            }),
+    },
+};
+
 /** axe scan of the widget only. The hostile page's own problems are deliberate and not ours. */
 async function widgetViolations(page: Page) {
     const results = await new AxeBuilder({ page }).include("a11yw-root").withTags(WCAG).analyze();
@@ -394,6 +449,22 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 }))
             ).toEqual({ same: "/test-same.gif", pictureSource: "/test-picture.gif", crossVisible: true, canvases: 0, background: true });
         });
+        for (const [id, probe] of Object.entries(PROBES)) {
+            test(`data-a11yw-ignore="${id}" keeps an area out of that setting`, async ({ page }) => {
+                await page.evaluate(({ id, fixture }) => {
+                    document.body.insertAdjacentHTML(
+                        "beforeend",
+                        `<div id="ignored-area" data-a11yw-ignore="${id}">${fixture}</div><div id="normal-area">${fixture}</div>`
+                    );
+                }, { id, fixture: probe.fixture });
+                const before = { ignored: await probe.read(page, "ignored-area"), normal: await probe.read(page, "normal-area") };
+
+                await probe.turnOn(page);
+                await expect.poll(() => probe.read(page, "normal-area")).not.toBe(before.normal); // the setting works here...
+                expect(await probe.read(page, "ignored-area")).toBe(before.ignored);              // ...but not in the opted-out area
+            });
+        }
+
         test("data-a11yw-ignore keeps a section of the page untouched", async ({ page }) => {
             await page.evaluate(() => {
                 document.body.insertAdjacentHTML(
@@ -919,5 +990,72 @@ test.describe("staying mounted (/)", () => {
 
         await expect(page.locator("a11yw-root")).toHaveCount(0); // left removed: no fight with the page
         expect(warnings.filter((w) => w.includes("keeps removing"))).toHaveLength(1);
+    });
+});
+
+
+test.describe("data-a11yw-ignore with setting names (/)", () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    });
+
+    test("every setting in the panel has a unique id and an ignore check", async ({ page }) => {
+        const ids = await page.locator("a11yw-root [data-feature-id]").evaluateAll((els) =>
+            els.map((el) => (el as HTMLElement).dataset.featureId!)
+        );
+        expect(ids.length).toBeGreaterThan(0);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(ids.filter((id) => !PROBES[id])).toEqual([]);                           // add a PROBES entry for a new setting
+        expect(Object.keys(PROBES).filter((id) => !ids.includes(id))).toEqual([]);     // no checks for settings that don't exist
+    });
+
+    test("a list of names opts out of only those settings", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div data-a11yw-ignore="text-size focus-outline"><a href="/only" id="only-link">Only some settings ignored</a></div>`
+            );
+        });
+        await turnOn(page, "Highlight links"); // not in the list, so it still applies here
+        const background = () => page.locator("#only-link").evaluate((el) => getComputedStyle(el).backgroundColor);
+        await expect.poll(background).toBe("rgb(255, 255, 0)");
+    });
+
+    test("an opted-out area inside adjusted text inherits none of the settings", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<p id="mixed">Paragraph <span id="mixed-ignored" data-a11yw-ignore="text-size text-spacing">ignored words</span></p>`
+            );
+        });
+        const style = () =>
+            page.locator("#mixed-ignored").evaluate((el) => {
+                const s = getComputedStyle(el);
+                return { fontSize: s.fontSize, letterSpacing: s.letterSpacing, lineHeight: s.lineHeight };
+            });
+        const before = await style();
+
+        await toggle(page).click();
+        await page.getByRole("radio", { name: "Larger (150%)" }).check();
+        await page.getByRole("checkbox", { name: "Text spacing" }).check();
+        expect(await style()).toEqual(before); // nothing inherited from the paragraph around it
+    });
+
+    test("warns once about names that aren't settings (typos)", async ({ page }) => {
+        const warnings: string[] = [];
+        page.on("console", (msg) => {
+            if (msg.type() === "warning") warnings.push(msg.text());
+        });
+        await page.addInitScript(() =>
+            document.addEventListener("DOMContentLoaded", () =>
+                document.body.insertAdjacentHTML("beforeend", '<div data-a11yw-ignore="text-sise highlight-links">x</div>')
+            )
+        );
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        await expect.poll(() => warnings.filter((w) => w.includes("data-a11yw-ignore"))).toHaveLength(1);
+        expect(warnings.find((w) => w.includes("data-a11yw-ignore"))).toContain("text-sise");
+        expect(warnings.find((w) => w.includes("data-a11yw-ignore"))).not.toContain("value: highlight-links");
     });
 });

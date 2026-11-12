@@ -1,7 +1,6 @@
 import { onElementsAdded } from "../../core/dom-watcher";
-import { isIgnored } from "../../core/ignore";
 import { deepQueryAll, onNewShadowRoot } from "../../core/shadow-roots";
-import type { MotionPart } from "./part";
+import { isIgnored, type MotionPart } from "./part";
 
 /*
  * Animation libraries that run their own JavaScript loop, invisible to CSS and to getAnimations().

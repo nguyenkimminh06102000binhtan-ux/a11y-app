@@ -1,6 +1,7 @@
 import { FEATURES, type ToggleFeature } from "../features";
 import type { Settings } from "./settings";
 import { rescanShadowRoots } from "../core/shadow-roots";
+import { scopeFor } from "../features/scope";
 import { applyBehaviors } from "./behaviors";
 
 const STYLE_ID = "a11yw-page-adjustments";
@@ -13,7 +14,7 @@ const shadowSheet = "replaceSync" in CSSStyleSheet.prototype ? new CSSStyleSheet
 /** The CSS for every active setting. Empty when nothing is on. */
 export function cssFor(settings: Settings): string {
     return FEATURES.filter((f): f is ToggleFeature => f.kind !== "levels" && settings[f.key] && !!f.css)
-        .map((f) => f.css)
+        .map((f) => f.css!(scopeFor(f.id, f.inherited)))
         .join("\n");
 }
 

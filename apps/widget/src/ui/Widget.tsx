@@ -52,7 +52,7 @@ export function Widget() {
                 <ul class="features">
                     {FEATURES.map((f) =>
                         f.kind === "levels" ? (
-                            <li key={f.key} class="feature">
+                            <li key={f.key} class="feature" data-feature-id={f.id}>
                                 {/* Native radios in a fieldset: arrow keys move between levels, and the legend names the group */}
                                 <fieldset class="levels" aria-describedby={`${f.key}-hint`}>
                                     <legend class="feature-label">{f.label}</legend>
@@ -76,7 +76,7 @@ export function Widget() {
                                 </fieldset>
                             </li>
                         ) : (
-                            <li key={f.key} class="feature">
+                            <li key={f.key} class="feature" data-feature-id={f.id}>
                                 <input
                                     id={f.key}
                                     type="checkbox"

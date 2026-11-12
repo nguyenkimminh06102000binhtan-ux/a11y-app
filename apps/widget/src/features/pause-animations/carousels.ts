@@ -1,6 +1,5 @@
-import { isIgnored } from "../../core/ignore";
 import { deepQueryAll } from "../../core/shadow-roots";
-import type { MotionPart } from "./part";
+import { isIgnored, type MotionPart } from "./part";
 
 /*
  * Stops carousels that advance on their own, through each library's public API (only if it's on the page):

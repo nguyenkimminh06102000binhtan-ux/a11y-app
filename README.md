@@ -36,12 +36,19 @@ The widget mounts after the page's `load` event, inside its own shadow root, and
 single-page-app navigation. It adds nothing to your HTML except one `<style>` while a setting is on.
 
 
-**Exclude part of a page** from every setting:
+**Exclude part of a page** from every setting, or only from some:
 ```html
-<div data-a11yw-ignore>…</div>
+<div data-a11yw-ignore>…</div>                                <!-- every setting -->
+<div data-a11yw-ignore="text-size text-spacing">…</div>       <!-- only these -->
 ```
-Everything inside is left alone. Limit: inside a web component's shadow root within that area,
-the CSS-based settings (Highlight links, Text spacing, Stronger focus outline) still apply.
+Setting names: `text-size`, `highlight-links`, `text-spacing`, `focus-outline`, `pause-animations`
+(`all` also means every setting). The element and everything inside it are left alone, including
+values they would otherwise inherit: for Text size, Text spacing and Highlight links, the elements
+*containing* the area keep the page's own values too, so text directly inside them isn't adjusted.
+An unknown name (e.g. a typo) logs one console warning.
+Limit: inside a web component's shadow root within that area, the CSS-based settings still apply.
+
+These names are a public contract: never rename one once customers use it.
 
 **YouTube embeds:** add `enablejsapi=1` to the embed URL so *Pause animations* can pause them.
 

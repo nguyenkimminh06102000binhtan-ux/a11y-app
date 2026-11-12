@@ -1,5 +1,5 @@
 import { onElementsAdded } from "../core/dom-watcher";
-import { isIgnored } from "../core/ignore";
+import { ignoreSelectors, ignoredBy } from "../core/ignore";
 import { deepQueryAll, onNewShadowRoot } from "../core/shadow-roots";
 import type { LevelFeature } from "./types";
 
@@ -13,6 +13,12 @@ import type { LevelFeature } from "./types";
  *   elements isn't enlarged twice.
  * - Turning it off restores each element's own inline font-size and removes the variable: no trace.
  */
+/** Public id of this setting, used in data-a11yw-ignore="…". Never rename once customers use it. */
+const ID = "text-size";
+const isIgnored = ignoredBy(ID);
+// An element containing an opted-out area isn't enlarged either: the area would inherit the bigger size.
+const IGNORED_INSIDE = ignoreSelectors(ID).join(", ");
+
 const VAR = "--a11yw-text-scale";
 const SKIP_TAGS = new Set(["script", "style", "noscript", "template", "head", "title", "meta", "link"]);
 const FORM_TAGS = new Set(["input", "textarea", "select", "button"]); // their text isn't a text node
@@ -35,7 +41,7 @@ function hasOwnText(el: Element): boolean {
 function textElementsIn(start: Document | ShadowRoot | Element): HTMLElement[] {
     return deepQueryAll("*", start).filter(
         (el): el is HTMLElement =>
-            el instanceof HTMLElement && !enlarged.has(el) && !SKIP_TAGS.has(el.localName) && hasOwnText(el) && !isIgnored(el)
+            el instanceof HTMLElement && !enlarged.has(el) && !SKIP_TAGS.has(el.localName) && hasOwnText(el) && !isIgnored(el) && !el.querySelector(IGNORED_INSIDE)
     );
 }
 
@@ -110,6 +116,7 @@ export const textSize = {
 
 export const textSizeFeature: LevelFeature = {
     kind: "levels",
+    id: ID,
     key: "textSize",
     label: "Text size",
     hint: "Makes the page's text bigger without zooming the whole page.",
