@@ -3,6 +3,7 @@
 Accessibility widget + audit dashboard that pinpoints unfixed issues and shows exactly where to fix them.
 
 ## Structure
+- `apps/ww` — marketing site (yourapp.com)
 - `apps/dashboard` — Next.js customer dashboard (+ /admin)
 - `apps/widget` — overlay widget (CDN bundle)        _(coming)_
 - `apps/worker` — audit runner (Playwright + axe-core) _(coming)_

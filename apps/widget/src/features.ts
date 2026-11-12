@@ -70,7 +70,7 @@ export const FEATURES: ToggleFeature[] = [
     {
     key: "pauseAnimations",
     label: "Pause animations",
-    hint: "Stops moving effects and autoplaying video and sound. You can still press play.",
+    hint: "Stops moving effects, GIFs, and autoplaying video and sound. You can still press play.",
     // Not `animation: none` or `paused`: both can leave fade-in content invisible.
     // A tiny duration (not 0s) jumps to the end state and still fires animationend/transitionend,
     // which some sites wait for (e.g. to finish closing a modal).

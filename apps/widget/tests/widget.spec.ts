@@ -50,6 +50,34 @@ function mediaState(page: Page, inComponent = false) {
     }, inComponent);
 }
 
+const GIF_1PX = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+async function routeTestGifs(page: Page) {
+    const body = Buffer.from(GIF_1PX, "base64");
+    // No CORS headers: the cross-origin GIF can be drawn but not read back, like a real third-party GIF
+    await page.route(/\/test-[\w-]+\.gif$|cross-origin\.test/, (route) => route.fulfill({ body, contentType: "image/gif" }));
+}
+
+/** Same-origin <img>, <picture>, cross-origin <img> and a CSS background GIF. Waits until the images have loaded. */
+async function addGifs(page: Page) {
+    await page.evaluate(() => {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div id="gif-fixtures">
+         <img id="gif-same" src="/test-same.gif" alt="Dancing cat" width="40" height="40">
+         <picture><source srcset="/test-picture.gif"><img id="gif-picture" src="/test-picture.gif" alt="Picture cat" width="40" height="40"></picture>
+         <img id="gif-cross" src="https://cross-origin.test/cat.gif" alt="Cross-origin cat" width="40" height="40">
+         <span id="gif-bg" style="display:inline-block;width:40px;height:40px;background-image:url(/test-bg.gif)"></span>
+       </div>`
+        );
+    });
+    await page.waitForFunction(() =>
+        ["gif-same", "gif-picture", "gif-cross"].every((id) => {
+            const img = document.getElementById(id) as HTMLImageElement;
+            return img.complete && img.naturalWidth > 0;
+        })
+    );
+}
+
 /** axe scan of the widget only. The hostile page's own problems are deliberate and not ours. */
 async function widgetViolations(page: Page) {
     const results = await new AxeBuilder({ page }).include("a11yw-root").withTags(WCAG).analyze();
@@ -264,7 +292,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
 
         test("Pause animations pauses autoplay but lets the visitor press play", async ({ page }) => {
             const play = () =>
-                page.evaluate(() => (document.getElementById("test-video") as HTMLVideoElement).play().catch(() => {}));
+                page.evaluate(() => (document.getElementById("test-video") as HTMLVideoElement).play().catch(() => { }));
 
             await addAutoplayMedia(page);
             await expect.poll(() => mediaState(page)).toEqual({ videoPlayed: true, videoPaused: false, audioPaused: false });
@@ -288,6 +316,44 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             await play();
             await page.waitForTimeout(300); // give the widget a chance to (wrongly) pause it
             expect((await mediaState(page)).videoPaused).toBe(false);
+        });
+        test("Pause animations freezes GIFs in place, keeps alt text, and restores them", async ({ page }) => {
+            await routeTestGifs(page);
+            await addGifs(page);
+
+            const state = () =>
+                page.evaluate(() => {
+                    const img = (id: string) => document.getElementById(id) as HTMLImageElement;
+                    return {
+                        same: img("gif-same").currentSrc.slice(0, 22),
+                        sameAlt: img("gif-same").alt,
+                        picture: img("gif-picture").currentSrc.slice(0, 22),
+                        crossHidden: getComputedStyle(img("gif-cross")).display === "none",
+                        background: getComputedStyle(document.getElementById("gif-bg")!).backgroundImage.slice(0, 27),
+                    };
+                });
+
+            await turnOn(page, "Pause animations");
+            await expect.poll(state).toEqual({
+                same: "data:image/png;base64,",       // same element, now a still PNG
+                sameAlt: "Dancing cat",               // alt kept
+                picture: "data:image/png;base64,",    // <source> no longer wins over the still
+                crossHidden: true,                    // cross-origin: covered by a canvas...
+                background: 'url("data:image/png;base64,',
+            });
+            // ...which screen readers announce with the original alt text
+            await expect(page.getByRole("img", { name: "Cross-origin cat" })).toHaveJSProperty("tagName", "CANVAS");
+
+            await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
+            await expect.poll(() =>
+                page.evaluate(() => ({
+                    same: document.getElementById("gif-same")!.getAttribute("src"),
+                    pictureSource: document.querySelector("#gif-fixtures source")!.getAttribute("srcset"),
+                    crossVisible: getComputedStyle(document.getElementById("gif-cross")!).display !== "none",
+                    canvases: document.querySelectorAll("#gif-fixtures canvas").length,
+                    background: getComputedStyle(document.getElementById("gif-bg")!).backgroundImage.includes("test-bg.gif"),
+                }))
+            ).toEqual({ same: "/test-same.gif", pictureSource: "/test-picture.gif", crossVisible: true, canvases: 0, background: true });
         });
     });
 }
@@ -381,4 +447,22 @@ test.describe("web components (/components.html)", () => {
         // videoPlayed proves autoplay really started, so "paused" isn't just "never started"
         await expect.poll(() => mediaState(page, true)).toEqual({ videoPlayed: true, videoPaused: true, audioPaused: true });
     });
+    test("Pause animations freezes a GIF loaded later inside a component", async ({ page }) => {
+        await routeTestGifs(page);
+        await turnOn(page, "Pause animations"); // first, so only the shadow root's "load" listener can catch it
+        await page.evaluate(() => {
+            const img = document.createElement("img");
+            img.id = "late-gif";
+            img.alt = "Late cat";
+            img.src = "/test-late.gif";
+            document.querySelector("link-card")!.shadowRoot!.appendChild(img);
+        });
+        const src = () =>
+            page.evaluate(() => {
+                const img = document.querySelector("link-card")!.shadowRoot!.getElementById("late-gif") as HTMLImageElement;
+                return img.currentSrc.slice(0, 22);
+            });
+        await expect.poll(src).toBe("data:image/png;base64,");
+    });
+
 });
