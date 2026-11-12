@@ -1,0 +1,39 @@
+/*
+ * 1. Host reset. Page CSS can still reach the host element (e.g. `* { color: red !important }`),
+ *    and inherited properties flow from the host into the shadow tree. For !important rules,
+ *    the shadow root's own rule wins over the page's, so `all: initial !important` beats the
+ *    page's !important. Properties declared after `all` in the same rule override it.
+ */
+:host {
+  all: initial !important;
+  display: block !important;
+  position: fixed !important;
+  right: 16px !important;
+  bottom: 16px !important;
+  z-index: 2147483647 !important; /* ties with the page's max are won by DOM order: we're appended last */
+
+  /* Our own base text styles, inherited by everything inside the shadow root */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  font-size: medium !important; /* the visitor's browser default text size, unaffected by the page's html font-size */
+  line-height: 1.5 !important;
+  color: #1a1a1a !important;
+  letter-spacing: normal !important;
+  text-align: left !important;
+  visibility: visible !important;
+}
+
+/* 2. Inside the shadow root. Page CSS can't reach in here. Size with em, never rem (rem follows the page's <html>). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.box {
+  margin: 0;
+  padding: 0.75em 1em;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 0.5em;
+  box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.2);
+}

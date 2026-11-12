@@ -6,6 +6,7 @@ const ctx = await esbuild.context({
   bundle: true,
   format: "iife",
   target: "es2018",
+  loader: { ".css": "text" },
   logLevel: "info",
   define: { 
     __APP_FILE__: JSON.stringify("app.js"),

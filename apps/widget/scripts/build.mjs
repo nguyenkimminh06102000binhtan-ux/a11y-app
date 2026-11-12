@@ -9,6 +9,7 @@ const shared = {
   format: "iife",
   target: "es2018",
   minify: true,
+  loader: { ".css": "text" },
   write: false, // keep output in memory so we can hash it before writing
   logLevel: "warning",
 };
