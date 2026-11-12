@@ -5,14 +5,49 @@ Accessibility widget + audit dashboard that pinpoints unfixed issues and shows e
 ## Structure
 - `apps/ww` — marketing site (yourapp.com)
 - `apps/dashboard` — Next.js customer dashboard (+ /admin)
-- `apps/widget` — overlay widget (CDN bundle)        _(coming)_
-- `apps/worker` — audit runner (Playwright + axe-core) _(coming)_
+- `apps/widget` — accessibility toolbar widget (CDN bundle: `l.js` loader + content-hashed app)
+- `apps/worker` — audit runner (Playwright + axe-core, Postgres queue)
 - `apps/shopify` — Shopify app + theme extension     _(coming)_
-- `packages/*` — shared engine, types, db            _(coming)_
+- `packages/db` — Drizzle schema + database client
+- `packages/*` — shared engine, types                _(coming)_
 
 ## Dev
+```bash
 pnpm install
 pnpm dev
+```
 
-background GIFs added later by changing class or style aren't frozen;
-canvas and WebGL animation loops aren't paused.
+### Widget
+```bash
+pnpm --filter widget dev        # http://localhost:4000 — test pages: /, /hostile.html, /components.html
+pnpm --filter widget build      # dist/: l.js + app.<hash>.js; fails if over the size limits
+pnpm --filter widget preview    # serves the production build at http://localhost:4001
+pnpm --filter widget test       # Playwright + axe against the production build
+pnpm --filter widget typecheck
+```
+
+## Widget: notes for site owners
+
+**Install**
+```html
+<script src="https://cdn.example.com/l.js" data-account="acct_…" async></script>
+```
+
+**Exclude part of a page** from every setting:
+```html
+<div data-a11yw-ignore>…</div>
+```
+Everything inside is left alone. Limit: inside a web component's shadow root within that area,
+the CSS-based settings (Highlight links, Text spacing, Stronger focus outline) still apply.
+
+**YouTube embeds:** add `enablejsapi=1` to the embed URL so *Pause animations* can pause them.
+
+## Widget: known limits
+- **Closed shadow roots** can't be reached by any setting.
+- **Browsers without constructable stylesheets** (Safari < 16.4) get settings on the main page only, not inside web components.
+- **Inline `style="… !important"`** on a page element beats the settings.
+- **Pause animations**
+  - GIFs are detected by URL (`.gif`); animated WebP/APNG aren't detected.
+  - Cross-origin CSS background GIFs, backgrounds on `::before`/`::after`, and background GIFs added later by changing `class`/`style` aren't frozen.
+  - Canvas/WebGL animation loops aren't paused.
+  - YouTube embeds without `enablejsapi=1`; Bootstrap loaded as an ES module; Splide, Glide, Flickity, Owl Carousel; anime.js v4 (no global); `<dotlottie-wc>` unless it exposes `pause()`.

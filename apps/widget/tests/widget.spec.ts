@@ -394,6 +394,22 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 }))
             ).toEqual({ same: "/test-same.gif", pictureSource: "/test-picture.gif", crossVisible: true, canvases: 0, background: true });
         });
+            test("data-a11yw-ignore keeps a section of the page untouched", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div data-a11yw-ignore><a href="/ignored" id="ignored-link">Ignored link</a></div>
+                     <a href="/normal" id="normal-link">Normal link</a>`
+            );
+        });
+        const background = (id: string) =>
+            page.evaluate((id) => getComputedStyle(document.getElementById(id)!).backgroundColor, id);
+        const ignoredBefore = await background("ignored-link");
+
+        await turnOn(page, "Highlight links");
+        expect(await background("normal-link")).toBe("rgb(255, 255, 0)");
+        expect(await background("ignored-link")).toBe(ignoredBefore);
+    });
     });
 }
 
@@ -728,5 +744,54 @@ test.describe("Pause animations: other animation engines (/)", () => {
         await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
         await expect.poll(state).toEqual({ swiper: true, bootstrap: true, slick: "yes" });
     });
+    test("settles GSAP and anime.js animations; resumes only the endless ones we paused", async ({ page }) => {
+        // Small fakes that follow each library's public API
+        await page.evaluate(() => {
+            const w = window as unknown as Record<string, unknown>;
+            const gsapAnimation = (repeat: number) => ({
+                active: true,
+                pausedByUs: false,
+                finished: false,
+                isActive() { return this.active && !this.pausedByUs; },
+                repeat() { return repeat; },
+                pause() { this.pausedByUs = true; },
+                resume() { this.pausedByUs = false; },
+                totalProgress(value: number) { if (value === 1) { this.finished = true; this.active = false; } },
+            });
+            const gsapEndless = gsapAnimation(-1);
+            const gsapFade = gsapAnimation(0);
+            w.gsap = { globalTimeline: { getChildren: () => [gsapEndless, gsapFade] } };
 
+            const animeLoop = { paused: false, loop: true, duration: 1000, pause() { this.paused = true; }, play() { this.paused = false; }, seek() { } };
+            const animeOnce = {
+                paused: false, loop: 1, duration: 500, seekedTo: -1,
+                pause() { this.paused = true; }, play() { this.paused = false; }, seek(t: number) { this.seekedTo = t; },
+            };
+            w.anime = { running: [animeLoop, animeOnce] };
+            Object.assign(w, { gsapEndless, gsapFade, animeLoop, animeOnce });
+        });
+
+        const state = () =>
+            page.evaluate(() => {
+                const w = window as unknown as {
+                    gsapEndless: { pausedByUs: boolean };
+                    gsapFade: { finished: boolean };
+                    animeLoop: { paused: boolean };
+                    animeOnce: { paused: boolean; seekedTo: number };
+                };
+                return {
+                    gsapEndlessPaused: w.gsapEndless.pausedByUs,
+                    gsapFadeFinished: w.gsapFade.finished,
+                    animeLoopPaused: w.animeLoop.paused,
+                    animeOnceAtEnd: w.animeOnce.paused && w.animeOnce.seekedTo === 500,
+                };
+            });
+
+        await turnOn(page, "Pause animations");
+        await expect.poll(state).toEqual({ gsapEndlessPaused: true, gsapFadeFinished: true, animeLoopPaused: true, animeOnceAtEnd: true });
+
+        await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
+        // Endless ones resume; finished ones stay at their end state (harmless, like our CSS rule)
+        await expect.poll(state).toEqual({ gsapEndlessPaused: false, gsapFadeFinished: true, animeLoopPaused: false, animeOnceAtEnd: true });
+    });
 });

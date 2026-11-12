@@ -1,6 +1,15 @@
 import type { Settings } from "./settings";
 import { pauseMotion } from "./motion";
 
+/**
+ * Appended to every page rule. Matches every element except our own placeholder id, so it adds
+ * id-level specificity (beats page rules like `.article p { line-height: 1.2 !important }`), and it
+ * skips areas the site owner opted out with data-a11yw-ignore. A :not() list counts as its most
+ * specific item, so the id-level strength stays.
+ */
+const SCOPE = ":not(#a11yw-x, [data-a11yw-ignore], [data-a11yw-ignore] *)";
+
+
 type BooleanKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
 export type Behavior = { start(): void; stop(): void };
@@ -23,7 +32,7 @@ export const FEATURES: ToggleFeature[] = [
     label: "Highlight links",
     hint: "Makes every link stand out with a yellow background and underline.",
     css: `
-      a[href] {
+      a[href]${SCOPE} {
         background-color: #ff0 !important;
         color: #000 !important;
         text-decoration: underline !important;
@@ -36,15 +45,13 @@ export const FEATURES: ToggleFeature[] = [
     key: "textSpacing",
     label: "Text spacing",
     hint: "Adds space between lines, letters, words and paragraphs.",
-    // WCAG 1.4.12 values. `:not(#a11yw-x)` matches every element but adds id-level specificity,
-    // so these rules beat page rules like `.article p { line-height: 1.2 !important }`.
     css: `
-      *:not(#a11yw-x) {
+      *${SCOPE} {
         line-height: 1.5 !important;
         letter-spacing: 0.12em !important;
         word-spacing: 0.16em !important;
       }
-      p:not(#a11yw-x) {
+      p${SCOPE} {
         margin-bottom: 2em !important;
       }
     `,
@@ -55,13 +62,13 @@ export const FEATURES: ToggleFeature[] = [
     hint: "Shows a thick outline around whatever the keyboard is on.",
     // Same two-tone ring as the widget's own: a dark ring next to the element, a white one outside it.
     css: `
-      :focus-visible:not(#a11yw-x) {
+      :focus-visible${SCOPE} {
         outline: 3px solid #1a1a1a !important;
         outline-offset: 0 !important;
         box-shadow: 0 0 0 6px #fff !important;
       }
       @media (forced-colors: active) {
-        :focus-visible:not(#a11yw-x) {
+        :focus-visible${SCOPE} {
           outline-color: Highlight !important;
         }
       }
@@ -75,9 +82,9 @@ export const FEATURES: ToggleFeature[] = [
     // A tiny duration (not 0s) jumps to the end state and still fires animationend/transitionend,
     // which some sites wait for (e.g. to finish closing a modal).
     css: `
-      *:not(#a11yw-x),
-      *:not(#a11yw-x)::before,
-      *:not(#a11yw-x)::after {
+      *${SCOPE},
+      *${SCOPE}::before,
+      *${SCOPE}::after {
         animation-duration: 0.001ms !important;
         animation-delay: 0s !important;
         animation-iteration-count: 1 !important;
