@@ -1,26 +1,167 @@
 @import "tailwindcss";
+@import "@app/tokens/tokens.css"; /* the shared colors: --bcn-bg, --bcn-text, --bcn-frame, --bcn-state, --bcn-state-tint */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Only our colors exist: no bg-red-500 & co., so nothing off-palette sneaks in */
+@theme {
+  --color-*: initial;
 }
 
+/* Tailwind names for the shared tokens: bg-surface, text-ink, border-frame, text-state, bg-state-tint… */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--bcn-bg);
+  --color-ink: var(--bcn-text);
+  --color-frame: var(--bcn-frame);
+  --color-state: var(--bcn-state); /* state only: current page, critical, selected (never decoration) */
+  --color-state-tint: var(--bcn-state-tint);
+
+  --font-sans: var(--font-atkinson), system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * Plain HTML looks right without classes. In the base layer, so any utility class on an element wins.
+ * Sizes in rem, so they follow the visitor's browser text size.
+ */
+@layer base {
+  html {
+    background: var(--color-surface);
+    color: var(--color-ink);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  main {
+    width: 100%;
+    max-width: 72rem;
+    margin-inline: auto;
+    padding: 2rem 1rem 4rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    line-height: 1.2;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    font-weight: 700;
+    margin: 2rem 0 0.75rem;
+  }
+
+  h3 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+  }
+
+  p + p {
+    margin-top: 0.5rem;
+  }
+
+  /* Links: text color plus underline, so they're told apart from text without relying on color */
+  a {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--color-frame);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.2em;
+  }
+
+  a:hover {
+    text-decoration-color: currentColor;
+    text-decoration-thickness: 0.14em;
+  }
+
+  /* Buttons: outlined by default; the form's main action (type="submit") is filled */
+  button {
+    min-height: 2.75rem; /* 44px */
+    padding: 0 1rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    background: var(--color-surface);
+    border: 2px solid var(--color-frame);
+    border-radius: 0.625rem;
+    cursor: pointer;
+  }
+
+  button[type="submit"] {
+    color: var(--color-surface);
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+  }
+
+  /* Disabled: still readable (no faded text), marked by a dashed edge and the cursor */
+  button:disabled {
+    color: var(--color-ink);
+    background: var(--color-surface);
+    border: 2px dashed var(--color-frame);
+    cursor: not-allowed;
+  }
+
+  label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  input:not([type="hidden"], [type="checkbox"], [type="radio"]) {
+    min-height: 2.75rem;
+    width: 100%;
+    max-width: 28rem;
+    padding: 0 0.75rem;
+    background: var(--color-surface);
+    border: 2px solid var(--color-frame);
+    border-radius: 0.625rem;
+  }
+
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  form > label {
+    flex-basis: 100%;
+    margin-bottom: 0;
+  }
+
+  code,
+  pre {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+  }
+
+  pre {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--color-frame);
+    border-radius: 0.625rem;
+    overflow-x: auto;
+    margin-bottom: 0.5rem;
+  }
+
+  summary {
+    cursor: pointer;
+    padding: 0.5rem 0;
+  }
+
+  /* Errors: the shared "attention" look (tint + state border), with the text in the ink color */
+  [role="alert"] {
+    padding: 0.75rem 1rem;
+    background: var(--color-state-tint);
+    border: 2px solid var(--color-state);
+    border-radius: 0.625rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* One focus ring everywhere: dark, thick, with a gap so it never merges with a border */
+  :focus-visible {
+    outline: 3px solid var(--color-ink);
+    outline-offset: 2px;
+  }
 }
