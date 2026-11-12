@@ -7,6 +7,8 @@ import { isUuid } from "@/lib/ids";
 import { CopyButton } from "@/components/CopyButton";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { requestScan } from "@/app/actions";
+import { ImpactPill } from "@/components/ImpactPill";
+
 
 const IMPACT_ORDER: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 const ERRORS: Record<string, string> = {
@@ -23,8 +25,8 @@ type PageProps = {
 
 export default function SitePage({ params, searchParams }: PageProps) {
   return (
-    <main>
-      <p><Link href="/">← All sites</Link></p>
+    <main id="main">
+      <p className="mb-2 text-sm"><Link href="/">← All sites</Link></p>
       <Suspense fallback={<p>Loading site…</p>}>
         <SiteDetails params={params} searchParams={searchParams} />
       </Suspense>
@@ -101,7 +103,7 @@ async function SiteDetails({ params, searchParams }: PageProps) {
         </form>
         {inProgress && latest && (
           <>
-            <p role="status">
+            <p role="status" className="mt-3">
               Scan {latest.status} for {latest.url}. This page updates automatically.
             </p>
             <AutoRefresh />
@@ -122,11 +124,18 @@ async function SiteDetails({ params, searchParams }: PageProps) {
             </p>
             {lastFinished.status === "failed" && <p role="alert">Scan failed: {lastFinished.error}</p>}
             {lastFinished.status === "done" && (
-              <ul>
+              <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {["critical", "serious", "moderate", "minor"].map((level) => (
-                  <li key={level}>{level}: {counts[level] ?? 0}</li>
+                  <li
+                    key={level}
+                    className={`rounded-xl border-2 p-4 ${level === "critical" && counts[level] ? "border-state" : "border-frame"}`}
+                  >
+                    <span className="block text-sm capitalize">{level}</span>
+                    <span className="block text-3xl font-bold">{counts[level] ?? 0}</span>
+                  </li>
                 ))}
               </ul>
+
             )}
           </section>
 
@@ -136,19 +145,23 @@ async function SiteDetails({ params, searchParams }: PageProps) {
               {sorted.map((group) => {
                 const first = group[0];
                 return (
-                  <details key={first.ruleId}>
-                    <summary>
-                      <strong>[{first.impact ?? "unknown"}]</strong> {first.help ?? first.ruleId} ({group.length})
+                                   <details key={first.ruleId} className="mb-3 rounded-xl border-2 border-frame px-4">
+                    <summary className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+                      <ImpactPill impact={first.impact} />
+                      <span className="font-bold">{first.help ?? first.ruleId}</span>
+                      <span className="text-sm">
+                        {group.length} {group.length === 1 ? "place" : "places"}
+                      </span>
                     </summary>
                     {first.helpUrl && (
-                      <p><a href={first.helpUrl} target="_blank" rel="noreferrer">How to fix this rule (opens in new tab)</a></p>
+                      <p className="mb-3"><a href={first.helpUrl} target="_blank" rel="noreferrer">How to fix this rule (opens in new tab)</a></p>
                     )}
-                    <ol>
+                    <ol className="mb-4 flex flex-col gap-3">
                       {group.map((issue) => (
-                        <li key={issue.id}>
-                          <p>Page: <a href={issue.pageUrl} target="_blank" rel="noreferrer">{issue.pageUrl}</a></p>
+                        <li key={issue.id} className="border-t-2 border-frame pt-3">
+                          <p>Page: <a href={issue.pageUrl} target="_blank" rel="noreferrer" className="break-all">{issue.pageUrl}</a></p>
                           <p>
-                            Element: <code>{issue.selector}</code>{" "}
+                            Where to fix: <code className="break-all">{issue.selector}</code>{" "}
                             <CopyButton text={issue.selector} label="Copy selector" />{" "}
                             <CopyButton
                               text={`inspect(document.querySelector(${JSON.stringify(issue.selector)}))`}

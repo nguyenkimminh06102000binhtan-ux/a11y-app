@@ -5,7 +5,7 @@ import { db, sites, accounts, eq } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CopyButton } from "@/components/CopyButton";
-import { addSite, deleteSite } from "./actions";
+import { addSite, deleteSite } from "@/app/actions";
 
 const WIDGET_SRC = "https://cdn.example.com/l.js"; // replaced with the real CDN URL in step 9
 
@@ -14,13 +14,6 @@ const ERRORS: Record<string, string> = {
   duplicate: "You've already added that domain.",
 };
 
-async function signOut() {
-  "use server";
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
-}
-
 // No async, no await: this whole shell is prerendered.
 export default function Home({
   searchParams,
@@ -28,13 +21,9 @@ export default function Home({
   searchParams: Promise<{ error?: string }>;
 }) {
   return (
-    <main>
-      <header>
-        <h1>a11y-app</h1>
-        <Suspense fallback={null}>
-          <UserInfo />
-        </Suspense>
-      </header>
+    <main id="main">
+      <h1>Sites</h1>
+
 
       <section aria-labelledby="install-heading">
         <h2 id="install-heading">Install the widget</h2>
@@ -69,19 +58,6 @@ export default function Home({
         </Suspense>
       </section>
     </main>
-  );
-}
-
-async function UserInfo() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  return (
-    <>
-      <p>Signed in as {user.email}</p>
-      <form action={signOut}>
-        <button type="submit">Sign out</button>
-      </form>
-    </>
   );
 }
 
@@ -137,10 +113,13 @@ async function SiteList() {
       {rows.length === 0 ? (
         <p>No sites yet.</p>
       ) : (
-        <ul>
+        <ul className="grid gap-3 sm:grid-cols-2">
           {rows.map((site) => (
-            <li key={site.id}>
-              <h3><Link href={`/sites/${site.id}`}>{site.domain}</Link></h3>
+            <li key={site.id} className="flex items-center justify-between gap-3 rounded-xl border-2 border-frame p-4">
+              <h3 className="min-w-0 break-all">
+                <Link href={`/sites/${site.id}`}>{site.domain}</Link>
+              </h3>
+
               <form action={deleteSite}>
                 <input type="hidden" name="id" value={site.id} />
                 <button type="submit" aria-label={`Delete ${site.domain}`}>

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Atkinson_Hyperlegible_Next } from "next/font/google";
 import "./globals.css";
+import { Atkinson_Hyperlegible } from "next/font/google";
 
 // Designed for readers with low vision. Downloaded at build time and served from our own domain:
 // visitors' browsers never contact Google.
-const atkinson = Atkinson_Hyperlegible_Next({
+const atkinson = Atkinson_Hyperlegible({
   variable: "--font-atkinson",
+  weight: ["400", "700"],
   subsets: ["latin"],
 });
 
