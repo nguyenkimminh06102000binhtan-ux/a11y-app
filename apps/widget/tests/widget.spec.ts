@@ -531,7 +531,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             await expect.poll(() => size("t-late")).toBeCloseTo(15, 1);
             await expect.poll(() => size("t-new")).toBeCloseTo(30, 1); // 20 × 1.5, not 20 × 1.5 × 1.5 = 45
         });
-                test("comes back with the visitor's settings when a single-page app replaces the page", async ({ page }) => {
+        test("comes back with the visitor's settings when a single-page app replaces the page", async ({ page }) => {
             await turnOn(page, "Highlight links");
             const yellow = (selector: string) =>
                 page.locator(selector).evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -1041,6 +1041,28 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
         await page.getByRole("checkbox", { name: "Text spacing" }).check();
         expect(await style()).toEqual(before); // nothing inherited from the paragraph around it
     });
+
+    test("browsers without :has() still get Highlight links and Text spacing", async ({ page }) => {
+        // Pretend to be an older browser: CSS.supports says :has() isn't available
+        await page.addInitScript(() => {
+            const original = CSS.supports as (...args: string[]) => boolean;
+            CSS.supports = function (...args: string[]) {
+                if (args.length === 1 && args[0].includes(":has(")) return false;
+                return original.apply(CSS, args);
+            } as typeof CSS.supports;
+        });
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+
+        await turnOn(page, "Highlight links");
+        await page.getByRole("checkbox", { name: "Text spacing" }).check();
+
+        // A rule using :has() would be dropped whole by such a browser
+        const css = await page.locator("#a11yw-page-adjustments").evaluate((el) => el.textContent ?? "");
+        expect(css).toContain("a[href]");
+        expect(css).not.toContain(":has(");
+    });
+
 
     test("warns once about names that aren't settings (typos)", async ({ page }) => {
         const warnings: string[] = [];
