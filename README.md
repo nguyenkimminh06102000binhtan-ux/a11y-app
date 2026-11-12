@@ -10,6 +10,7 @@ Accessibility widget + audit dashboard that pinpoints unfixed issues and shows e
 - `apps/shopify` — Shopify app + theme extension     _(coming)_
 - `packages/db` — Drizzle schema + database client
 - `packages/*` — shared engine, types                _(coming)_
+- `packages/tokens` — shared design tokens (Iris colors) + contrast check
 
 ## Dev
 ```bash
