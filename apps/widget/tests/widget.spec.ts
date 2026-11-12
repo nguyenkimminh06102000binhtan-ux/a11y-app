@@ -124,5 +124,36 @@ for (const path of ["/", "/hostile.html"]) {
         expect(box!.height).toBeGreaterThanOrEqual(44); // WCAG 2.5.8 minimum is 24; 44 is our own standard
       }
     });
+        test("Highlight links: applies to the page, survives reload, resets", async ({ page }) => {
+      const linkBackground = () =>
+        page.locator("a[href]").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+      const before = await linkBackground();
+
+      await toggle(page).click();
+      await page.getByRole("checkbox", { name: "Highlight links" }).check();
+      expect(await linkBackground()).toBe("rgb(255, 255, 0)"); // wins against the hostile page's !important too
+
+      // Remembered, and applied before the panel is ever opened
+      await page.reload();
+      await expect(toggle(page)).toBeVisible();
+      expect(await linkBackground()).toBe("rgb(255, 255, 0)");
+
+      await toggle(page).click();
+      await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked();
+      await page.getByRole("button", { name: "Reset all" }).click();
+      expect(await linkBackground()).toBe(before);
+      expect(await page.evaluate(() => localStorage.getItem("a11yw:settings:v1"))).toBeNull();
+      await expect(page.locator("#a11yw-page-adjustments")).toHaveCount(0); // nothing left behind
+    });
+
+    test("survives junk in saved settings", async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.addInitScript(() => localStorage.setItem("a11yw:settings:v1", "{not json"));
+
+      await page.reload();
+      await expect(toggle(page)).toBeVisible();
+      expect(errors).toEqual([]);
+    });
   });
 }

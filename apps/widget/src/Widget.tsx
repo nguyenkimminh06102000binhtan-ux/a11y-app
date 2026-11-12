@@ -1,8 +1,18 @@
 import { useRef, useState } from "preact/hooks";
+import { FEATURES } from "./features";
+import { applyToPage } from "./page-styles";
+import { DEFAULTS, loadSettings, saveSettings, type Settings } from "./settings";
 
 export function Widget() {
   const [open, setOpen] = useState(false);
+  const [settings, setSettings] = useState<Settings>(loadSettings);
   const toggleRef = useRef<HTMLButtonElement>(null);
+
+  function update(next: Settings) {
+    setSettings(next);
+    saveSettings(next);
+    applyToPage(next);
+  }
 
   function close() {
     setOpen(false);
@@ -38,7 +48,31 @@ export function Widget() {
             Close
           </button>
         </div>
-        <p>Settings will go here.</p>
+
+        <ul class="features">
+          {FEATURES.map((f) => (
+            <li key={f.key} class="feature">
+              <input
+                id={f.key}
+                type="checkbox"
+                class="feature-input"
+                checked={settings[f.key]}
+                aria-describedby={`${f.key}-hint`}
+                onChange={(e) => update({ ...settings, [f.key]: e.currentTarget.checked })}
+              />
+              <label for={f.key} class="feature-label">
+                {f.label}
+              </label>
+              <p id={`${f.key}-hint`} class="feature-hint">
+                {f.hint}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <button type="button" class="reset" onClick={() => update({ ...DEFAULTS })}>
+          Reset all
+        </button>
       </section>
     </div>
   );

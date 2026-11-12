@@ -92,6 +92,53 @@
  * Focus ring that's visible on any page background: a dark ring next to the element and a
  * white ring outside it. The page's `*:focus { outline: none }` can't reach in here.
  */
+
+.features {
+  list-style: none;
+  margin: 0 0 1em;
+  padding: 0;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.75em;
+  align-items: center;
+  padding: 0.75em 0;
+  border-top: 1px solid #ccc;
+}
+
+.feature-input {
+  width: 1.5em; /* 24px at default text size: the WCAG 2.5.8 minimum */
+  height: 1.5em;
+  margin: 0;
+  accent-color: #1a1a1a;
+  cursor: pointer;
+}
+
+.feature-label {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.feature-hint {
+  grid-column: 2; /* sits under the label, lined up with it */
+  margin: 0.25em 0 0;
+  font-size: 0.875em;
+  color: #444;
+}
+
+.reset {
+  font: inherit;
+  width: 100%;
+  min-height: 2.75em;
+  color: #1a1a1a;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 0.375em;
+  cursor: pointer;
+}
+
 :focus-visible {
   outline: 3px solid #1a1a1a;
   outline-offset: 0;
