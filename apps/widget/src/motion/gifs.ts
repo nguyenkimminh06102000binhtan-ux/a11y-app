@@ -1,7 +1,7 @@
 import { onElementsAdded } from "../dom-watcher";
-import type { Behavior } from "../features";
 import { isIgnored } from "../ignore";
-import { deepQueryAll, openShadowRootsIn } from "../shadow-roots";
+import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../shadow-roots";
+import type { MotionPart } from "./part";
 
 /*
  * Freezes animated GIFs on the frame showing now, without losing anything:
@@ -28,7 +28,7 @@ const frozenBackgrounds = new Map<HTMLElement, StyleRecord>();
 const stillCache = new Map<string, Promise<string | null>>();
 const listenedTrees = new Set<Tree>();
 let active = false;
-let stopWatching: (() => void) | null = null;
+const unsubscribes: Array<() => void> = [];
 
 const URL_IN_CSS = /url\(\s*(['"]?)(.*?)\1\s*\)/g;
 
@@ -185,16 +185,17 @@ function listen(tree: Tree): void {
   tree.addEventListener("load", onLoad, true);
 }
 
-export const gifs: Behavior = {
+export const gifs: MotionPart = {
   start() {
     active = true;
     listen(document);
     openShadowRootsIn(document).forEach(listen);
     scan(document);
-    stopWatching = onElementsAdded((added) =>
-      added.forEach((el) => {
-        openShadowRootsIn(el).forEach(listen);
-        scan(el);
+    unsubscribes.push(
+      onElementsAdded((added) => added.forEach(scan)),
+      onNewShadowRoot((root) => {
+        listen(root); // lazy-loaded GIFs in it are caught from now on...
+        scan(root);   // ...and the ones already loaded are frozen now
       })
     );
   },
@@ -203,8 +204,8 @@ export const gifs: Behavior = {
     active = false;
     listenedTrees.forEach((tree) => tree.removeEventListener("load", onLoad, true));
     listenedTrees.clear();
-    stopWatching?.();
-    stopWatching = null;
+    unsubscribes.splice(0).forEach((unsubscribe) => unsubscribe());
+
 
     frozenImgs.forEach((r, img) => {
       r.sources.forEach(([source, srcset]) => setOrRemove(source, "srcset", srcset));

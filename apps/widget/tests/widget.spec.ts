@@ -12,11 +12,11 @@ async function turnOn(page: Page, label: string) {
     await page.getByRole("checkbox", { name: label }).check();
 }
 
-/** Adds a muted looping video and an unmuted audio, both autoplaying a generated silent WAV (no files, no network). */
-async function addAutoplayMedia(page: Page, inComponent = false) {
-    await page.evaluate((inComponent) => {
+/** A silent 2-second WAV as a blob URL on the page: autoplay tests need no files and no network. */
+async function silentWavUrl(page: Page): Promise<string> {
+    return page.evaluate(() => {
         const rate = 8000;
-        const samples = rate * 2; // 2 seconds of silence
+        const samples = rate * 2;
         const buf = new ArrayBuffer(44 + samples * 2);
         const v = new DataView(buf);
         const text = (offset: number, s: string) => [...s].forEach((c, i) => v.setUint8(offset + i, c.charCodeAt(0)));
@@ -24,8 +24,14 @@ async function addAutoplayMedia(page: Page, inComponent = false) {
         text(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
         v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
         text(36, "data"); v.setUint32(40, samples * 2, true);
-        const src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+        return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+    });
+}
 
+/** Adds a muted looping video and an unmuted audio, both autoplaying a silent WAV. */
+async function addAutoplayMedia(page: Page, inComponent = false) {
+    const src = await silentWavUrl(page);
+    await page.evaluate(({ inComponent, src }) => {
         const holder = document.createElement("div");
         holder.innerHTML = `<video id="test-video" muted loop autoplay src="${src}"></video>
                             <audio id="test-audio" loop autoplay src="${src}"></audio>`;
@@ -34,8 +40,9 @@ async function addAutoplayMedia(page: Page, inComponent = false) {
         );
         const target = inComponent ? document.querySelector("link-card")!.shadowRoot! : document.body;
         target.appendChild(holder);
-    }, inComponent);
+    }, { inComponent, src });
 }
+
 
 function mediaState(page: Page, inComponent = false) {
     return page.evaluate((inComponent) => {
@@ -48,6 +55,38 @@ function mediaState(page: Page, inComponent = false) {
             audioPaused: audio.paused,
         };
     }, inComponent);
+}
+
+/**
+ * A <video-card> whose shadow root autoplays a muted video as soon as it's created.
+ * defineLate: the element is on the page first and only defined later, so the browser upgrades it
+ * with no DOM change at all: only the once-a-second rescan can find it.
+ */
+async function addVideoComponent(page: Page, defineLate: boolean) {
+    const src = await silentWavUrl(page);
+    if (defineLate) {
+        await page.evaluate(() => document.body.appendChild(document.createElement("video-card")));
+        await page.waitForTimeout(700); // let the observer's batch (max 500ms) pass while it's still undefined
+    }
+    await page.evaluate(({ src, defineLate }) => {
+        customElements.define("video-card", class extends HTMLElement {
+            connectedCallback() {
+                if (this.shadowRoot) return;
+                const root = this.attachShadow({ mode: "open" });
+                root.innerHTML = `<video id="test-video" muted loop autoplay src="${src}"></video>`;
+                const video = root.getElementById("test-video") as HTMLVideoElement;
+                video.addEventListener("play", () => (video.dataset.played = "yes"));
+            }
+        });
+        if (!defineLate) document.body.appendChild(document.createElement("video-card"));
+    }, { src, defineLate });
+}
+
+function videoCardState(page: Page) {
+    return page.evaluate(() => {
+        const video = document.querySelector("video-card")!.shadowRoot!.getElementById("test-video") as HTMLVideoElement;
+        return { played: video.dataset.played === "yes", paused: video.paused };
+    });
 }
 
 const GIF_1PX = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -464,5 +503,132 @@ test.describe("web components (/components.html)", () => {
             });
         await expect.poll(src).toBe("data:image/png;base64,");
     });
+    test("Pause animations pauses SVG animations added later inside a component", async ({ page }) => {
+        await turnOn(page, "Pause animations");
+        await page.evaluate(() => {
+            const holder = document.createElement("div");
+            holder.innerHTML = `<svg id="test-svg" width="20" height="20"><circle cx="10" cy="10" r="5">
+                <animate attributeName="r" values="5;9;5" dur="1s" repeatCount="indefinite" /></circle></svg>`;
+            document.querySelector("link-card")!.shadowRoot!.appendChild(holder);
+        });
+        const paused = () =>
+            page.evaluate(() =>
+                (document.querySelector("link-card")!.shadowRoot!.getElementById("test-svg") as unknown as SVGSVGElement)
+                    .animationsPaused()
+            );
+        await expect.poll(paused).toBe(true);
+    });
+    test("Pause animations pauses a video already playing in a component added later", async ({ page }) => {
+        await turnOn(page, "Pause animations");
+        await addVideoComponent(page, false); // starts playing before the observer's batch finds its shadow root
+        await expect.poll(() => videoCardState(page)).toEqual({ played: true, paused: true });
+    });
 
+    test("Pause animations reaches a component defined late (no DOM change at all)", async ({ page }) => {
+        await turnOn(page, "Pause animations");
+        await addVideoComponent(page, true);
+        await expect.poll(() => videoCardState(page)).toEqual({ played: true, paused: true }); // found by the 1s rescan
+    });
+
+
+});
+
+test.describe("Pause animations: other animation engines (/)", () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    });
+
+    test("pauses SVG, marquee and script animations; resumes them when turned off", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<svg id="test-svg" width="20" height="20"><circle cx="10" cy="10" r="5">
+                   <animate attributeName="r" values="5;9;5" dur="1s" repeatCount="indefinite" />
+                 </circle></svg>
+                 <marquee id="test-marquee">Breaking news</marquee>
+                 <div id="test-spin">spin</div>
+                 <div id="test-fade">fade</div>`
+            );
+            // Record start()/stop() calls: a marquee has no "is it running?" property to check
+            const m = document.getElementById("test-marquee") as HTMLMarqueeElement;
+            const stop = m.stop.bind(m);
+            const start = m.start.bind(m);
+            m.stop = () => { m.dataset.running = "no"; stop(); };
+            m.start = () => { m.dataset.running = "yes"; start(); };
+
+            document.getElementById("test-spin")!.animate(
+                [{ transform: "rotate(0)" }, { transform: "rotate(360deg)" }],
+                { duration: 1000, iterations: Infinity }
+            );
+            document.getElementById("test-fade")!.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 10000, fill: "forwards" });
+        });
+
+        const state = () =>
+            page.evaluate(() => ({
+                svgPaused: (document.getElementById("test-svg") as unknown as SVGSVGElement).animationsPaused(),
+                marquee: (document.getElementById("test-marquee") as HTMLElement).dataset.running ?? "untouched",
+                spinRunning: document.getElementById("test-spin")!.getAnimations().some((a) => a.playState === "running"),
+                fadeOpacity: getComputedStyle(document.getElementById("test-fade")!).opacity,
+            }));
+
+        await turnOn(page, "Pause animations");
+        await expect.poll(state).toEqual({ svgPaused: true, marquee: "no", spinRunning: false, fadeOpacity: "1" });
+
+        // An endless animation started by a script AFTER the setting was turned on is caught by the regular re-check
+        await page.evaluate(() =>
+            document.getElementById("test-spin")!.animate([{ opacity: 1 }, { opacity: 0.5 }], { duration: 500, iterations: Infinity })
+        );
+        await expect.poll(state).toMatchObject({ spinRunning: false });
+
+        await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
+        // Resumed; the fade that was finished stays at its end state (harmless, like our CSS rule)
+        await expect.poll(state).toEqual({ svgPaused: false, marquee: "yes", spinRunning: true, fadeOpacity: "1" });
+    });
+
+    test("pauses Lottie players and lottie-web, finishes jQuery animations; restores them", async ({ page }) => {
+        // Small fakes that follow each library's public API
+        await page.evaluate(() => {
+            const w = window as unknown as Record<string, unknown>;
+            const animation = { isPaused: false, pause() { this.isPaused = true; }, play() { this.isPaused = false; } };
+            w.lottie = { getRegisteredAnimations: () => [animation] };
+            w.testLottieAnimation = animation;
+
+            customElements.define("lottie-player", class extends HTMLElement {
+                currentState = "playing";
+                pause() { this.currentState = "paused"; }
+                play() { this.currentState = "playing"; }
+            });
+            document.body.appendChild(document.createElement("lottie-player"));
+
+            const finished: string[] = [];
+            w.jQuery = Object.assign((selector: string) => ({ finish: () => finished.push(selector) }), { fx: { off: false } });
+            w.testJqueryFinished = finished;
+        });
+
+        const state = () =>
+            page.evaluate(() => {
+                const w = window as unknown as {
+                    testLottieAnimation: { isPaused: boolean };
+                    jQuery: { fx: { off: boolean } };
+                    testJqueryFinished: string[];
+                };
+                return {
+                    lottieWebPaused: w.testLottieAnimation.isPaused,
+                    player: (document.querySelector("lottie-player") as HTMLElement & { currentState: string }).currentState,
+                    jqueryFxOff: w.jQuery.fx.off,
+                    jqueryFinishedRunning: w.testJqueryFinished.includes(":animated"),
+                };
+            });
+
+        await turnOn(page, "Pause animations");
+        await expect.poll(state).toEqual({ lottieWebPaused: true, player: "paused", jqueryFxOff: true, jqueryFinishedRunning: true });
+
+        // A player that restarts itself (dotLottie does this on scroll) is paused again by the re-check
+        await page.evaluate(() => (document.querySelector("lottie-player") as HTMLElement & { play(): void }).play());
+        await expect.poll(state).toMatchObject({ player: "paused" });
+
+        await page.getByRole("checkbox", { name: "Pause animations" }).uncheck();
+        await expect.poll(state).toMatchObject({ lottieWebPaused: false, player: "playing", jqueryFxOff: false });
+    });
 });

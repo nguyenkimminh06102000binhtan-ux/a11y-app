@@ -1,10 +1,21 @@
 import { onElementsAdded, watchTree } from "./dom-watcher";
 import { HOST_TAG } from "./mount";
+import { safely } from "./safely";
 
 type Tree = Document | ShadowRoot | Element;
 
 let onRoot: ((root: ShadowRoot) => void) | null = null;
 const seen = new WeakSet<ShadowRoot>();
+const rootListeners = new Set<(root: ShadowRoot) => void>();
+
+/** Get every shadow root discovered from now on: by the observer, at milestones, or by a rescan. Returns an unsubscribe function. */
+export function onNewShadowRoot(fn: (root: ShadowRoot) => void): () => void {
+  rootListeners.add(fn);
+  return () => {
+    rootListeners.delete(fn);
+  };
+}
+
 
 /** Find every open shadow root on the page, now and later, and hand each one to `callback` once. */
 export function watchShadowRoots(callback: (root: ShadowRoot) => void): void {
@@ -31,6 +42,7 @@ function register(root: ShadowRoot): void {
   seen.add(root);
   watchTree(root);
   onRoot?.(root);
+  rootListeners.forEach((fn) => safely(() => fn(root)));
 }
 
 /** Every open shadow root inside `start`, including nested ones. Never our widget's; closed roots can't be reached. */

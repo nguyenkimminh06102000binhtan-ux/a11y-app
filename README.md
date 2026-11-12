@@ -13,3 +13,6 @@ Accessibility widget + audit dashboard that pinpoints unfixed issues and shows e
 ## Dev
 pnpm install
 pnpm dev
+
+background GIFs added later by changing class or style aren't frozen;
+canvas and WebGL animation loops aren't paused.

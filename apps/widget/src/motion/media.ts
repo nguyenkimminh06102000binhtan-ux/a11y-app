@@ -1,8 +1,7 @@
-import { onElementsAdded } from "../dom-watcher";
-import type { Behavior } from "../features";
 import { isIgnored } from "../ignore";
 import { HOST_TAG } from "../mount";
-import { deepQueryAll, openShadowRootsIn } from "../shadow-roots";
+import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../shadow-roots";
+import type { MotionPart } from "./part";
 
 /*
  * Pauses autoplaying video and audio without taking control away from the visitor:
@@ -11,6 +10,9 @@ import { deepQueryAll, openShadowRootsIn } from "../shadow-roots";
  * - on stop, only muted videos resume (decorative backgrounds). Sound never restarts by surprise (WCAG 1.4.2).
  */
 const USER_PLAY_WINDOW_MS = 1000;
+// A component can be found up to ~1s after it appeared (observer batch, or the once-a-second rescan).
+// Media found already playing in it gets a longer window, so a video lightbox opened by a click still plays.
+const FOUND_LATE_WINDOW_MS = 2000;
 
 let lastGesture = 0;
 const pausedByUs = new Set<HTMLMediaElement>();
@@ -24,16 +26,26 @@ function recordGesture(e: Event): void {
   lastGesture = Date.now();
 }
 
+function visitorInteractedWithin(ms: number): boolean {
+  return Date.now() - lastGesture < ms;
+}
+
 function pause(el: HTMLMediaElement): void {
   if (isIgnored(el)) return;
   el.pause();
   pausedByUs.add(el);
 }
 
+function pausePlayingIn(tree: Document | ShadowRoot): void {
+  for (const el of deepQueryAll<HTMLMediaElement>("video, audio", tree)) {
+    if (!el.paused && !el.ended) pause(el);
+  }
+}
+
 function onPlay(e: Event): void {
   const el = e.target;
   if (!(el instanceof HTMLMediaElement)) return;
-  if (Date.now() - lastGesture < USER_PLAY_WINDOW_MS) return; // the visitor pressed play
+  if (visitorInteractedWithin(USER_PLAY_WINDOW_MS)) return; // the visitor pressed play
   pause(el);
 }
 
@@ -44,18 +56,19 @@ function listen(tree: Document | ShadowRoot): void {
   tree.addEventListener("play", onPlay, true);
 }
 
-export const media: Behavior = {
+function onRootFound(root: ShadowRoot): void {
+  listen(root); // from now on, autoplay in it is caught the moment it starts...
+  if (!visitorInteractedWithin(FOUND_LATE_WINDOW_MS)) pausePlayingIn(root); // ...and what started before we found it is paused now
+}
+
+export const media: MotionPart = {
   start() {
     window.addEventListener("pointerdown", recordGesture, true);
     window.addEventListener("keydown", recordGesture, true);
-
     listen(document);
     openShadowRootsIn(document).forEach(listen);
-    for (const el of deepQueryAll<HTMLMediaElement>("video, audio")) {
-      if (!el.paused && !el.ended) pause(el);
-    }
-    // Components added later get a listener too; media added later is caught by the "play" listeners.
-    stopWatching = onElementsAdded((added) => added.forEach((el) => openShadowRootsIn(el).forEach(listen)));
+    pausePlayingIn(document);
+    stopWatching = onNewShadowRoot(onRootFound);
   },
 
   stop() {
