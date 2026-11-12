@@ -1,0 +1,29 @@
+/*
+ * Iris: the shared colors of the widget and the dashboard.
+ * Four roles, named by job (not by color), so a site owner can re-theme the widget by changing these four values.
+ *
+ * "On" looks the same everywhere: the --bcn-state-tint background, a 2px --bcn-state border, and a non-color
+ * sign (a check mark, bold text or aria-current). Never color alone.
+ * After changing a value, run `pnpm --filter @app/tokens test`: it checks that every pairing we use still has
+ * enough contrast.
+ *
+ * :host as well as :root, so the same file works inside the widget's shadow root.
+ */
+:root,
+:host {
+  --bcn-bg: #ffffff;    /* every background and surface; also the check mark on a state badge */
+  --bcn-text: #1c1a33;  /* text, headings, primary buttons */
+  --bcn-frame: #5b6475; /* icons, borders, dividers, secondary text (dark enough for small text too) */
+  --bcn-state: #5b47c8; /* state only: a setting that's on, the current page, a critical issue */
+
+  /* Not a fifth color: the state color, 10% over the background. This fallback is for browsers without color-mix(). */
+  --bcn-state-tint: #efedfa;
+}
+
+/* Recomputed from the tokens, so a re-themed state color gets a matching tint */
+@supports (color: color-mix(in srgb, red 10%, white)) {
+  :root,
+  :host {
+    --bcn-state-tint: color-mix(in srgb, var(--bcn-state) 10%, var(--bcn-bg));
+  }
+}
