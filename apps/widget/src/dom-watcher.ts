@@ -15,38 +15,41 @@ let quietTimer: ReturnType<typeof setTimeout> | undefined;
 let maxTimer: ReturnType<typeof setTimeout> | undefined;
 
 const observer = new MutationObserver((records) => {
-  for (const record of records) {
-    record.addedNodes.forEach((node) => {
-      if (node.nodeType === Node.ELEMENT_NODE) pending.add(node as Element);
-    });
-  }
-  if (pending.size) schedule();
+    for (const record of records) {
+        record.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) pending.add(node as Element);
+            // Text filled into an existing element (e.g. an empty <span> filled in later): report that element
+            else if (node.nodeType === Node.TEXT_NODE && node.parentElement) pending.add(node.parentElement);
+        });
+
+    }
+    if (pending.size) schedule();
 });
 
 function schedule(): void {
-  clearTimeout(quietTimer);
-  quietTimer = setTimeout(flush, QUIET_MS);
-  maxTimer ??= setTimeout(flush, MAX_WAIT_MS);
+    clearTimeout(quietTimer);
+    quietTimer = setTimeout(flush, QUIET_MS);
+    maxTimer ??= setTimeout(flush, MAX_WAIT_MS);
 }
 
 function flush(): void {
-  clearTimeout(quietTimer);
-  clearTimeout(maxTimer);
-  quietTimer = maxTimer = undefined;
-  const added = [...pending].filter((el) => el.isConnected); // skip elements already removed again
-  pending = new Set();
-  if (added.length) listeners.forEach((fn) => fn(added));
+    clearTimeout(quietTimer);
+    clearTimeout(maxTimer);
+    quietTimer = maxTimer = undefined;
+    const added = [...pending].filter((el) => el.isConnected); // skip elements already removed again
+    pending = new Set();
+    if (added.length) listeners.forEach((fn) => fn(added));
 }
 
 /** Watch a tree for added elements: the document, or an open shadow root (the document's observer can't see inside those). */
 export function watchTree(root: Document | ShadowRoot): void {
-  if (watched.has(root)) return;
-  watched.add(root);
-  observer.observe(root, { childList: true, subtree: true });
+    if (watched.has(root)) return;
+    watched.add(root);
+    observer.observe(root, { childList: true, subtree: true });
 }
 
 /** Get a batch of added elements after each burst of page changes. Returns an unsubscribe function. */
 export function onElementsAdded(fn: Listener): () => void {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
+    listeners.add(fn);
+    return () => listeners.delete(fn);
 }

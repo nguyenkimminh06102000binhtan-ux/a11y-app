@@ -1,4 +1,4 @@
-import { FEATURES } from "./features";
+import { FEATURES, type ToggleFeature } from "./features";
 import type { Settings } from "./settings";
 import { rescanShadowRoots } from "./shadow-roots";
 import { applyBehaviors } from "./behaviors";
@@ -11,7 +11,9 @@ const shadowSheet = "replaceSync" in CSSStyleSheet.prototype ? new CSSStyleSheet
 
 /** The CSS for every active setting. Empty when nothing is on. */
 export function cssFor(settings: Settings): string {
-  return FEATURES.filter((f) => settings[f.key] && f.css).map((f) => f.css).join("\n");
+  return FEATURES.filter((f): f is ToggleFeature => f.kind !== "levels" && settings[f.key] && !!f.css)
+    .map((f) => f.css)
+    .join("\n");
 }
 
 /** Apply the visitor's settings to the page and to every open shadow root on it. */

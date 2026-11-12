@@ -394,22 +394,72 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 }))
             ).toEqual({ same: "/test-same.gif", pictureSource: "/test-picture.gif", crossVisible: true, canvases: 0, background: true });
         });
-            test("data-a11yw-ignore keeps a section of the page untouched", async ({ page }) => {
-        await page.evaluate(() => {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div data-a11yw-ignore><a href="/ignored" id="ignored-link">Ignored link</a></div>
+        test("data-a11yw-ignore keeps a section of the page untouched", async ({ page }) => {
+            await page.evaluate(() => {
+                document.body.insertAdjacentHTML(
+                    "beforeend",
+                    `<div data-a11yw-ignore><a href="/ignored" id="ignored-link">Ignored link</a></div>
                      <a href="/normal" id="normal-link">Normal link</a>`
-            );
-        });
-        const background = (id: string) =>
-            page.evaluate((id) => getComputedStyle(document.getElementById(id)!).backgroundColor, id);
-        const ignoredBefore = await background("ignored-link");
+                );
+            });
+            const background = (id: string) =>
+                page.evaluate((id) => getComputedStyle(document.getElementById(id)!).backgroundColor, id);
+            const ignoredBefore = await background("ignored-link");
 
-        await turnOn(page, "Highlight links");
-        expect(await background("normal-link")).toBe("rgb(255, 255, 0)");
-        expect(await background("ignored-link")).toBe(ignoredBefore);
-    });
+            await turnOn(page, "Highlight links");
+            expect(await background("normal-link")).toBe("rgb(255, 255, 0)");
+            expect(await background("ignored-link")).toBe(ignoredBefore);
+        });
+        test("Text size enlarges the page's text in 3 levels, not the widget, and restores it", async ({ page }) => {
+            const pageText = () => page.locator("h1").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+            const widgetText = () => toggle(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+            const original = await pageText();
+            const widgetBefore = await widgetText();
+
+            await toggle(page).click();
+            for (const [name, scale] of [["Large (125%)", 1.25], ["Larger (150%)", 1.5], ["Largest (200%)", 2]] as const) {
+                await page.getByRole("radio", { name }).check();
+                expect(await pageText()).toBeCloseTo(original * scale, 0);
+            }
+            expect(await widgetText()).toBe(widgetBefore); // the widget keeps its own size
+
+            // Remembered after a reload (applied once the page has loaded)
+            await page.reload();
+            await expect(toggle(page)).toBeVisible();
+            await expect.poll(pageText).toBeCloseTo(original * 2, 0);
+
+            // Reset leaves no trace
+            await toggle(page).click();
+            await page.getByRole("button", { name: "Reset all" }).click();
+            expect(await pageText()).toBeCloseTo(original, 1);
+            expect(await page.locator("h1").evaluate((el) => (el as HTMLElement).style.fontSize)).toBe("");
+            expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--a11yw-text-scale"))).toBe("");
+        });
+
+        test("Text size: px-sized text grows, and content added later is enlarged once, not twice", async ({ page }) => {
+            await page.evaluate(() => {
+                document.body.insertAdjacentHTML(
+                    "beforeend",
+                    `<p id="t-px" style="font-size: 13px">Sized in px</p>
+                     <p id="t-parent" style="font-size: 20px">Parent <span id="t-old">old child</span></p>`
+                );
+            });
+            const size = (id: string) => page.evaluate((id) => parseFloat(getComputedStyle(document.getElementById(id)!).fontSize), id);
+
+            await toggle(page).click();
+            await page.getByRole("radio", { name: "Larger (150%)" }).check();
+            expect(await size("t-px")).toBeCloseTo(19.5, 1);   // 13px × 1.5: px-based sites work
+            expect(await size("t-parent")).toBeCloseTo(30, 1);
+            expect(await size("t-old")).toBeCloseTo(30, 1);
+
+            // Added after the setting is on: a new paragraph, and a child inside the already enlarged parent
+            await page.evaluate(() => {
+                document.body.insertAdjacentHTML("beforeend", '<p id="t-late" style="font-size: 10px">Late</p>');
+                document.getElementById("t-parent")!.insertAdjacentHTML("beforeend", ' <span id="t-new">new child</span>');
+            });
+            await expect.poll(() => size("t-late")).toBeCloseTo(15, 1);
+            await expect.poll(() => size("t-new")).toBeCloseTo(30, 1); // 20 × 1.5, not 20 × 1.5 × 1.5 = 45
+        });
     });
 }
 
@@ -544,6 +594,13 @@ test.describe("web components (/components.html)", () => {
         await turnOn(page, "Pause animations");
         await addVideoComponent(page, true);
         await expect.poll(() => videoCardState(page)).toEqual({ played: true, paused: true }); // found by the 1s rescan
+    });
+    test("Text size enlarges text inside open shadow roots", async ({ page }) => {
+        const link = page.getByRole("link", { name: "Open shadow link", exact: true });
+        const original = await link.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+        await toggle(page).click();
+        await page.getByRole("radio", { name: "Larger (150%)" }).check();
+        await expect.poll(() => link.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeCloseTo(original * 1.5, 0);
     });
 
 

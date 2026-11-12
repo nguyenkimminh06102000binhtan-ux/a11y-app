@@ -1,45 +1,51 @@
 // The visitor's choices, saved per site in localStorage on the customer's domain.
 export type Settings = {
-  highlightLinks: boolean;
-  textSpacing: boolean;
-  focusOutline: boolean;
-  pauseAnimations: boolean;
+    textSize: number; // 0 = the page's own size; 1–3 = the levels in features.ts
+    highlightLinks: boolean;
+    textSpacing: boolean;
+    focusOutline: boolean;
+    pauseAnimations: boolean;
 };
 
 export const DEFAULTS: Settings = {
-  highlightLinks: false,
-  textSpacing: false,
-  focusOutline: false,
-  pauseAnimations: false,
+    textSize: 0,
+    highlightLinks: false,
+    textSpacing: false,
+    focusOutline: false,
+    pauseAnimations: false,
 };
+
+const MAX_TEXT_SIZE = 3; // keep in step with the Text size levels in features.ts
 
 const KEY = "a11yw:settings:v1"; // bump the version if the shape changes incompatibly
 
 /** Read saved settings. Never throws: storage can be blocked, full, or written to by the page's own scripts. */
 export function loadSettings(): Settings {
-  const settings = { ...DEFAULTS };
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return settings;
-    const saved = JSON.parse(raw) as Record<string, unknown>;
-    // Keep only known keys whose type matches the default; ignore anything else.
-    for (const key of Object.keys(DEFAULTS) as (keyof Settings)[]) {
-      if (typeof saved[key] === typeof DEFAULTS[key]) {
-        (settings as Record<string, unknown>)[key] = saved[key];
-      }
+    const settings = { ...DEFAULTS };
+    try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return settings;
+        const saved = JSON.parse(raw) as Record<string, unknown>;
+        // Keep only known keys whose type matches the default; ignore anything else.
+        for (const key of Object.keys(DEFAULTS) as (keyof Settings)[]) {
+            if (typeof saved[key] === typeof DEFAULTS[key]) {
+                (settings as Record<string, unknown>)[key] = saved[key];
+            }
+        }
+        // A number isn't enough: it must be one of our levels
+        if (!Number.isInteger(settings.textSize) || settings.textSize < 0 || settings.textSize > MAX_TEXT_SIZE) settings.textSize = 0;
+    } catch {
+        // Corrupt JSON or blocked storage (e.g. Safari private mode, strict cookie settings): use defaults.
     }
-  } catch {
-    // Corrupt JSON or blocked storage (e.g. Safari private mode, strict cookie settings): use defaults.
-  }
-  return settings;
+    return settings;
 }
 
 export function saveSettings(settings: Settings): void {
-  try {
-    const isDefault = (Object.keys(DEFAULTS) as (keyof Settings)[]).every((k) => settings[k] === DEFAULTS[k]);
-    if (isDefault) localStorage.removeItem(KEY); // leave no trace when nothing is changed
-    else localStorage.setItem(KEY, JSON.stringify(settings));
-  } catch {
-    // Storage unavailable: the setting still works for this page view.
-  }
+    try {
+        const isDefault = (Object.keys(DEFAULTS) as (keyof Settings)[]).every((k) => settings[k] === DEFAULTS[k]);
+        if (isDefault) localStorage.removeItem(KEY); // leave no trace when nothing is changed
+        else localStorage.setItem(KEY, JSON.stringify(settings));
+    } catch {
+        // Storage unavailable: the setting still works for this page view.
+    }
 }
