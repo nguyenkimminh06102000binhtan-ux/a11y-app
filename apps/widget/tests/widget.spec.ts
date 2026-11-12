@@ -7,6 +7,18 @@ const toggle = (page: Page) => page.getByRole("button", { name: "Accessibility" 
 const panel = (page: Page) => page.getByRole("region", { name: "Accessibility settings" });
 const closeButton = (page: Page) => page.getByRole("button", { name: "Close", exact: true });
 
+/** The dashboard's answer in these tests (no dashboard runs here). Default: allowed, our colors, nothing on by default. */
+const CONFIG = { v: 1, enabled: true, theme: {}, defaults: {} };
+async function serveConfig(page: Page, config: object | null) {
+    // The last route registered wins, so a test can replace the default below. null = the dashboard is unreachable.
+    await page.route("**/api/widget/config?**", (route) =>
+        config ? route.fulfill({ json: config, headers: { "Access-Control-Allow-Origin": "*" } }) : route.abort()
+    );
+}
+test.beforeEach(({ page }) => serveConfig(page, CONFIG));
+
+
+
 async function turnOn(page: Page, label: string) {
     await toggle(page).click();
     await page.getByRole("checkbox", { name: label }).check();
@@ -1209,6 +1221,80 @@ test.describe("same-origin iframes (/)", () => {
         expect(await hasOurStyle(page, "own")).toBe(false);
         expect(await page.locator("#other").evaluate((f) => (f as HTMLIFrameElement).contentDocument)).toBeNull();
         expect(errors).toEqual([]);
+    });
+});
+
+
+test.describe("site owner's config (/)", () => {
+    const VIOLET = "rgb(91, 71, 200)"; // our default state color
+    const launcherColor = (page: Page) => toggle(page).evaluate((el) => getComputedStyle(el).backgroundColor);
+    const linkBackground = (page: Page) => page.locator("a[href]").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    test("asks for this account and hostname", async ({ page }) => {
+        const request = page.waitForRequest("**/api/widget/config?**");
+        await page.goto("/");
+        const url = new URL((await request).url());
+        expect(url.searchParams.get("account")).toBe("acct_test");
+        expect(url.searchParams.get("host")).toBe("localhost");
+    });
+
+    test("doesn't show on a domain that isn't one of the account's sites, and applies nothing", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, enabled: false });
+        await page.addInitScript(() => localStorage.setItem("a11yw:settings:v1", JSON.stringify({ highlightLinks: true })));
+        const warning = page.waitForEvent("console", (msg) => msg.type() === "warning" && msg.text().includes("isn't one of this account's sites"));
+        await page.goto("/");
+        await warning;
+        await expect(page.locator("a11yw-root")).toHaveCount(0);
+        expect(await linkBackground(page)).not.toBe("rgb(255, 255, 0)");
+    });
+
+    test("uses the owner's brand color, and ignores one without enough contrast", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, theme: { state: "#c62828" } });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        expect(await launcherColor(page)).toBe("rgb(198, 40, 40)");
+
+        await serveConfig(page, { ...CONFIG, theme: { state: "#ffd400" } }); // yellow: white marks on it would be unreadable
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        expect(await launcherColor(page)).toBe(VIOLET);
+    });
+
+    test("turns on the owner's defaults for new visitors; the visitor's own choice wins and Reset all brings them back", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, defaults: { highlightLinks: true } });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await expect.poll(() => linkBackground(page)).toBe("rgb(255, 255, 0)");
+
+        await toggle(page).click();
+        await page.getByRole("checkbox", { name: "Highlight links" }).uncheck();
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        expect(await linkBackground(page)).not.toBe("rgb(255, 255, 0)"); // turning it off stuck
+
+        await toggle(page).click();
+        await page.getByRole("button", { name: "Reset all" }).click();
+        await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked(); // back to the owner's starting point
+        expect(await page.evaluate(() => localStorage.getItem("a11yw:settings:v1"))).toBeNull();
+    });
+
+    test("still shows, with our defaults, when the dashboard can't be reached", async ({ page }) => {
+        await serveConfig(page, null);
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        expect(await launcherColor(page)).toBe(VIOLET);
+    });
+
+    test("a returning visitor keeps the last brand color while the dashboard is down", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, theme: { state: "#c62828" } });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+
+        await serveConfig(page, null);
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        expect(await launcherColor(page)).toBe("rgb(198, 40, 40)");
     });
 });
 

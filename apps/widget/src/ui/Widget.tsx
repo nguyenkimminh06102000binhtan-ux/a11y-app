@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
-import { DEFAULTS, loadSettings, saveSettings, type Settings } from "../settings/settings";
+import { loadSettings, saveSettings, startingSettings, type Settings } from "../settings/settings";
 import { CheckBadge, CloseIcon, FeatureIcon, Mark, ResetIcon } from "./icons";
 
 export function Widget() {
@@ -125,7 +125,7 @@ export function Widget() {
                     </ul>
                 </div>
                 <div class="panel-footer">
-                    <button type="button" class="reset" onClick={() => update({ ...DEFAULTS })}>
+                    <button type="button" class="reset" onClick={() => update(startingSettings())}>
                         <ResetIcon />
                         Reset all
                     </button>

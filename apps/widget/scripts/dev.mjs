@@ -8,9 +8,12 @@ const ctx = await esbuild.context({
   target: "es2018",
   loader: { ".css": "text" },
   logLevel: "info",
-  define: { 
+  define: {
     __APP_FILE__: JSON.stringify("app.js"),
     __APP_INTEGRITY__: JSON.stringify(""),  // dev: no integrity check, since the file changes on every save
+    // The dashboard's dev server, where the widget asks for its config (WIDGET_API_BASE=http://localhost:3001 to change)
+    __API_BASE__: JSON.stringify(process.env.WIDGET_API_BASE ?? "http://localhost:3000"),
+
   }, // dev: no hash in the name
 });
 

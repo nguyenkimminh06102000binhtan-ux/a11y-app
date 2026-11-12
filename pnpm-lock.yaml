@@ -272,6 +272,9 @@ importers:
       '@app/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@app/widget-config':
+        specifier: workspace:*
+        version: link:../../packages/widget-config
       '@axe-core/playwright':
         specifier: ^4.14.0
         version: 4.14.0(playwright-core@1.65.0)

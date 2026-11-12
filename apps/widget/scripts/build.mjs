@@ -4,6 +4,10 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const OUT = "dist";
+// The dashboard's origin, where the widget asks for its config. Set it for each deployment:
+//   WIDGET_API_BASE=https://app.example.com pnpm --filter widget build
+const API_BASE = process.env.WIDGET_API_BASE ?? "http://localhost:3000";
+
 const shared = {
   bundle: true,
   format: "iife",
@@ -12,6 +16,7 @@ const shared = {
   loader: { ".css": "text" },
   write: false, // keep output in memory so we can hash it before writing
   logLevel: "warning",
+  define: { __API_BASE__: JSON.stringify(API_BASE) },
 };
 
 await rm(OUT, { recursive: true, force: true });
@@ -32,6 +37,7 @@ const loader = await esbuild.build({
   entryPoints: ["src/entries/loader.ts"],
   outfile: "l.js",
   define: {
+    ...shared.define,
     __APP_FILE__: JSON.stringify(appFile),
     __APP_INTEGRITY__: JSON.stringify(integrity),
   },
@@ -54,6 +60,7 @@ for (const { name, bytes, max } of LIMITS) {
   );
 }
 console.log(`integrity: ${integrity}`);
+console.log(`config from: ${API_BASE}/api/widget/config`);
 
 if (overLimit) {
   console.error("✗ Bundle over its size limit. Shrink it, or raise the limit deliberately in scripts/build.mjs.");

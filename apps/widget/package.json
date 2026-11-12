@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-  "dev": "node scripts/dev.mjs",
-  "build": "node scripts/build.mjs",
-  "preview": "node scripts/build.mjs && cp public/*.html dist/ && node scripts/serve.mjs",
-  "test": "playwright test",
-  "typecheck": "tsc --noEmit && tsc --noEmit -p tests"
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/build.mjs && cp public/*.html dist/ && node scripts/serve.mjs",
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests"
   },
   "keywords": [],
   "author": "",
@@ -20,7 +20,8 @@
     "@types/node": "^20.19.43",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
-    "@app/tokens": "workspace:*"
+    "@app/tokens": "workspace:*",
+    "@app/widget-config": "workspace:*"
   },
   "dependencies": {
     "preact": "^11.2.0"

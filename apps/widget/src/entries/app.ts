@@ -2,30 +2,30 @@
 import { h, render } from "preact";
 import { mount } from "../ui/mount";
 import { Widget } from "../ui/Widget";
-import { loadSettings } from "../settings/settings";
-import { adoptInto, applyToFrame, applyToPage } from "../settings/apply";
+import { DEFAULTS, loadSettings, setOwnerDefaults } from "../settings/settings";
+import { adoptInto, applyToFrame, applyToPage, restoreDocumentCss } from "../settings/apply";
 import { watchShadowRoots } from "../core/shadow-roots";
 import { keepMounted } from "../ui/keep-mounted";
-import { restoreDocumentCss } from "../settings/apply";
 import { textSize } from "../features/text-size";
 import { FEATURES } from "../features";
 import { warnUnknownIgnoreIds } from "../core/ignore";
 import { watchIframes } from "../core/iframes";
-
-
-
-
+import { cachedConfig, fetchConfig } from "../settings/config";
+import { applyTheme } from "../ui/theme";
 
 const thisScript = document.currentScript as HTMLScriptElement | null; // only valid right now, not later
-const account = thisScript?.dataset.account;
+const account = thisScript?.dataset.account ?? "";
 
-console.log("[a11y-widget] app loaded", { account, host: location.hostname });
+// Ask the dashboard now, so the answer is usually back by the time the page has loaded.
+const config = fetchConfig(account);
 
-// Apply saved settings now, not after load, so the visitor doesn't see the page unadjusted first.
-applyToPage(loadSettings());
+// Apply the visitor's settings now, not after load, so they don't see the page unadjusted first.
+// The owner's defaults come from the last page view's config; a site where the widget isn't allowed gets nothing.
+const lastConfig = cachedConfig(account);
+if (lastConfig) setOwnerDefaults(lastConfig.defaults);
+if (lastConfig?.enabled !== false) applyToPage(loadSettings());
 watchShadowRoots(adoptInto); // from now on, every open shadow root on the page gets the shared stylesheet
 watchIframes(applyToFrame); // same-origin iframes get the CSS settings too (after watchShadowRoots: it starts the observer)
-
 
 /** The widget isn't needed for first paint: wait for the page so we don't compete with it. */
 function whenPageLoaded(): Promise<void> {
@@ -33,12 +33,23 @@ function whenPageLoaded(): Promise<void> {
   return new Promise((resolve) => window.addEventListener("load", () => resolve(), { once: true }));
 }
 
-whenPageLoaded().then(() => {
+Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults }]) => {
+  setOwnerDefaults(defaults);
+  if (!enabled) {
+    // Not one of the account's sites: no widget, and undo anything applied from an older answer.
+    // The visitor's saved choices stay, for when the site is added.
+    applyToPage({ ...DEFAULTS }); // every setting off
+    console.warn(`[a11y-widget] ${location.hostname} isn't one of this account's sites. Add it in the dashboard to show the widget.`);
+    return;
+  }
+  applyToPage(loadSettings()); // the fresh answer may have changed the owner's defaults
+
   const container = mount();
+  const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
+  applyTheme(host, theme); // before the first render, so the brand color never flashes
   render(h(Widget, {}), container);
 
   // Single-page apps can remove the widget, our <style> or the text-size variable while navigating: put them back.
-  const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
   keepMounted(host, () => {
     restoreDocumentCss();
     textSize.restore();
@@ -47,4 +58,3 @@ whenPageLoaded().then(() => {
   // Help site owners spot typos like data-a11yw-ignore="text-sise"
   warnUnknownIgnoreIds(FEATURES.map((f) => f.id));
 });
-
