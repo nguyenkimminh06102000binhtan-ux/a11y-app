@@ -1,5 +1,7 @@
 import { HOST_TAG } from "../core/host";
 import css from "./widget.css";
+import tokens from "@app/tokens/tokens.css"; // shared colors: --bcn-bg, --bcn-text, --bcn-frame, --bcn-state, --bcn-state-tint
+
 
 /** Create the widget's isolated container and return the element to render into. */
 export function mount(): HTMLElement {
@@ -11,7 +13,7 @@ export function mount(): HTMLElement {
     const shadow = host.attachShadow({ mode: "open" });
 
     const style = document.createElement("style");
-    style.textContent = css;
+    style.textContent = tokens + css;
     shadow.appendChild(style);
 
     // Preact gets its own container: rendering straight into the shadow root could remove our <style>.

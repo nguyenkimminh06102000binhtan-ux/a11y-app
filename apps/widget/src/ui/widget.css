@@ -3,6 +3,7 @@
  *    and inherited properties flow from the host into the shadow tree. For !important rules,
  *    the shadow root's own rule wins over the page's, so `all: initial !important` beats the
  *    page's !important. Properties declared after `all` in the same rule override it.
+ *    `all` doesn't reset custom properties, so our --bcn-* colors (from @app/tokens, on :host) survive it.
  */
 :host {
   all: initial !important;
@@ -16,7 +17,7 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
   font-size: medium !important; /* the visitor's browser default text size, unaffected by the page's html font-size */
   line-height: 1.5 !important;
-  color: #1a1a1a !important;
+  color: var(--bcn-text) !important;
   letter-spacing: normal !important;
   text-align: left !important;
   visibility: visible !important;
@@ -42,9 +43,9 @@
   font: inherit;
   min-height: 2.75em;
   padding: 0.5em 1.25em;
-  color: #fff;
-  background: #1a1a1a;
-  border: 2px solid #fff; /* keeps the button visible against dark page backgrounds */
+  color: var(--bcn-bg);
+  background: var(--bcn-text);
+  border: 2px solid var(--bcn-bg); /* keeps the button visible against dark page backgrounds */
   border-radius: 999px;
   box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.3);
   cursor: pointer;
@@ -58,8 +59,8 @@
   max-height: calc(100vh - 6em);
   overflow: auto;
   padding: 1em;
-  background: #fff;
-  border: 2px solid #1a1a1a;
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
   border-radius: 0.5em;
   box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.2);
 }
@@ -81,17 +82,12 @@
   flex: none;
   min-height: 2.75em; /* ~44px at default text size; WCAG 2.5.8 requires at least 24px */
   padding: 0.25em 0.75em;
-  color: #1a1a1a;
-  background: #fff;
-  border: 2px solid #1a1a1a;
+  color: var(--bcn-text);
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
   border-radius: 0.375em;
   cursor: pointer;
 }
-
-/*
- * Focus ring that's visible on any page background: a dark ring next to the element and a
- * white ring outside it. The page's `*:focus { outline: none }` can't reach in here.
- */
 
 .features {
   list-style: none;
@@ -105,14 +101,14 @@
   column-gap: 0.75em;
   align-items: center;
   padding: 0.75em 0;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid var(--bcn-frame);
 }
 
 .feature-input {
   width: 1.5em; /* 24px at default text size: the WCAG 2.5.8 minimum */
   height: 1.5em;
   margin: 0;
-  accent-color: #1a1a1a;
+  accent-color: var(--bcn-state);
   cursor: pointer;
 }
 
@@ -125,16 +121,16 @@
   grid-column: 2; /* sits under the label, lined up with it */
   margin: 0.25em 0 0;
   font-size: 0.875em;
-  color: #444;
+  color: var(--bcn-frame);
 }
 
 .reset {
   font: inherit;
   width: 100%;
   min-height: 2.75em;
-  color: #1a1a1a;
-  background: #fff;
-  border: 2px solid #1a1a1a;
+  color: var(--bcn-text);
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
   border-radius: 0.375em;
   cursor: pointer;
 }
@@ -164,27 +160,34 @@
   gap: 0.5em;
   min-height: 2.75em; /* ~44px target at default text size */
   padding: 0 0.5em;
-  border: 2px solid #1a1a1a;
+  border: 2px solid var(--bcn-frame);
   border-radius: 0.375em;
   cursor: pointer;
 }
 
+/* The chosen level: the shared "on" look (tint, state border, bold) on top of the radio dot */
 .level:has(:checked) {
   font-weight: 700;
-  box-shadow: inset 0 0 0 2px #1a1a1a; /* thicker border on the chosen level, on top of the radio dot */
+  color: var(--bcn-state);
+  background: var(--bcn-state-tint);
+  border-color: var(--bcn-state);
 }
 
 .level-input {
   width: 1.25em;
   height: 1.25em;
   margin: 0;
-  accent-color: #1a1a1a;
+  accent-color: var(--bcn-state);
 }
 
+/*
+ * Focus ring that's visible on any page background: a dark ring next to the element and a
+ * white ring outside it. The page's `*:focus { outline: none }` can't reach in here.
+ */
 :focus-visible {
-  outline: 3px solid #1a1a1a;
+  outline: 3px solid var(--bcn-text);
   outline-offset: 0;
-  box-shadow: 0 0 0 6px #fff;
+  box-shadow: 0 0 0 6px var(--bcn-bg);
 }
 
 /* Windows high contrast: box-shadows are removed, so use the system highlight color for the outline */
@@ -203,5 +206,3 @@
     transition: none !important;
   }
 }
-
-
