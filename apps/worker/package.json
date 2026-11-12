@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "scan": "tsx --env-file=.env src/scan.ts"
+    "scan": "tsx --env-file=.env src/scan.ts",
+    "dev": "tsx --env-file=.env src/worker.ts"
   },
   "keywords": [],
   "author": "",

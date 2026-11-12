@@ -32,8 +32,9 @@ export const scans = pgTable(
     error: text("error"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
   },
-  (t) => [index().on(t.siteId, t.createdAt)]
+  (t) => [index().on(t.siteId, t.createdAt), index().on(t.status, t.createdAt)]
 ).enableRLS();
 
 export const issues = pgTable(

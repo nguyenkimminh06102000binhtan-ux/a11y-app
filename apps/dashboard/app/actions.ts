@@ -3,9 +3,10 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { db, sites, eq, and } from "@app/db";
+import { db, sites, eq, and, scans, inArray } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeDomain } from "@/lib/domain";
+import { isUuid } from "@/lib/ids";
 
 export async function addSite(formData: FormData) {
   const user = await getCurrentUser();
@@ -40,4 +41,43 @@ export async function deleteSite(formData: FormData) {
     .where(and(eq(sites.id, id), eq(sites.accountId, user.id)));
 
   revalidatePath("/");
+}
+
+export async function requestScan(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const siteId = String(formData.get("siteId") ?? "");
+  if (!isUuid(siteId)) redirect("/");
+
+  const [site] = await db
+    .select()
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.accountId, user.id)));
+  if (!site) redirect("/");
+
+  const back = `/sites/${site.id}`;
+
+  let url: URL;
+  try {
+    url = new URL(String(formData.get("url") ?? "").trim());
+  } catch {
+    redirect(`${back}?error=url`);
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") redirect(`${back}?error=url`);
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== site.domain && !host.endsWith(`.${site.domain}`)) redirect(`${back}?error=domain`);
+
+  const pending = await db
+    .select({ id: scans.id })
+    .from(scans)
+    .where(and(eq(scans.siteId, site.id), inArray(scans.status, ["queued", "running"])))
+    .limit(1);
+  if (pending.length) redirect(`${back}?error=busy`);
+
+  await db.insert(scans).values({ siteId: site.id, url: url.toString(), status: "queued" });
+
+  revalidatePath(back);
+  redirect(back);
 }
