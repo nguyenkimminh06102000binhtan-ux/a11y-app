@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { db, sites, eq } from "@app/db";
+import Link from "next/link";
+import { db, sites, accounts, eq } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { CopyButton } from "@/components/CopyButton";
 import { addSite, deleteSite } from "./actions";
-import Link from "next/link";
+
+const WIDGET_SRC = "https://cdn.example.com/l.js"; // replaced with the real CDN URL in step 9
 
 const ERRORS: Record<string, string> = {
   invalid: "That doesn't look like a valid domain. Try something like shop.com.",
@@ -32,6 +35,14 @@ export default function Home({
           <UserInfo />
         </Suspense>
       </header>
+
+      <section aria-labelledby="install-heading">
+        <h2 id="install-heading">Install the widget</h2>
+        <p>Paste this once on every site you add below. It's the same code for all of them.</p>
+        <Suspense fallback={<p>Loading install code…</p>}>
+          <InstallCode />
+        </Suspense>
+      </section>
 
       <section aria-labelledby="add-site-heading">
         <h2 id="add-site-heading">Add a site</h2>
@@ -74,6 +85,32 @@ async function UserInfo() {
   );
 }
 
+async function InstallCode() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const [account] = await db
+    .select({ widgetKey: accounts.widgetKey })
+    .from(accounts)
+    .where(eq(accounts.id, user.id));
+
+  // the auth callback creates this row; if that failed, don't crash the page
+  if (!account) {
+    return <p role="alert">We couldn't load your account. Please sign out and sign in again.</p>;
+  }
+
+  const snippet = `<script src="${WIDGET_SRC}" data-account="${account.widgetKey}" async></script>`;
+
+  return (
+    <>
+      <pre>
+        <code>{snippet}</code>
+      </pre>
+      <CopyButton text={snippet} label="Copy install code" />
+    </>
+  );
+}
+
 async function AddSiteError({
   searchParams,
 }: {
@@ -104,10 +141,6 @@ async function SiteList() {
           {rows.map((site) => (
             <li key={site.id}>
               <h3><Link href={`/sites/${site.id}`}>{site.domain}</Link></h3>
-              <p>Embed code:</p>
-              <pre>
-                <code>{`<script src="https://cdn.example.com/l.js" data-site="${site.siteKey}" async></script>`}</code>
-              </pre>
               <form action={deleteSite}>
                 <input type="hidden" name="id" value={site.id} />
                 <button type="submit" aria-label={`Delete ${site.domain}`}>

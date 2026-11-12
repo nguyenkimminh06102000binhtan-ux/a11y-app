@@ -1,9 +1,14 @@
 import { pgTable, pgEnum, uuid, text, integer, timestamp, unique, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const accounts = pgTable("accounts", {
-  id: uuid("id").primaryKey(), // will equal the Supabase auth user id
+  id: uuid("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name"),
+  widgetKey: text("widget_key")
+    .notNull()
+    .unique()
+    .default(sql`'acct_' || replace(gen_random_uuid()::text, '-', '')`),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }).enableRLS();
 
@@ -13,7 +18,6 @@ export const sites = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
     domain: text("domain").notNull(),
-    siteKey: text("site_key").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [unique().on(t.accountId, t.domain)]
@@ -56,4 +60,6 @@ export const issues = pgTable(
   },
   (t) => [index().on(t.scanId), index().on(t.siteId, t.fingerprint)]
 ).enableRLS();
+
+
 
