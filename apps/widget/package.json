@@ -5,9 +5,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "esbuild src/index.ts --bundle --format=iife --target=es2018 --outfile=public/widget.js --servedir=public --serve=4000 --watch",
-    "build": "esbuild src/index.ts --bundle --minify --format=iife --target=es2018 --outfile=dist/widget.js"
+  "dev": "node scripts/dev.mjs",
+  "build": "node scripts/build.mjs",
+  "preview": "node scripts/build.mjs && cp public/index.html dist/ && python3 -m http.server 4001 --directory dist",
+  "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",

@@ -3,4 +3,4 @@ node_modules
 .turbo
 .env*
 apps/widget/dist
-apps/widget/public/widget.js
+apps/widget/public/*.js
