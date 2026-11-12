@@ -4,16 +4,20 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "build": "node scripts/build.mjs",
-    "preview": "node scripts/build.mjs && cp public/*.html dist/ && python3 -m http.server 4001 --directory dist",
-    "typecheck": "tsc --noEmit"
+  "dev": "node scripts/dev.mjs",
+  "build": "node scripts/build.mjs",
+  "preview": "node scripts/build.mjs && cp public/*.html dist/ && node scripts/serve.mjs",
+  "test": "playwright test",
+  "typecheck": "tsc --noEmit && tsc --noEmit -p tests"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^20.19.43",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   },

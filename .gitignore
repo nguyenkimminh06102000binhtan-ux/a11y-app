@@ -4,3 +4,6 @@ node_modules
 .env*
 apps/widget/dist
 apps/widget/public/*.js
+apps/widget/test-results
+apps/widget/playwright-report
+

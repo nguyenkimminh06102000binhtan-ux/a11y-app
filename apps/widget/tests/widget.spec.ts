@@ -1,0 +1,128 @@
+import { test, expect, type Page } from "@playwright/test";
+import { AxeBuilder } from "@axe-core/playwright";
+
+const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+const toggle = (page: Page) => page.getByRole("button", { name: "Accessibility" });
+const panel = (page: Page) => page.getByRole("region", { name: "Accessibility settings" });
+const closeButton = (page: Page) => page.getByRole("button", { name: "Close", exact: true });
+
+/** axe scan of the widget only. The hostile page's own problems are deliberate and not ours. */
+async function widgetViolations(page: Page) {
+  const results = await new AxeBuilder({ page }).include("a11yw-root").withTags(WCAG).analyze();
+  // Readable failure output: "rule-id: selector, selector"
+  return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+}
+
+for (const path of ["/", "/hostile.html"]) {
+  test.describe(`widget on ${path}`, () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto(path);
+      await expect(toggle(page)).toBeVisible(); // mounts after the page's load event
+    });
+
+    test("loads the hashed app with an integrity check", async ({ page }) => {
+      await expect(page.locator("head script[integrity][crossorigin='anonymous']")).toHaveCount(1);
+    });
+
+    test("has no WCAG violations, closed and open", async ({ page }) => {
+      expect(await widgetViolations(page)).toEqual([]);
+      await toggle(page).click();
+      await expect(panel(page)).toBeVisible();
+      expect(await widgetViolations(page)).toEqual([]);
+    });
+
+    test("page styles don't leak in", async ({ page }) => {
+      const style = await toggle(page).evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { font: s.fontFamily, color: s.color, direction: s.direction, letterSpacing: s.letterSpacing };
+      });
+      expect(style.font).not.toContain("Comic Sans");
+      expect(style.color).toBe("rgb(255, 255, 255)");
+      expect(style.direction).toBe("ltr");
+      expect(style.letterSpacing).toBe("normal");
+
+      const lang = await toggle(page).evaluate((el) => el.closest("[lang]")?.getAttribute("lang"));
+      expect(lang).toBe("en");
+    });
+
+    test("stays in the bottom-right corner, on top, while scrolling", async ({ page }) => {
+      for (const scrollY of [0, 2000]) {
+        await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+        const box = await toggle(page).boundingBox();
+        const viewport = page.viewportSize()!;
+        expect(box).not.toBeNull();
+        expect(box!.x + box!.width).toBeGreaterThan(viewport.width - 40);
+        expect(box!.y + box!.height).toBeGreaterThan(viewport.height - 40);
+
+        // Nothing on the page covers it (e.g. the hostile page's cookie banner)
+        const topTag = await page.evaluate(
+          ([x, y]) => document.elementFromPoint(x, y)?.tagName,
+          [box!.x + box!.width / 2, box!.y + box!.height / 2]
+        );
+        expect(topTag).toBe("A11YW-ROOT");
+      }
+    });
+
+    test("keyboard: Enter opens, Escape closes and returns focus, page never sees Escape", async ({ page }) => {
+      const pageEscapes: string[] = [];
+      page.on("console", (msg) => {
+        if (msg.text() === "PAGE saw Escape") pageEscapes.push(msg.text());
+      });
+
+      await toggle(page).focus();
+      await page.keyboard.press("Enter");
+      await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
+      await expect(panel(page)).toBeVisible();
+      await expect(toggle(page)).toBeFocused(); // disclosure: focus doesn't jump into the panel
+
+      await page.keyboard.press("Tab");
+      await expect(closeButton(page)).toBeFocused();
+
+      await page.keyboard.press("Escape");
+      await expect(panel(page)).toBeHidden();
+      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(toggle(page)).toBeFocused();
+
+      if (path === "/hostile.html") {
+        // Positive control: an Escape pressed on the page itself IS seen, so the listener works...
+        await page.locator("h1").click();
+        await page.keyboard.press("Escape");
+        await expect.poll(() => pageEscapes.length).toBe(1); // ...and the widget's Escape earlier was not.
+      }
+    });
+
+    test("Close button closes and returns focus", async ({ page }) => {
+      await toggle(page).click();
+      await closeButton(page).click();
+      await expect(panel(page)).toBeHidden();
+      await expect(toggle(page)).toBeFocused();
+    });
+
+    test("panel stays open while the visitor uses the page", async ({ page }) => {
+      await toggle(page).click();
+      await page.locator("h1").click();
+      await expect(panel(page)).toBeVisible();
+    });
+
+    test("focus ring is visible, also in forced-colors mode", async ({ page }) => {
+      for (const forcedColors of ["none", "active"] as const) {
+        await page.emulateMedia({ forcedColors });
+        await toggle(page).focus();
+        const ring = await toggle(page).evaluate((el) => {
+          const s = getComputedStyle(el);
+          return { focusVisible: el.matches(":focus-visible"), style: s.outlineStyle, width: s.outlineWidth };
+        });
+        expect(ring).toEqual({ focusVisible: true, style: "solid", width: "3px" });
+      }
+    });
+
+    test("buttons are at least 44px tall at default text size", async ({ page }) => {
+      await toggle(page).click();
+      for (const button of [toggle(page), closeButton(page)]) {
+        const box = await button.boundingBox();
+        expect(box!.height).toBeGreaterThanOrEqual(44); // WCAG 2.5.8 minimum is 24; 44 is our own standard
+      }
+    });
+  });
+}
