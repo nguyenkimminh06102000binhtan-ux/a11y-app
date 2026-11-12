@@ -1,10 +1,14 @@
 // The visitor's choices, saved per site in localStorage on the customer's domain.
 export type Settings = {
   highlightLinks: boolean;
+  textSpacing: boolean;
+  focusOutline: boolean;
 };
 
 export const DEFAULTS: Settings = {
   highlightLinks: false,
+  textSpacing: false,
+  focusOutline: false,
 };
 
 const KEY = "a11yw:settings:v1"; // bump the version if the shape changes incompatibly
