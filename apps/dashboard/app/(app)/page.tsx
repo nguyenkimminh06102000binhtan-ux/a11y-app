@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db, sites, accounts, eq } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
 import { CopyButton } from "@/components/CopyButton";
 import { addSite, deleteSite } from "@/app/actions";
 
@@ -27,7 +26,7 @@ export default function Home({
 
       <section aria-labelledby="install-heading">
         <h2 id="install-heading">Install the widget</h2>
-        <p>Paste this once on every site you add below. It's the same code for all of them.</p>
+        <p>Paste this once on every site you add below. It&apos;s the same code for all of them.</p>
         <Suspense fallback={<p>Loading install code…</p>}>
           <InstallCode />
         </Suspense>
@@ -72,7 +71,7 @@ async function InstallCode() {
 
   // the auth callback creates this row; if that failed, don't crash the page
   if (!account) {
-    return <p role="alert">We couldn't load your account. Please sign out and sign in again.</p>;
+    return <p role="alert">We couldn&apos;t load your account. Please sign out and sign in again.</p>;
   }
 
   const snippet = `<script src="${WIDGET_SRC}" data-account="${account.widgetKey}" async></script>`;

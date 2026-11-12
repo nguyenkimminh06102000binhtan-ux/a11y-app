@@ -4,15 +4,13 @@ Accessibility widget + audit dashboard that pinpoints unfixed issues and shows e
 
 ## Structure
 - `apps/ww` — marketing site (yourapp.com)
-- `apps/dashboard` — Next.js customer dashboard (+ /admin)
+- `apps/dashboard` — Next.js customer dashboard (+ /admin); also serves the widget's config (`/api/widget/config`)
 - `apps/widget` — accessibility toolbar widget (CDN bundle: `l.js` loader + content-hashed app)
 - `apps/worker` — audit runner (Playwright + axe-core, Postgres queue)
 - `apps/shopify` — Shopify app + theme extension     _(coming)_
 - `packages/db` — Drizzle schema + database client
-- `packages/*` — shared engine, types                _(coming)_
 - `packages/tokens` — shared design tokens (Iris colors) + contrast check
-- `packages/widget-config` — the widget ⇄ dashboard config contract (types, validation, color contrast check)
-
+- `packages/widget-config` — the widget ⇄ dashboard contract: settings and config schemas (Valibot), brand color math
 
 ## Dev
 ```bash
@@ -20,24 +18,56 @@ pnpm install
 pnpm dev
 ```
 
+| App | Address |
+|---|---|
+| Dashboard | http://localhost:3001 (pinned, so the widget knows where to ask for its config) |
+| Widget test pages | http://localhost:4000 |
+
 ### Widget
 ```bash
 pnpm --filter widget dev        # http://localhost:4000 — test pages: /, /hostile.html, /components.html
 pnpm --filter widget build      # dist/: l.js + app.<hash>.js; fails if over the size limits
 pnpm --filter widget preview    # serves the production build at http://localhost:4001
-pnpm --filter widget test       # Playwright + axe against the production build
+pnpm --filter widget test       # Playwright + axe against the production build (the config is mocked)
 pnpm --filter widget typecheck
 ```
+The test pages use the fake key `acct_test`: the dashboard answers 400 and the widget shows with our defaults.
+To try your own settings, copy `index.html` to `apps/widget/public/mine.html` (git-ignored), put your real
+`acct_…` key in it, add `localhost` as a site in the dashboard, and open http://localhost:4000/mine.html.
+
+### Shared packages
+```bash
+pnpm --filter @app/tokens test           # every color pairing we use still has enough contrast
+pnpm --filter @app/widget-config test    # schemas, and readable colors for any brand color
+pnpm --filter @app/db db:generate        # after a schema change; then db:migrate
+```
+
+## Deploying the widget
+Build it with the dashboard's address, so it asks the right server for its config:
+```bash
+WIDGET_API_BASE=https://app.example.com pnpm --filter widget build
+```
+Without it, the build points to `http://localhost:3001` (the build prints which address it uses).
 
 ## Widget: notes for site owners
 
-**Install**
+**Install** the same snippet on every site of your account:
 ```html
 <script src="https://cdn.example.com/l.js" data-account="acct_…" async></script>
 ```
 The widget mounts after the page's `load` event, inside its own shadow root, and stays mounted across
 single-page-app navigation. It adds nothing to your HTML except one `<style>` while a setting is on.
 
+**Where it shows:** on the sites you've added in the dashboard and their subdomains (`www.` is ignored), and on
+`localhost` for testing. On any other domain it stays hidden and logs one console warning.
+
+**Settings per site** (dashboard › your site › Widget on this site):
+- **Brand color:** any color. Icons on it are black or white, whichever reads best; it's used for text and borders
+  only where it's dark enough to read, so the widget always stays readable.
+- **On by default:** settings that start on for visitors who haven't changed anything. Visitors can turn them
+  off, and their own choices always win.
+- A subdomain added as its own site uses its own settings; otherwise it uses its parent site's.
+- Changes reach visitors within about 5 minutes.
 
 **Exclude part of a page** from every setting, or only from some:
 ```html
@@ -64,12 +94,26 @@ These names are a public contract: never rename one once customers use it.
 | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
 | Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
 
-Settings are saved per site in the visitor's browser (`localStorage`), applied inside open web components and same-origin iframes too
-and survive single-page-app navigation. Turning a setting off restores the page exactly.
+Settings are saved per site in the visitor's browser (`localStorage`), applied inside open web components and
+same-origin iframes too, and survive single-page-app navigation. Turning a setting off restores the page exactly.
+
+## Widget config: how it works
+- The widget asks `GET /api/widget/config?account=acct_…&host=<page hostname>` as soon as it loads, and waits at
+  most 3 seconds. The answer says whether it may show, the brand color, and the settings on by default.
+- **Fails open:** no answer (server down, blocked request) means the last answer this visitor got, or our defaults.
+  An accessibility tool shouldn't vanish because our server had a problem.
+- **Caching:** the dashboard caches each answer (cleared at once when a site or its settings change); browsers keep
+  it 5 minutes, CDNs 1 minute; the widget keeps the last answer in `localStorage`, so returning visitors see the
+  right colors immediately.
+- **Two shapes** in `packages/widget-config`: `SiteSettings` (what the owner chose, one JSON document per site in
+  `widget_settings`) and `WidgetConfig` (what the widget gets). `toWidgetConfig()` is the only place that maps one
+  to the other.
+- **Adding an option:** add a field with a default to `SiteSettingsSchema` (no migration), map it in
+  `toWidgetConfig`, add it to `WidgetConfigSchema` with a fallback (old widgets ignore it), then add it to the form.
+  Removing or renaming a field is breaking: bump the version.
 
 ## Widget: known limits
 - **Closed shadow roots** can't be reached by any setting.
-- **Browsers without constructable stylesheets** (Safari < 16.4) get settings on the main page only, not inside web components.
 - **Inline `style="… !important"`** on a page element beats the settings.
 - **Pause animations**
   - GIFs are detected by URL (`.gif`); animated WebP/APNG aren't detected.
@@ -82,12 +126,11 @@ and survive single-page-app navigation. Turning a setting off restores the page 
 - **Web components defined late** (no DOM change) get settings at the next settings change, page change or load.
 - **If the page removes the widget more than 10 times a minute**, it stays removed (one console warning).
 - **Browsers without `:has()`** (Firefox < 121, Safari < 15.4): an opted-out area inside adjusted text inherits Text spacing and Highlight links from the element around it.
-- **Browsers without constructable stylesheets** (Safari < 16.4) get settings on the main page only, not inside web components.
 - **Iframes**: iframes from another domain (videos, maps, payments) can't be reached by any setting. Same-origin
   iframes get Highlight links, Text spacing, Stronger focus outline and the CSS part of Pause animations,
   but not Text size, the rest of Pause animations, web components or iframes inside them.
   An iframe page that runs the widget itself is left to its own widget.
-
-
-
-
+- **Config**
+  - Settings changes reach visitors within about 5 minutes (browser cache).
+  - If the config request is blocked (some ad blockers) or our server is down, the widget shows with the visitor's
+    last known settings or our defaults, also on a domain that isn't registered.

@@ -22,11 +22,6 @@ export function normalizeHost(input: string): string | null {
     return HOSTNAME.test(host) ? host : null;
 }
 
-/** Local development: the widget always shows there, with our defaults. */
-function isLocal(host: string): boolean {
-    return host === "localhost" || host === "127.0.0.1" || host.endsWith(".localhost");
-}
-
 /**
  * The config for one account's widget on one hostname. Cached per (key, host); an account's entries are
  * expired together by widgetConfigTag when its sites or settings change, so `hours` is only a safety net.
