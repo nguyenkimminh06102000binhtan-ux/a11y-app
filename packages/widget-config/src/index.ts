@@ -1,29 +1,105 @@
 /*
- * The contract between the dashboard's GET /api/widget/config and the widget.
- * Both import this file, so they can't drift apart.
+ * The widget's settings, shared by the dashboard (which stores and serves them) and the widget (which uses them).
+ * One schema per shape gives both the TypeScript type and the validation, so all three places check the same rules.
  *
- * Rules for changing it:
- * - Adding an optional field is safe: old widgets ignore it.
- * - Removing or renaming a field, or changing its meaning, is breaking: bump CONFIG_VERSION, and serve the old
- *   version too until old cached widgets are gone.
- * - The widget never trusts the response: parseConfig() drops anything invalid and keeps the rest.
+ * Two shapes, on purpose:
+ * - SiteSettings: what a site owner chose (stored in widget_settings.settings). Grows with the product.
+ * - WidgetConfig: what the widget receives (GET /api/widget/config). Built by toWidgetConfig(), where plan limits
+ *   and other server-side rules will live, so the widget only ever gets what it's allowed to use.
+ *
+ * Adding an option: add a field with a default to SiteSettingsSchema (no migration: it's JSON), map it in
+ * toWidgetConfig, and add it to WidgetConfigSchema as a field with a fallback, so old widgets just ignore it.
+ * Removing or renaming: bump the version and upgrade old data in readSiteSettings / serve old widgets as before.
  */
+import * as v from "valibot";
 
-export const CONFIG_VERSION = 1;
+// ─── Settings a site owner can turn on by default ──────────────────────────────────────────────────────────
 
-/** Settings a site owner can turn on for visitors who haven't chosen yet. Keys of the widget's Settings. */
+/** Keys of the widget's Settings. */
 export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pauseAnimations"] as const;
 export type DefaultableSetting = (typeof DEFAULTABLE)[number];
 
-export type WidgetConfig = {
-  v: typeof CONFIG_VERSION;
-  /** false: this page's domain isn't one of the account's sites, so the widget doesn't show. */
-  enabled: boolean;
-  /** The site owner's colors. Missing = our defaults (packages/tokens). */
-  theme: { state?: string };
-  /** Settings on by default for visitors who haven't chosen yet. Only `true` entries. */
-  defaults: Partial<Record<DefaultableSetting, true>>;
+/** Their names in the dashboard: the same words as the widget's panel, so site owners recognize them. */
+export const DEFAULTABLE_LABELS: Record<DefaultableSetting, string> = {
+  highlightLinks: "Highlight links",
+  textSpacing: "Text spacing",
+  focusOutline: "Stronger focus outline",
+  pauseAnimations: "Pause animations",
 };
+
+// ─── Field schemas: strict, with the messages the dashboard shows next to the field ───────────────────────
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** The widget's state color: the launcher, and settings that are on. */
+export const StateColorSchema = v.pipe(
+  v.string(),
+  v.regex(HEX, "Enter a color like #5b47c8."),
+  v.toLowerCase(),
+  v.check(
+    isUsableStateColor,
+    "This color is too light: white check marks and text on it would be hard to read. Pick a darker one (it needs a contrast of at least 4.5:1 with white)."
+  )
+);
+
+/** Settings on by default: known keys only, each once, in a fixed order. */
+export const DefaultSettingsSchema = v.pipe(
+  v.array(v.string()),
+  v.transform((keys) => DEFAULTABLE.filter((key) => keys.includes(key)))
+);
+
+// ─── What the site owner chose (stored) ────────────────────────────────────────────────────────────────────
+
+export const SETTINGS_VERSION = 1;
+
+/**
+ * Every field has a default, and a field that doesn't validate falls back to it: reading never fails, and one bad
+ * value never loses the others. Writes are checked strictly field by field first (see the field schemas).
+ */
+export const SiteSettingsSchema = v.object({
+  v: v.fallback(v.literal(SETTINGS_VERSION), SETTINGS_VERSION),
+  appearance: v.fallback(
+    v.object({
+      stateColor: v.fallback(v.optional(StateColorSchema), undefined), // missing = our default color
+    }),
+    {}
+  ),
+  defaults: v.fallback(DefaultSettingsSchema, []),
+});
+export type SiteSettings = v.InferOutput<typeof SiteSettingsSchema>;
+
+export const DEFAULT_SITE_SETTINGS: SiteSettings = { v: SETTINGS_VERSION, appearance: {}, defaults: [] };
+
+/** Stored JSON (or nothing) → complete settings. Never throws. Old versions get upgraded here when there are some. */
+export function readSiteSettings(input: unknown): SiteSettings {
+  const result = v.safeParse(SiteSettingsSchema, input);
+  return result.success ? withoutUndefined(result.output) : { ...DEFAULT_SITE_SETTINGS };
+}
+
+// ─── What the widget receives (served) ─────────────────────────────────────────────────────────────────────
+
+/** Bump only for breaking changes, and keep serving the old version until old cached widgets are gone. */
+export const CONFIG_VERSION = 1;
+
+/** Fields fall back one by one, so a field this widget doesn't know or can't validate never breaks the rest. */
+export const WidgetConfigSchema = v.object({
+  v: v.literal(CONFIG_VERSION),
+  /** false: this page's domain isn't one of the account's sites, so the widget doesn't show. */
+  enabled: v.fallback(v.boolean(), true),
+  /** The site owner's colors. Missing = our defaults (packages/tokens). */
+  theme: v.fallback(v.object({ state: v.fallback(v.optional(StateColorSchema), undefined) }), {}),
+  /** Settings on by default for visitors who haven't chosen yet. Only `true` entries. */
+  defaults: v.fallback(
+    v.pipe(
+      v.record(v.string(), v.unknown()),
+      v.transform(
+        (map) => Object.fromEntries(DEFAULTABLE.filter((key) => map[key] === true).map((key) => [key, true])) as Partial<Record<DefaultableSetting, true>>
+      )
+    ),
+    {}
+  ),
+});
+export type WidgetConfig = v.InferOutput<typeof WidgetConfigSchema>;
 
 /**
  * Used when the config can't be loaded (network error, bad response). Fails open: visitors still get the
@@ -32,31 +108,27 @@ export type WidgetConfig = {
  */
 export const FALLBACK_CONFIG: WidgetConfig = { v: CONFIG_VERSION, enabled: true, theme: {}, defaults: {} };
 
-const HEX = /^#[0-9a-f]{6}$/i;
-
-/** Read untrusted JSON into a WidgetConfig. Returns null if it isn't one at all (then use FALLBACK_CONFIG). */
+/** Untrusted JSON → WidgetConfig. null if it isn't a config of this version at all (then use FALLBACK_CONFIG). */
 export function parseConfig(input: unknown): WidgetConfig | null {
-  if (!isObject(input) || input.v !== CONFIG_VERSION) return null;
-
-  const theme: WidgetConfig["theme"] = {};
-  if (isObject(input.theme) && typeof input.theme.state === "string" && isUsableStateColor(input.theme.state)) {
-    theme.state = input.theme.state.toLowerCase();
-  }
-
-  const defaults: WidgetConfig["defaults"] = {};
-  if (isObject(input.defaults)) {
-    for (const key of DEFAULTABLE) {
-      if (input.defaults[key] === true) defaults[key] = true;
-    }
-  }
-
-  return { v: CONFIG_VERSION, enabled: input.enabled !== false, theme, defaults };
+  const result = v.safeParse(WidgetConfigSchema, input);
+  return result.success ? withoutUndefined(result.output) : null;
 }
+
+/** The one place that turns what an owner chose into what their widget gets. */
+export function toWidgetConfig(settings: SiteSettings, enabled: boolean): WidgetConfig {
+  return {
+    v: CONFIG_VERSION,
+    enabled,
+    theme: settings.appearance.stateColor ? { state: settings.appearance.stateColor } : {},
+    defaults: Object.fromEntries(settings.defaults.map((key) => [key, true])),
+  };
+}
+
+// ─── Color math ────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
  * Can this color be the widget's state color? It's used for state-colored text and borders on white and,
  * mixed 10% into white, as the "on" tint; and white check marks sit on it. All need 4.5:1.
- * The dashboard uses this to refuse a color; the widget uses it to ignore one that slipped through.
  */
 export function isUsableStateColor(hex: string): boolean {
   if (!HEX.test(hex)) return false;
@@ -75,8 +147,8 @@ export function contrastRatio(a: string, b: string): number {
 }
 
 function luminance(hex: string): number {
-  const [r, g, b] = channels(hex).map((v) => {
-    const c = v / 255;
+  const [r, g, b] = channels(hex).map((value) => {
+    const c = value / 255;
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -86,6 +158,7 @@ function channels(hex: string): number[] {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+/** A field that fell back to `undefined` is dropped, so the JSON we store and serve stays minimal. */
+function withoutUndefined<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
