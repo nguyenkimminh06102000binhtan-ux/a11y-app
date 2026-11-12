@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
-  transpilePackages: ["@app/db"],
+  transpilePackages: ["@app/db", "@app/widget-config"],
   partialPrefetching: true,
   turbopack: {
     rules: {
