@@ -5,7 +5,7 @@ import { gzipSync } from "node:zlib";
 
 const OUT = "dist";
 // The dashboard's origin, where the widget asks for its config. Set it for each deployment:
-//   WIDGET_API_BASE=https://app.example.com pnpm --filter widget build
+//   WIDGET_API_BASE=https://manage.accesspilot.org pnpm --filter widget build
 const API_BASE = process.env.WIDGET_API_BASE ?? "http://localhost:3001";
 
 const shared = {

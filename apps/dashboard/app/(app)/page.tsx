@@ -6,7 +6,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { CopyButton } from "@/components/CopyButton";
 import { addSite, deleteSite } from "@/app/actions";
 
-const WIDGET_SRC = "https://cdn.example.com/l.js"; // replaced with the real CDN URL in step 9
+// Customers paste this URL into their sites, so it must never change: new releases ship behind the same name.
+const WIDGET_SRC = "https://cdn.accesspilot.org/l.js";
 
 const ERRORS: Record<string, string> = {
   invalid: "That doesn't look like a valid domain. Try something like shop.com.",

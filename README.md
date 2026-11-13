@@ -43,17 +43,28 @@ pnpm --filter @app/db db:generate        # after a schema change; then db:migrat
 ```
 
 ## Deploying the widget
-Build it with the dashboard's address, so it asks the right server for its config:
-```bash
-WIDGET_API_BASE=https://app.example.com pnpm --filter widget build
-```
-Without it, the build points to `http://localhost:3001` (the build prints which address it uses).
+The widget is served from **https://cdn.accesspilot.org** (Cloudflare Pages project `accesspilot-widget`).
+Deploys are automatic: `.github/workflows/widget.yml` runs on every pull request and push to `main` that
+touches the widget, `packages/tokens`, `packages/widget-config` or the lockfile.
+- **Pull request:** typecheck, contract and contrast tests, Playwright + axe tests.
+- **Push to `main`:** the same tests, then a clean build with
+  `WIDGET_API_BASE=https://manage.accesspilot.org` and `wrangler pages deploy`. Failed tests mean no deploy.
+- **Redeploy by hand:** GitHub → Actions → Widget → Run workflow.
+- **Roll back:** Cloudflare → Workers & Pages → `accesspilot-widget` → Deployments → Rollback on the last good one.
+- **Secrets** (GitHub → Settings → Secrets and variables → Actions): `CLOUDFLARE_API_TOKEN` (Account →
+  Cloudflare Pages → Edit only) and `CLOUDFLARE_ACCOUNT_ID`.
+
+Caching (from `dist/_headers`, written by the build): `l.js` for 5 minutes, so a release reaches every site
+within about 5 minutes; `app.<hash>.js` for a year, since a new build gets a new name. Both send CORS
+(needed for the loader's integrity check) and `Cross-Origin-Resource-Policy: cross-origin`.
+
+A local build without `WIDGET_API_BASE` points to `http://localhost:3001` (the build prints which address it uses).
 
 ## Widget: notes for site owners
 
 **Install** the same snippet on every site of your account:
 ```html
-<script src="https://cdn.example.com/l.js" data-account="acct_…" async></script>
+<script src="https://cdn.accesspilot.org/l.js" data-account="acct_…" async></script>
 ```
 The widget mounts after the page's `load` event, inside its own shadow root, and stays mounted across
 single-page-app navigation. It adds nothing to your HTML except one `<style>` while a setting is on.
