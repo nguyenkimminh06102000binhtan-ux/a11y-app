@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db, sites, scans, issues, widgetSettings, eq, and, desc, inArray } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -10,6 +9,7 @@ import { requestScan } from "@/app/actions";
 import { ImpactPill } from "@/components/ImpactPill";
 import { readSiteSettings } from "@app/widget-config";
 import { WidgetSettingsForm } from "./WidgetSettingsForm";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 
 
@@ -29,7 +29,6 @@ type PageProps = {
 export default function SitePage({ params, searchParams }: PageProps) {
   return (
     <main id="main">
-      <p className="mb-2 text-sm"><Link href="/">← All sites</Link></p>
       <Suspense fallback={<p>Loading site…</p>}>
         <SiteDetails params={params} searchParams={searchParams} />
       </Suspense>
@@ -100,7 +99,7 @@ async function SiteDetails({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <h1>{site.domain}</h1>
+      <PageHeader breadcrumb={[{ href: "/", label: "Sites" }]} title={site.domain} />
 
       <section aria-labelledby="widget-heading">
         <h2 id="widget-heading">Widget on this site</h2>
@@ -160,7 +159,7 @@ async function SiteDetails({ params, searchParams }: PageProps) {
               {sorted.map((group) => {
                 const first = group[0];
                 return (
-                  <details key={first.ruleId} className="mb-3 rounded-xl border-2 border-frame px-4">
+                  <details key={first.ruleId} className="mb-3 rounded-xl border border-line px-4">
                     <summary className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
                       <ImpactPill impact={first.impact} />
                       <span className="font-bold">{first.help ?? first.ruleId}</span>
@@ -173,7 +172,7 @@ async function SiteDetails({ params, searchParams }: PageProps) {
                     )}
                     <ol className="mb-4 flex flex-col gap-3">
                       {group.map((issue) => (
-                        <li key={issue.id} className="border-t-2 border-frame pt-3">
+                        <li key={issue.id} className="border-t border-line pt-3">
                           <p>Page: <a href={issue.pageUrl} target="_blank" rel="noreferrer" className="break-all">{issue.pageUrl}</a></p>
                           <p>
                             Where to fix: <code className="break-all">{issue.selector}</code>{" "}

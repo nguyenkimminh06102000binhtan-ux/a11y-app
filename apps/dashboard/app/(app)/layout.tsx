@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Mark } from "@/components/Mark";
 import { NavLink } from "@/components/NavLink";
+import { Button } from "@/components/ui/Button";
 
 async function signOut() {
   "use server";
@@ -60,9 +61,9 @@ async function Account() {
     <div className="mt-auto flex flex-col gap-2 px-3">
       <p className="text-sm break-all">Signed in as {user.email}</p>
       <form action={signOut}>
-        <button type="submit" className="border-frame bg-surface text-ink">
+        <Button type="submit" variant="quiet" className="self-start">
           Sign out
-        </button>
+        </Button>
       </form>
     </div>
   );

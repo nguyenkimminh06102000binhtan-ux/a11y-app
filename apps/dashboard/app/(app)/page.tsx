@@ -5,6 +5,9 @@ import { db, sites, accounts, eq } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
 import { CopyButton } from "@/components/CopyButton";
 import { addSite, deleteSite } from "@/app/actions";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 // Customers paste this URL into their sites, so it must never change: new releases ship behind the same name.
 const WIDGET_SRC = "https://cdn.accesspilot.org/l.js";
@@ -22,7 +25,7 @@ export default function Home({
 }) {
   return (
     <main id="main">
-      <h1>Sites</h1>
+      <PageHeader title="Sites" />
 
 
       <section aria-labelledby="install-heading">
@@ -115,18 +118,18 @@ async function SiteList() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {rows.map((site) => (
-            <li key={site.id} className="flex items-center justify-between gap-3 rounded-xl border-2 border-frame p-4">
+            <Card as="li" key={site.id} className="flex items-center justify-between gap-3">
               <h3 className="min-w-0 break-all">
                 <Link href={`/sites/${site.id}`}>{site.domain}</Link>
               </h3>
 
               <form action={deleteSite}>
                 <input type="hidden" name="id" value={site.id} />
-                <button type="submit" aria-label={`Delete ${site.domain}`}>
+                <Button type="submit" variant="secondary" aria-label={`Delete ${site.domain}`}>
                   Delete
-                </button>
+                </Button>
               </form>
-            </li>
+            </Card>
           ))}
         </ul>
       )}
