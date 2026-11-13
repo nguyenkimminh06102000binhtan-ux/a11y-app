@@ -1,5 +1,6 @@
 @import "tailwindcss";
-@import "@app/tokens/tokens.css"; /* the shared colors: --bcn-bg, --bcn-text, --bcn-frame, --bcn-state, --bcn-state-tint */
+@import "@app/tokens/tokens.css";
+/* the shared colors: --bcn-bg, --bcn-text, --bcn-frame, --bcn-state, --bcn-state-tint */
 
 /* Only our colors exist: no bg-red-500 & co., so nothing off-palette sneaks in */
 @theme {
@@ -11,11 +12,27 @@
   --color-surface: var(--bcn-bg);
   --color-ink: var(--bcn-text);
   --color-frame: var(--bcn-frame);
-  --color-state: var(--bcn-state); /* state only: current page, critical, selected (never decoration) */
+  --color-state: var(--bcn-state);
+  /* state only: current page, critical, selected (never decoration) */
   --color-state-tint: var(--bcn-state-tint);
+  --color-subtle: var(--bcn-surface);
+  /* bg-subtle: sidebar, code blocks, table headers */
+  --color-line: var(--bcn-line);
+  /* border-line: card edges and dividers only, never the edge of a control */
+  --color-muted: var(--bcn-frame);
+  /* text-muted: secondary text (help, dates, captions). Same color as frame, named for the job */
+
 
   --font-sans: var(--font-atkinson), system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Type scale: 32 / 22 / 17 / 16 body / 15 small / 13 caption. In rem, so it follows the browser's text size */
+@theme {
+  --text-small: 0.9375rem;
+  --text-small--line-height: 1.45;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.4;
 }
 
 /*
@@ -48,7 +65,7 @@
   }
 
   h2 {
-    font-size: 1.25rem;
+    font-size: 1.375rem;
     line-height: 1.3;
     font-weight: 700;
     margin: 2rem 0 0.75rem;
@@ -57,9 +74,15 @@
   h3 {
     font-size: 1.0625rem;
     font-weight: 700;
+    line-height: 1.35;
   }
 
-  p + p {
+  hr {
+    border-color: var(--color-line);
+  }
+
+
+  p+p {
     margin-top: 0.5rem;
   }
 
@@ -79,12 +102,13 @@
 
   /* Buttons: outlined by default; the form's main action (type="submit") is filled */
   button {
-    min-height: 2.75rem; /* 44px */
+    min-height: 2.75rem;
+    /* 44px */
     padding: 0 1rem;
     font-weight: 700;
     color: var(--color-ink);
     background: var(--color-surface);
-    border: 2px solid var(--color-frame);
+    border: 1.5px solid var(--color-frame);
     border-radius: 0.625rem;
     cursor: pointer;
   }
@@ -99,7 +123,7 @@
   button:disabled {
     color: var(--color-ink);
     background: var(--color-surface);
-    border: 2px dashed var(--color-frame);
+    border: 1.5px dashed var(--color-frame);
     cursor: not-allowed;
   }
 
@@ -115,9 +139,16 @@
     max-width: 28rem;
     padding: 0 0.75rem;
     background: var(--color-surface);
-    border: 2px solid var(--color-frame);
+    border: 1.5px solid var(--color-frame);
     border-radius: 0.625rem;
   }
+
+  ::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+    /* Firefox fades placeholders by default, which drops them below 4.5:1 */
+  }
+
 
   form {
     display: flex;
@@ -126,7 +157,7 @@
     gap: 0.5rem;
   }
 
-  form > label {
+  form>label {
     flex-basis: 100%;
     margin-bottom: 0;
   }
@@ -138,8 +169,8 @@
   }
 
   pre {
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--color-frame);
+    background: var(--color-subtle);
+    border: 1px solid var(--color-line);
     border-radius: 0.625rem;
     overflow-x: auto;
     margin-bottom: 0.5rem;
@@ -154,7 +185,7 @@
   [role="alert"] {
     padding: 0.75rem 1rem;
     background: var(--color-state-tint);
-    border: 2px solid var(--color-state);
+    border: 1.5px solid var(--color-state);
     border-radius: 0.625rem;
     margin-bottom: 0.75rem;
   }

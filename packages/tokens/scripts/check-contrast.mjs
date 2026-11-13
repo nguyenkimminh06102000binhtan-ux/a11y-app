@@ -32,6 +32,9 @@ const PAIRS = [
   ["bg", "text", 4.5, "text on primary buttons"],
   ["text", "state-tint", 4.5, "the label on a tile that's on"],
   ["state-ink", "state-tint", 4.5, "the chosen Text size level, the current nav item"],
+  ["text", "surface", 4.5, "text in the sidebar, code blocks and table headers"],
+  ["frame", "surface", 4.5, "secondary text and borders on the sidebar"],
+  ["state-ink", "surface", 4.5, "state text and borders on the sidebar"],
 ];
 
 

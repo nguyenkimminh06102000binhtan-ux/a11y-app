@@ -23,7 +23,11 @@
   /* icons and check marks on --bcn-state: black or white, whichever reads */
   --bcn-state-ink: #5b47c8;
   /* state text, borders and icons on white: --bcn-state when it's dark enough, else --bcn-text */
-
+  /* Two quiet neutrals for the dashboard's layout (the widget doesn't use them, so re-theming stays four values) */
+  --bcn-surface: #f7f6fc;
+  /* the sidebar, code blocks, table headers: every text color above still passes on it */
+  --bcn-line: #dedbee;
+  /* decoration only: card edges and dividers. Never the only edge of an input, button or anything you click */
 
   /* Not a fifth color: the state color, 10% over the background. This fallback is for browsers without color-mix(). */
   --bcn-state-tint: #efedfa;
