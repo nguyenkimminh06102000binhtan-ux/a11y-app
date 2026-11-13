@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   transpilePackages: ["@app/db", "@app/widget-config"],
   partialPrefetching: true,
+  // A site opens on its Audit section; keeps old /sites/:id links and bookmarks working
+  async redirects() {
+    return [{ source: "/sites/:id", destination: "/sites/:id/audit", permanent: false }];
+  },
   turbopack: {
     rules: {
       "*.css": {

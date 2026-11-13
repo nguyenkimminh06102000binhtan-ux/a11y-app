@@ -1,17 +1,10 @@
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
-import { db, sites, scans, issues, widgetSettings, eq, and, desc, inArray } from "@app/db";
-import { getCurrentUser } from "@/lib/auth";
-import { isUuid } from "@/lib/ids";
+import { db, scans, issues, eq, and, desc, inArray } from "@app/db";
+import { getOwnedSite } from "@/lib/site";
 import { CopyButton } from "@/components/CopyButton";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { requestScan } from "@/app/actions";
 import { ImpactPill } from "@/components/ImpactPill";
-import { readSiteSettings } from "@app/widget-config";
-import { WidgetSettingsForm } from "./WidgetSettingsForm";
-import { PageHeader } from "@/components/ui/PageHeader";
-
-
 
 const IMPACT_ORDER: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 const ERRORS: Record<string, string> = {
@@ -26,36 +19,19 @@ type PageProps = {
   searchParams: Promise<{ error?: string }>;
 };
 
-export default function SitePage({ params, searchParams }: PageProps) {
+/** A site's Audit section: run a scan, follow its progress, and the latest results. Header and tabs: ../layout.tsx */
+export default function AuditPage({ params, searchParams }: PageProps) {
   return (
-    <main id="main">
-      <Suspense fallback={<p>Loading site…</p>}>
-        <SiteDetails params={params} searchParams={searchParams} />
-      </Suspense>
-    </main>
+    <Suspense fallback={<p>Loading scans…</p>}>
+      <AuditDetails params={params} searchParams={searchParams} />
+    </Suspense>
   );
 }
 
-async function SiteDetails({ params, searchParams }: PageProps) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
+async function AuditDetails({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { error } = await searchParams;
-  if (!isUuid(id)) notFound(); // a malformed id would otherwise crash the database query
-
-  const [site] = await db
-    .select()
-    .from(sites)
-    .where(and(eq(sites.id, id), eq(sites.accountId, user.id))); // ownership check
-  if (!site) notFound();
-
-  // No row yet = our defaults
-  const [widgetRow] = await db
-    .select({ settings: widgetSettings.settings })
-    .from(widgetSettings)
-    .where(eq(widgetSettings.siteId, site.id));
-
+  const site = await getOwnedSite(id); // 404 if it isn't this account's site
 
   // latest scan of any status, for the progress message
   const [latest] = await db
@@ -99,15 +75,8 @@ async function SiteDetails({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <PageHeader breadcrumb={[{ href: "/", label: "Sites" }]} title={site.domain} />
-
-      <section aria-labelledby="widget-heading">
-        <h2 id="widget-heading">Widget on this site</h2>
-        <WidgetSettingsForm siteId={site.id} settings={readSiteSettings(widgetRow?.settings)} />
-      </section>
-
       <section aria-labelledby="run-heading">
-        <h2 id="run-heading">Run a scan</h2>
+        <h2 id="run-heading" className="mt-0">Run a scan</h2>
         {error && ERRORS[error] && <p role="alert">{ERRORS[error]}</p>}
         <form action={requestScan}>
           <input type="hidden" name="siteId" value={site.id} />

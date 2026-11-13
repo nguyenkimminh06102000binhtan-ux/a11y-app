@@ -1,16 +1,13 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { db, sites, accounts, eq } from "@app/db";
+import { db, sites, eq } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
-import { CopyButton } from "@/components/CopyButton";
+import { InstallCode } from "@/components/InstallCode";
 import { addSite, deleteSite } from "@/app/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-
-// Customers paste this URL into their sites, so it must never change: new releases ship behind the same name.
-const WIDGET_SRC = "https://cdn.accesspilot.org/l.js";
 
 const ERRORS: Record<string, string> = {
   invalid: "That doesn't look like a valid domain. Try something like shop.com.",
@@ -61,32 +58,6 @@ export default function Home({
         </Suspense>
       </section>
     </main>
-  );
-}
-
-async function InstallCode() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
-  const [account] = await db
-    .select({ widgetKey: accounts.widgetKey })
-    .from(accounts)
-    .where(eq(accounts.id, user.id));
-
-  // the auth callback creates this row; if that failed, don't crash the page
-  if (!account) {
-    return <p role="alert">We couldn&apos;t load your account. Please sign out and sign in again.</p>;
-  }
-
-  const snippet = `<script src="${WIDGET_SRC}" data-account="${account.widgetKey}" async></script>`;
-
-  return (
-    <>
-      <pre>
-        <code>{snippet}</code>
-      </pre>
-      <CopyButton text={snippet} label="Copy install code" />
-    </>
   );
 }
 

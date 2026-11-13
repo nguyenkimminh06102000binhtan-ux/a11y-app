@@ -63,7 +63,7 @@ export async function requestScan(formData: FormData) {
     .where(and(eq(sites.id, siteId), eq(sites.accountId, user.id)));
   if (!site) redirect("/");
 
-  const back = `/sites/${site.id}`;
+  const back = `/sites/${site.id}/audit`; // the Audit section, where the progress and any error show
 
   let url: URL;
   try {
@@ -134,6 +134,6 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
     .onConflictDoUpdate({ target: widgetSettings.siteId, set: { settings, updatedAt: new Date() } });
 
   updateTag(widgetConfigTag(user.id)); // the config endpoint answers with the new settings right away
-  revalidatePath(`/sites/${site.id}`);
+  revalidatePath(`/sites/${site.id}/widget`);
   return { status: "saved", settings };
 }
