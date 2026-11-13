@@ -11,7 +11,8 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 export const metadata: Metadata = {
-  title: "a11y-app dashboard",
+  // Each page sets its own title ("Issues · Audit"); screen readers announce it when you move between pages
+  title: { default: "AccessPilot", template: "%s · AccessPilot" },
   description: "Find accessibility issues on your sites and see exactly where to fix them.",
 };
 

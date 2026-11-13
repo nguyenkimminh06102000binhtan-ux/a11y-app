@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db, sites, eq } from "@app/db";
@@ -13,6 +14,8 @@ const ERRORS: Record<string, string> = {
   invalid: "That doesn't look like a valid domain. Try something like shop.com.",
   duplicate: "You've already added that domain.",
 };
+
+export const metadata: Metadata = { title: "Sites" };
 
 // No async, no await: this whole shell is prerendered.
 export default function Home({

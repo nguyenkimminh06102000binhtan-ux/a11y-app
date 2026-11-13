@@ -134,6 +134,6 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
     .onConflictDoUpdate({ target: widgetSettings.siteId, set: { settings, updatedAt: new Date() } });
 
   updateTag(widgetConfigTag(user.id)); // the config endpoint answers with the new settings right away
-  revalidatePath(`/sites/${site.id}/widget`);
+  revalidatePath(`/sites/${site.id}/widget/settings`);
   return { status: "saved", settings };
 }
