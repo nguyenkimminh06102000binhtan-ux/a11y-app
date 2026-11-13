@@ -25,6 +25,7 @@ async function SiteHeader({ params }: { params: Promise<{ id: string }> }) {
   const base = `/sites/${site.id}`;
   return (
     <>
+      {/* No Run scan here: scans start from Audit › Pages, where owners pick the pages ("Scan 3 pages") */}
       <PageHeader breadcrumb={[{ href: "/", label: "Sites" }]} title={site.domain} />
       <SectionNav
         label="Site sections"

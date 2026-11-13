@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Issues · Audit" };
 
 const IMPACT_ORDER: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 
-/** Audit › Issues: the latest finished scan's issues, grouped by rule, most severe first. */
+/** Audit › Issues: every checked page's current issues (from its latest scan), grouped by rule, most severe first. */
 export default function IssuesPage({ params }: PageProps<"/sites/[id]/audit/issues">) {
   return (
     <Suspense
@@ -29,9 +29,9 @@ export default function IssuesPage({ params }: PageProps<"/sites/[id]/audit/issu
 async function Issues({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const site = await getOwnedSite(id); // 404 if it isn't this account's site
-  const { lastFinished, rows } = await getLatestAudit(site.id);
+  const { rows, pagesChecked } = await getLatestAudit(site.id);
 
-  if (lastFinished?.status !== "done") {
+  if (pagesChecked === 0) {
     return (
       <>
         <h2 className="mt-0">Issues</h2>
@@ -56,7 +56,9 @@ async function Issues({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
       <h2 className="mt-0">Issues ({rows.length})</h2>
-      <p className="mb-4 text-muted">From the latest scan of {lastFinished.url}</p>
+      <p className="mb-4 text-muted">
+        Across the {pagesChecked} {pagesChecked === 1 ? "page" : "pages"} checked so far, each from its latest scan.
+      </p>
       {sorted.map((group) => {
         const first = group[0];
         return (

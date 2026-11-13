@@ -16,3 +16,17 @@ export function normalizeDomain(input: string): string | null {
     return null;
   }
 }
+
+/**
+ * Whether a page's hostname belongs to a site: the same domain, with or without "www.".
+ * A subdomain (blog.shop.com) is NOT part of shop.com: it's a separate site with its own plan.
+ */
+export function isSameSite(hostname: string, siteDomain: string): boolean {
+  return hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "") === siteDomain;
+}
+
+/** A subdomain of the site (blog.shop.com for shop.com): to tell owners it needs its own site. */
+export function isSubdomainOf(hostname: string, siteDomain: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+  return host.endsWith(`.${siteDomain}`);
+}

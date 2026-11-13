@@ -18,14 +18,14 @@ export default function AuditLayout({ children, params }: LayoutProps<"/sites/[i
 async function AuditNav({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const site = await getOwnedSite(id);
-  const { lastFinished, rows } = await getLatestAudit(site.id);
+  const { pagesChecked, rows } = await getLatestAudit(site.id);
   const base = `/sites/${site.id}/audit`;
   return (
     <SubNav
       label="Audit sections"
       items={[
         { label: "Overview", href: base },
-        { label: "Issues", href: `${base}/issues`, count: lastFinished?.status === "done" ? rows.length : undefined },
+        { label: "Issues", href: `${base}/issues`, count: pagesChecked > 0 ? rows.length : undefined },
         { label: "Pages" },
         { label: "Scans" },
         { label: "Reports" },

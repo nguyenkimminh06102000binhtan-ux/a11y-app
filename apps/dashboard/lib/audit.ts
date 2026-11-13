@@ -3,9 +3,16 @@ import { db, scans, issues, eq, and, desc, inArray } from "@app/db";
 
 export type Issue = typeof issues.$inferSelect;
 
+// Enough history for any site today; the Pages list (chunk 11) will name the pages explicitly.
+const HISTORY_LIMIT = 1000;
+
 /**
- * What the Audit pages show for a site: the latest scan (any status, for progress), the latest finished scan
- * (whose results we show) and that scan's issues.
+ * The site's audit as of now, across all its pages: for every page that has been checked, the issues from its
+ * latest successful scan. So scanning one page never hides the others' issues.
+ *   latest / inProgress: the newest scan of any status (progress card)
+ *   lastFinished:        the newest finished scan (the "didn't finish" card when it failed)
+ *   rows:                current issues of every checked page
+ *   comparison:          fixed / new since each page's previous successful check (null until a page is re-checked)
  * cache() = once per request, shared by the Audit layout (the Issues count) and its pages.
  * Call it only after getOwnedSite(), which checks the site is this account's.
  */
@@ -24,13 +31,65 @@ export const getLatestAudit = cache(async (siteId: string) => {
     .orderBy(desc(scans.createdAt))
     .limit(1);
 
-  const rows: Issue[] =
-    lastFinished?.status === "done" ? await db.select().from(issues).where(eq(issues.scanId, lastFinished.id)) : [];
+  // Successful scans, newest first: the first one per page is its current state, the second its previous check
+  const done = await db
+    .select({ id: scans.id, url: scans.url, finishedAt: scans.finishedAt })
+    .from(scans)
+    .where(and(eq(scans.siteId, siteId), eq(scans.status, "done")))
+    .orderBy(desc(scans.createdAt))
+    .limit(HISTORY_LIMIT);
+
+  const current = new Map<string, (typeof done)[number]>();
+  const previous = new Map<string, (typeof done)[number]>();
+  for (const scan of done) {
+    if (!current.has(scan.url)) current.set(scan.url, scan);
+    else if (!previous.has(scan.url)) previous.set(scan.url, scan);
+  }
+
+  const currentIds = [...current.values()].map((s) => s.id);
+  const rows: Issue[] = currentIds.length ? await db.select().from(issues).where(inArray(issues.scanId, currentIds)) : [];
+
+  const lastCheckedAt = [...current.values()]
+    .map((s) => s.finishedAt)
+    .filter((d): d is Date => !!d)
+    .sort((a, b) => b.getTime() - a.getTime())[0];
 
   return {
     latest,
     lastFinished,
-    rows,
     inProgress: latest?.status === "queued" || latest?.status === "running",
+    rows,
+    pagesChecked: current.size,
+    lastCheckedAt,
+    comparison: await compareWithPrevious(current, previous, rows),
   };
 });
+
+/**
+ * Fixed and new issues on the pages that have been checked more than once, each page against its own previous
+ * successful check, matched by fingerprint (the scanner gives the same issue the same fingerprint every time).
+ */
+async function compareWithPrevious(
+  current: Map<string, { id: string }>,
+  previous: Map<string, { id: string }>,
+  rows: Issue[]
+) {
+  if (previous.size === 0) return null;
+
+  const previousIds = [...previous.values()].map((s) => s.id);
+  const before = await db
+    .select({ scanId: issues.scanId, fingerprint: issues.fingerprint })
+    .from(issues)
+    .where(inArray(issues.scanId, previousIds));
+
+  let fixed = 0;
+  let added = 0;
+  for (const [url, prev] of previous) {
+    const was = new Set(before.filter((r) => r.scanId === prev.id).map((r) => r.fingerprint));
+    const scanId = current.get(url)!.id;
+    const now = new Set(rows.filter((r) => r.scanId === scanId).map((r) => r.fingerprint));
+    fixed += [...was].filter((f) => !now.has(f)).length;
+    added += [...now].filter((f) => !was.has(f)).length;
+  }
+  return { fixed, new: added, pagesCompared: previous.size };
+}

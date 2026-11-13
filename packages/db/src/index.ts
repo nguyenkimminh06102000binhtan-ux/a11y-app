@@ -25,4 +25,4 @@ export async function closeDb() {
   globalForDb.pgClient = undefined;
 }
 export * from "./schema";
-export { eq, and, desc, inArray, sql } from "drizzle-orm";
+export { eq, and, desc, lt, inArray, sql } from "drizzle-orm";

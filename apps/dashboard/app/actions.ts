@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db, sites, widgetSettings, eq, and, scans, inArray } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
-import { normalizeDomain } from "@/lib/domain";
+import { normalizeDomain, isSameSite, isSubdomainOf } from "@/lib/domain";
 import { isUuid } from "@/lib/ids";
 import { widgetConfigTag } from "@/lib/widget-config";
 import * as v from "valibot";
@@ -73,8 +73,10 @@ export async function requestScan(formData: FormData) {
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") redirect(`${back}?error=url`);
 
-  const host = url.hostname.toLowerCase().replace(/^www\./, "");
-  if (host !== site.domain && !host.endsWith(`.${site.domain}`)) redirect(`${back}?error=domain`);
+  // Exactly this site (www. or not). A subdomain is a separate site with its own plan: it's scanned from its own site.
+  if (!isSameSite(url.hostname, site.domain)) {
+    redirect(`${back}?error=${isSubdomainOf(url.hostname, site.domain) ? "subdomain" : "domain"}`);
+  }
 
   const pending = await db
     .select({ id: scans.id })
