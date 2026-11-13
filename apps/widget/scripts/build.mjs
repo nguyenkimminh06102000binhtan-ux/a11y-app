@@ -44,7 +44,27 @@ const loader = await esbuild.build({
 });
 await writeFile(`${OUT}/l.js`, loader.outputFiles[0].contents);
 
-// 3. Size limits (gzipped, roughly what the CDN sends). Raise them on purpose, never quietly.
+// 3. Response headers for the CDN (Cloudflare Pages reads dist/_headers). Both files are loaded by customers' sites:
+//    - l.js keeps its name across releases: cache it briefly, so a release reaches every site within minutes.
+//    - app.<hash>.js gets a new name whenever it changes: cache it for a year.
+//    - CORS: the loader fetches the app with an integrity check (crossorigin="anonymous"), which needs it.
+//    - CORP: sites that isolate themselves (Cross-Origin-Embedder-Policy) only load scripts that allow it.
+const SHARED_HEADERS = `  Access-Control-Allow-Origin: *
+  Cross-Origin-Resource-Policy: cross-origin
+  X-Content-Type-Options: nosniff`;
+await writeFile(
+  `${OUT}/_headers`,
+  `/l.js
+  Cache-Control: public, max-age=300
+${SHARED_HEADERS}
+
+/app.*
+  Cache-Control: public, max-age=31536000, immutable
+${SHARED_HEADERS}
+`
+);
+
+// 4. Size limits (gzipped, roughly what the CDN sends). Raise them on purpose, never quietly.
 const LIMITS = [
   { name: "l.js", bytes: loader.outputFiles[0].contents, max: 1024 },
   { name: appFile, bytes: appBytes, max: 25 * 1024 },
