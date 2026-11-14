@@ -1,14 +1,16 @@
 import { cache } from "react";
 import { db, scans, issues, eq, and, desc, inArray } from "@app/db";
+import { getSitePages } from "./pages";
 
 export type Issue = typeof issues.$inferSelect;
 
-// Enough history for any site today; the Pages list (chunk 11) will name the pages explicitly.
+// Enough history for any site today (each page needs only its last two successful scans).
 const HISTORY_LIMIT = 1000;
 
 /**
- * The site's audit as of now, across all its pages: for every page that has been checked, the issues from its
- * latest successful scan. So scanning one page never hides the others' issues.
+ * The site's audit as of now, across the pages on its Pages list: for every one that has been checked, the issues
+ * from its latest successful scan. So scanning one page never hides the others' issues, and a page removed from
+ * the list drops out of the results.
  *   latest / inProgress: the newest scan of any status (progress card)
  *   lastFinished:        the newest finished scan (the "didn't finish" card when it failed)
  *   rows:                current issues of every checked page
@@ -39,9 +41,11 @@ export const getLatestAudit = cache(async (siteId: string) => {
     .orderBy(desc(scans.createdAt))
     .limit(HISTORY_LIMIT);
 
+  const onList = new Set((await getSitePages(siteId)).map((p) => p.url));
   const current = new Map<string, (typeof done)[number]>();
   const previous = new Map<string, (typeof done)[number]>();
   for (const scan of done) {
+    if (!onList.has(scan.url)) continue;
     if (!current.has(scan.url)) current.set(scan.url, scan);
     else if (!previous.has(scan.url)) previous.set(scan.url, scan);
   }
@@ -61,6 +65,8 @@ export const getLatestAudit = cache(async (siteId: string) => {
     rows,
     pagesChecked: current.size,
     lastCheckedAt,
+    /** When each checked page was last scanned successfully, by URL (Audit › Pages) */
+    lastCheckedByUrl: new Map([...current].map(([url, scan]) => [url, scan.finishedAt])),
     comparison: await compareWithPrevious(current, previous, rows),
   };
 });

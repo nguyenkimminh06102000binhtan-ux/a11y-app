@@ -37,6 +37,22 @@ export const widgetSettings = pgTable("widget_settings", {
 }).enableRLS();
 
 
+/**
+ * The pages of a site that its owner wants checked (Audit › Pages). No limit on how many; the plan limits how
+ * many different pages can be scanned per month. The homepage is added with the site; owners paste the rest.
+ * `url` is the full address as scanned (no #fragment), the same string scans.url and issues.page_url use.
+ */
+export const pages = pgTable(
+  "pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.siteId, t.url)]
+).enableRLS();
+
 export const scanStatus = pgEnum("scan_status", ["queued", "running", "done", "failed"]);
 
 export const scans = pgTable(

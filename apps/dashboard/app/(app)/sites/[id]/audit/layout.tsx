@@ -26,7 +26,7 @@ async function AuditNav({ params }: { params: Promise<{ id: string }> }) {
       items={[
         { label: "Overview", href: base },
         { label: "Issues", href: `${base}/issues`, count: pagesChecked > 0 ? rows.length : undefined },
-        { label: "Pages" },
+        { label: "Pages", href: `${base}/pages` },
         { label: "Scans" },
         { label: "Reports" },
       ]}
