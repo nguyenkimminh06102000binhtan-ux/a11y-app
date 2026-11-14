@@ -60,6 +60,9 @@ function Menu() {
       <nav aria-label="Main" className="flex flex-col gap-5">
         <ul className="flex flex-col gap-1">
           <li>
+            <NavLink href="/embed-code">Embed code</NavLink>
+          </li>
+          <li>
             <NavLink href="/" match={["/sites/"]}>
               Sites
             </NavLink>

@@ -7,6 +7,8 @@ import { SiteList } from "@/components/SiteList";
 import { SitesHeader } from "@/components/SitesHeader";
 import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/Button";
+import { FocusedAlert } from "@/components/FocusedAlert";
+import { normalizeDomain } from "@/lib/domain";
 
 export const metadata: Metadata = { title: "Sites" };
 
@@ -27,18 +29,36 @@ export default function Home({ searchParams }: PageProps<"/">) {
         }
       />
 
+      <Suspense fallback={null}>
+        <Deleted searchParams={searchParams} />
+      </Suspense>
+
       <section aria-labelledby="sites-heading">
         <h2 id="sites-heading" className="sr-only">
           Your sites
         </h2>
         <p className="mt-0 mb-4 text-small text-muted">
-          The install code is the same for every site: copy it from any site&apos;s Widget › Install.
+          One embed code works for every site: <Link href="/embed-code">get the embed code</Link>.
         </p>
         <Suspense fallback={<p>Loading sites…</p>}>
           <Sites searchParams={searchParams} />
         </Suspense>
       </section>
     </main>
+  );
+}
+
+/** After deleting a site: "brand.com was deleted." (only a well-formed domain is echoed back) */
+async function Deleted({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const { deleted } = await searchParams;
+  const domain = typeof deleted === "string" ? normalizeDomain(deleted) : null;
+  if (!domain) return null;
+  return (
+    <div className="mb-4">
+      <FocusedAlert key={domain} tone="success">
+        <strong className="wrap-anywhere">{domain}</strong> was deleted.
+      </FocusedAlert>
+    </div>
   );
 }
 

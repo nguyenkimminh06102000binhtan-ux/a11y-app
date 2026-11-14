@@ -83,12 +83,22 @@ async function main() {
         }
 
         const [scan] = await db.select().from(scans).where(eq(scans.id, scanId));
-        const [site] = await db.select().from(sites).where(eq(sites.id, scan.siteId));
+        const [site] = scan ? await db.select().from(sites).where(eq(sites.id, scan.siteId)) : [];
+        if (!scan || !site) {
+          console.log("– Skipped a scan: its site was just deleted.");
+          continue;
+        }
 
         try {
           const count = await runScan(browser, scan, site);
           console.log(`✓ ${scan.url}: ${count} issues`);
         } catch (err) {
+          // Deleted while we were checking it (the scan row went with the site): nothing to record
+          const [stillThere] = await db.select({ id: scans.id }).from(scans).where(eq(scans.id, scan.id));
+          if (!stillThere) {
+            console.log(`– ${scan.url}: the site was deleted during the scan; results dropped.`);
+            continue;
+          }
           const message = err instanceof Error ? err.message : String(err);
           await db
             .update(scans)

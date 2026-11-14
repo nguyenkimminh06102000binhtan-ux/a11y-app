@@ -8,6 +8,7 @@ import { normalizeDomain, normalizePageUrl } from "@/lib/domain";
 import { getPagesScannedThisMonth } from "@/lib/pages";
 import { getMonthlyPageLimit, pagesUsedThisMonth } from "@/lib/quota";
 import { isUuid } from "@/lib/ids";
+import { canDeleteSite } from "@/lib/plan";
 import { widgetConfigTag } from "@/lib/widget-config";
 import * as v from "valibot";
 import { DefaultSettingsSchema, SETTINGS_VERSION, StateColorSchema, type SiteSettings } from "@app/widget-config";
@@ -17,7 +18,7 @@ import { DefaultSettingsSchema, SETTINGS_VERSION, StateColorSchema, type SiteSet
 
 export type AddSiteState = { error?: "invalid" | "duplicate"; at?: number };
 
-/** Add site: errors come back to the form (shown under the field); a new site opens Widget › Install. */
+/** Add site: errors come back to the form (shown under the field); a new site opens Embed code. */
 export async function addSite(_previous: AddSiteState, formData: FormData): Promise<AddSiteState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -41,22 +42,36 @@ export async function addSite(_previous: AddSiteState, formData: FormData): Prom
   await db.insert(pages).values({ siteId: inserted[0].id, url: `https://${domain}/` }).onConflictDoNothing();
 
   revalidatePath("/");
-  redirect(`/sites/${inserted[0].id}/widget`); // next: install the widget
+  redirect(`/embed-code?added=${inserted[0].id}`); // next: put the code on it
 }
 
-export async function deleteSite(formData: FormData) {
+export type DeleteSiteState = { error?: "mismatch" | "paid"; at?: number };
+
+/**
+ * Delete a site, with its pages, scans and widget settings. Only on Free (see canDeleteSite), and only when the
+ * typed confirmation is the site's domain; both are checked here, not just in the form.
+ */
+export async function deleteSite(_previous: DeleteSiteState, formData: FormData): Promise<DeleteSiteState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const id = String(formData.get("id") ?? "");
-  await db
-    .delete(sites)
-    .where(and(eq(sites.id, id), eq(sites.accountId, user.id)));
-  
-    updateTag(widgetConfigTag(user.id)); // and stops showing on the removed one
+  if (!isUuid(id)) redirect("/");
+  const [site] = await db
+    .select({ id: sites.id, domain: sites.domain })
+    .from(sites)
+    .where(and(eq(sites.id, id), eq(sites.accountId, user.id))); // ownership check
+  if (!site) redirect("/");
+
+  if (!canDeleteSite(site)) return { error: "paid", at: Date.now() };
+  const typed = String(formData.get("confirm") ?? "").trim().toLowerCase();
+  if (typed !== site.domain) return { error: "mismatch", at: Date.now() };
+
+  await db.delete(sites).where(and(eq(sites.id, site.id), eq(sites.accountId, user.id)));
+  updateTag(widgetConfigTag(user.id)); // the widget stops showing on it right away
 
   revalidatePath("/");
-  redirect("/"); // the site's own pages are gone
+  redirect(`/?deleted=${encodeURIComponent(site.domain)}`);
 }
 
 export type ScanPagesState = {
@@ -162,7 +177,7 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
     .onConflictDoUpdate({ target: widgetSettings.siteId, set: { settings, updatedAt: new Date() } });
 
   updateTag(widgetConfigTag(user.id)); // the config endpoint answers with the new settings right away
-  revalidatePath(`/sites/${site.id}/widget/settings`);
+  revalidatePath(`/sites/${site.id}/widget`);
   return { status: "saved", settings };
 }
 

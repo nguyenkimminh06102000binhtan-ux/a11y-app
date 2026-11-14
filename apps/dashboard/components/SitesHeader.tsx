@@ -15,7 +15,7 @@ const ERRORS: Record<NonNullable<AddSiteState["error"]>, string> = {
 
 /**
  * The Sites header with its Add site button, and the panel it opens just below: one click away however long the
- * list is. Errors show under the field and focus moves back to it; a new site opens its Widget › Install tab.
+ * list is. Errors show under the field and focus moves back to it; a new site opens Embed code.
  */
 export function SitesHeader({ description }: { description: ReactNode }) {
   const [open, setOpen] = useState(false);

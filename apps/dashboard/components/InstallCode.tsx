@@ -29,7 +29,7 @@ export async function InstallCode() {
       <pre className="whitespace-pre-wrap break-all">
         <code>{snippet}</code>
       </pre>
-      <CopyButton text={snippet} label="Copy install code" />
+      <CopyButton text={snippet} label="Copy embed code" />
     </>
   );
 }

@@ -22,11 +22,11 @@ async function WidgetNav({ params }: { params: Promise<{ id: string }> }) {
     <SubNav
       label="Widget sections"
       items={[
-        { label: "Install", href: base },
-        // One form for now; chunks 14–15 split it into Appearance and On by default
+        { label: "Customize", href: base },
+        { label: "Addons" },
+        { label: "Stats" },
+        { label: "Accessibility Statement" },
         { label: "Settings", href: `${base}/settings` },
-        { label: "Features" },
-        { label: "Autofix" },
       ]}
     />
   );
