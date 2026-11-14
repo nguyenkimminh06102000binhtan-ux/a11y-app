@@ -118,9 +118,9 @@ same-origin iframes too, and survive single-page-app navigation. Turning a setti
   most 3 seconds. The answer says whether it may show, the brand color, and the settings on by default.
 - **Fails open:** no answer (server down, blocked request) means the last answer this visitor got, or our defaults.
   An accessibility tool shouldn't vanish because our server had a problem.
-- **Caching:** the dashboard caches each answer (cleared at once when a site or its settings change); browsers keep
-  it 5 minutes, CDNs 1 minute; the widget keeps the last answer in `localStorage`, so returning visitors see the
-  right colors immediately.
+- **Caching:** the dashboard caches each answer (cleared at once when a site or its settings change); browsers ask
+  again on every page view, CDNs keep it 5 seconds, so a change in the dashboard shows on the next reload within
+  seconds. The widget keeps the last answer in `localStorage`, so returning visitors see the right colors immediately.
 - **Two shapes** in `packages/widget-config`: `SiteSettings` (what the owner chose, one JSON document per site in
   `widget_settings`) and `WidgetConfig` (what the widget gets). `toWidgetConfig()` is the only place that maps one
   to the other.

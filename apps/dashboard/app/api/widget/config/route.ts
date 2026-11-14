@@ -25,12 +25,10 @@ export async function GET(request: NextRequest) {
         return Response.json(config, {
             headers: {
                 ...CORS,
-                "Cache-Control": config.enabled
-                    ? // Browsers keep it 5 minutes; CDNs 1 minute, then may serve the old copy for up to a day while refreshing it.
-                    "public, max-age=300, s-maxage=60, stale-while-revalidate=86400"
-                    : // "Not one of the account's sites" usually means the owner is about to add it: keep it only briefly,
-                    // so a reload right after adding the site shows the widget.
-                    "public, max-age=30, s-maxage=10",
+                // Changes in the dashboard should show within seconds (our own cache is cleared on save):
+                // browsers ask again on every page view; CDNs answer from their copy for 5 seconds, then ask us.
+                // No stale-while-revalidate: browsers apply it too, which shows the old answer one more time.
+                "Cache-Control": "public, max-age=0, s-maxage=5",
             },
         });
 
