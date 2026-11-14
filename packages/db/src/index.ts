@@ -13,6 +13,10 @@ const client =
   globalForDb.pgClient ??
   postgres(url, {
     prepare: false, // required for Supabase's transaction pooler (port 6543); harmless otherwise
+    // Close connections ourselves before the network or the pooler drops them: an idle one after 20 s, and every
+    // one after 30 min. A stale connection is then replaced quietly instead of failing the next query.
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
   });
 if (process.env.NODE_ENV !== "production") globalForDb.pgClient = client;
 
