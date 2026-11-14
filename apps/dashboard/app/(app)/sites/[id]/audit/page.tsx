@@ -183,7 +183,12 @@ function FixFirst({ rows, issuesHref }: { rows: Issue[]; issuesHref: string }) {
           {top.map((rule, i) => (
             <li key={rule.ruleId} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
               <ImpactPill impact={rule.impact} />
-              <span className="min-w-0 flex-1 basis-56 font-bold">{rule.title}</span>
+              <Link
+                href={`${issuesHref}?rule=${encodeURIComponent(rule.ruleId)}`}
+                className="inline-flex min-h-11 min-w-0 flex-1 basis-56 items-center font-bold wrap-anywhere"
+              >
+                {rule.title}
+              </Link>
               <span className="text-small text-muted">
                 {rule.places} {rule.places === 1 ? "place" : "places"} on {rule.pages.size} {rule.pages.size === 1 ? "page" : "pages"}
               </span>
