@@ -1313,3 +1313,107 @@ test.describe("site owner's config (/)", () => {
     });
 });
 
+
+test.describe("button position (/)", () => {
+    type Spot = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "middle-right" | "middle-left";
+    const SPOTS: Spot[] = ["bottom-right", "bottom-left", "top-right", "top-left", "middle-right", "middle-left"];
+    const place = (spot: Spot, side = 24, edge = 40) => ({ spot, side, edge });
+    const box = async (page: Page, which: "toggle" | "panel") => (await (which === "toggle" ? toggle(page) : panel(page)).boundingBox())!;
+
+    async function openAt(page: Page, size: { width: number; height: number }, position: object | undefined) {
+        await page.setViewportSize(size);
+        await serveConfig(page, { ...CONFIG, ...(position && { position }) });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    }
+
+    /** The panel is fully on screen and opens toward the middle: above, below or beside the button. */
+    async function expectPanelFits(page: Page, spot: Spot, size: { width: number; height: number }, beside: boolean) {
+        await toggle(page).click();
+        await expect(panel(page)).toBeVisible();
+        const b = await box(page, "toggle");
+        const p = await box(page, "panel");
+        expect(p.x).toBeGreaterThanOrEqual(0);
+        expect(p.y).toBeGreaterThanOrEqual(0);
+        expect(p.x + p.width).toBeLessThanOrEqual(size.width + 0.5);
+        expect(p.y + p.height).toBeLessThanOrEqual(size.height + 0.5);
+        if (spot.startsWith("bottom")) expect(p.y + p.height).toBeLessThanOrEqual(b.y); // above the button
+        if (spot.startsWith("top")) expect(p.y).toBeGreaterThanOrEqual(b.y + b.height); // below it
+        if (beside && spot === "middle-right") expect(p.x + p.width).toBeLessThanOrEqual(b.x); // to its left
+        if (beside && spot === "middle-left") expect(p.x).toBeGreaterThanOrEqual(b.x + b.width); // to its right
+        await expect(closeButton(page)).toBeFocused(); // focus behaviour unchanged
+    }
+
+    test("without a position from the owner: bottom right, 16px in, panel above it", async ({ page }) => {
+        const size = { width: 1280, height: 800 };
+        await openAt(page, size, undefined);
+        const b = await box(page, "toggle");
+        expect(Math.round(size.width - (b.x + b.width))).toBe(16);
+        expect(Math.round(size.height - (b.y + b.height))).toBe(16);
+        await expectPanelFits(page, "bottom-right", size, false);
+    });
+
+    for (const spot of SPOTS) {
+        test(`desktop: ${spot}, 24px from the side and 40px from the edge; the panel opens toward the middle and fits`, async ({ page }) => {
+            const size = { width: 1280, height: 800 };
+            await openAt(page, size, { desktop: place(spot), phone: place("bottom-right") });
+            const b = await box(page, "toggle");
+            const [y, x] = spot.split("-");
+            if (x === "right") expect(Math.round(size.width - (b.x + b.width))).toBe(24);
+            else expect(Math.round(b.x)).toBe(24);
+            if (y === "bottom") expect(Math.round(size.height - (b.y + b.height))).toBe(40);
+            if (y === "top") expect(Math.round(b.y)).toBe(40);
+            if (y === "middle") expect(Math.abs(b.y + b.height / 2 - size.height / 2)).toBeLessThan(1); // centered
+            await expectPanelFits(page, spot, size, true);
+            expect(await widgetViolations(page)).toEqual([]);
+        });
+    }
+
+    test("phones use the phone placement (and desktop the desktop one)", async ({ page }) => {
+        await openAt(page, { width: 375, height: 700 }, { desktop: place("top-left"), phone: place("bottom-right", 10, 90) });
+        let b = await box(page, "toggle");
+        expect(Math.round(375 - (b.x + b.width))).toBe(10);
+        expect(Math.round(700 - (b.y + b.height))).toBe(90);
+
+        await page.setViewportSize({ width: 1024, height: 700 }); // same page, wider: CSS switches, no reload
+        b = await box(page, "toggle");
+        expect(Math.round(b.x)).toBe(24);
+        expect(Math.round(b.y)).toBe(40);
+    });
+
+    for (const spot of SPOTS) {
+        test(`phone at 320px: ${spot}; the panel takes the screen's width and fits`, async ({ page }) => {
+            const size = { width: 320, height: 640 };
+            await openAt(page, size, { desktop: place("bottom-right"), phone: place(spot, 12, 24) });
+            await expectPanelFits(page, spot, size, false);
+            const p = await box(page, "panel");
+            expect(Math.round(p.x)).toBe(16);
+            expect(Math.round(p.width)).toBe(320 - 32);
+        });
+    }
+
+    test("big distances on a small screen can't push the button off it", async ({ page }) => {
+        const size = { width: 320, height: 400 };
+        for (const spot of ["bottom-right", "top-left"] as Spot[]) {
+            await openAt(page, size, { desktop: place(spot, 200, 200), phone: place(spot, 200, 200) });
+            await page.setViewportSize({ width: 240, height: 200 }); // and smaller still (e.g. zoomed in)
+            const b = await box(page, "toggle");
+            expect(b.x).toBeGreaterThanOrEqual(8 - 0.5);
+            expect(b.y).toBeGreaterThanOrEqual(8 - 0.5);
+            expect(b.x + b.width).toBeLessThanOrEqual(240 - 8 + 0.5);
+            expect(b.y + b.height).toBeLessThanOrEqual(200 - 8 + 0.5);
+            await page.evaluate(() => localStorage.clear());
+        }
+    });
+
+    test("the page's CSS can't move it", async ({ page }) => {
+        const size = { width: 1280, height: 800 };
+        await openAt(page, size, { desktop: place("top-left"), phone: place("top-left") });
+        await page.addStyleTag({
+            content: "a11yw-root { top: auto !important; bottom: 0 !important; left: auto !important; right: 0 !important; --ap-side: 500px !important; --ap-edge: 500px !important; }",
+        });
+        const b = await box(page, "toggle");
+        expect(Math.round(b.x)).toBe(24);
+        expect(Math.round(b.y)).toBe(40);
+    });
+});

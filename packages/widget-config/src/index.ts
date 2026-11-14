@@ -43,6 +43,56 @@ export const DefaultSettingsSchema = v.pipe(
     v.transform((keys) => DEFAULTABLE.filter((key) => keys.includes(key)))
 );
 
+// ─── Where the widget button sits ──────────────────────────────────────────────────────────────────────────
+
+/** The six spots for the button. Named, not numbered, so every place that reads them says what it means. */
+export const SPOTS = ["bottom-right", "bottom-left", "top-right", "top-left", "middle-right", "middle-left"] as const;
+export type Spot = (typeof SPOTS)[number];
+
+/** Their names in the dashboard. */
+export const SPOT_LABELS: Record<Spot, string> = {
+    "top-left": "Top left",
+    "top-right": "Top right",
+    "middle-left": "Middle left",
+    "middle-right": "Middle right",
+    "bottom-left": "Bottom left",
+    "bottom-right": "Bottom right",
+};
+
+export const MAX_OFFSET = 200;
+
+/**
+ * One placement. Both distances are measured inward from the screen's edges the spot touches, so there is no
+ * direction to get wrong: `side` from the left or right edge, `edge` from the top or bottom (unused for middle
+ * spots, which are centered vertically). The widget also keeps the button on screen whatever the numbers.
+ */
+export type Placement = { spot: Spot; side: number; edge: number };
+
+/** Where the button is when the owner hasn't chosen: bottom right, 16px in (as before positions existed). */
+export const DEFAULT_PLACEMENT: Placement = { spot: "bottom-right", side: 16, edge: 16 };
+
+/** Strict, for the dashboard form. */
+export const SpotSchema = v.picklist(SPOTS, "Choose where the button goes.");
+const OUT_OF_RANGE = `Enter a number from 0 to ${MAX_OFFSET}.`;
+export const OffsetSchema = v.pipe(
+    v.number(OUT_OF_RANGE),
+    v.finite(OUT_OF_RANGE),
+    v.integer("Use whole pixels, like 16."),
+    v.minValue(0, OUT_OF_RANGE),
+    v.maxValue(MAX_OFFSET, OUT_OF_RANGE)
+);
+
+/** Lenient, for reading: a bad field falls back to its default alone. */
+const PlacementSchema = v.object({
+    spot: v.fallback(SpotSchema, DEFAULT_PLACEMENT.spot),
+    side: v.fallback(OffsetSchema, DEFAULT_PLACEMENT.side),
+    edge: v.fallback(OffsetSchema, DEFAULT_PLACEMENT.edge),
+});
+
+export function isMiddle(spot: Spot): boolean {
+    return spot.startsWith("middle-");
+}
+
 // ─── What the site owner chose (stored) ────────────────────────────────────────────────────────────────────
 
 export const SETTINGS_VERSION = 1;
@@ -56,6 +106,11 @@ export const SiteSettingsSchema = v.object({
     appearance: v.fallback(
         v.object({
             stateColor: v.fallback(v.optional(StateColorSchema), undefined), // missing = our default color
+            // missing = DEFAULT_PLACEMENT everywhere; phone missing = same as desktop
+            position: v.fallback(
+                v.optional(v.object({ desktop: PlacementSchema, phone: v.fallback(v.optional(PlacementSchema), undefined) })),
+                undefined
+            ),
         }),
         {}
     ),
@@ -83,6 +138,8 @@ export const WidgetConfigSchema = v.object({
     enabled: v.fallback(v.boolean(), true),
     /** The site owner's colors. Missing = our defaults (packages/tokens). */
     theme: v.fallback(v.object({ state: v.fallback(v.optional(StateColorSchema), undefined) }), {}),
+    /** Where the button sits, from 641px wide (desktop) and up to 640px (phone). Missing = DEFAULT_PLACEMENT for both. */
+    position: v.fallback(v.optional(v.object({ desktop: PlacementSchema, phone: PlacementSchema })), undefined),
     /** Settings on by default for visitors who haven't chosen yet. Only `true` entries. */
     defaults: v.fallback(
         v.pipe(
@@ -116,6 +173,9 @@ export function toWidgetConfig(settings: SiteSettings, enabled: boolean): Widget
         enabled,
         theme: settings.appearance.stateColor ? { state: settings.appearance.stateColor } : {},
         defaults: Object.fromEntries(settings.defaults.map((key) => [key, true])),
+        ...(settings.appearance.position && {
+            position: { desktop: settings.appearance.position.desktop, phone: settings.appearance.position.phone ?? settings.appearance.position.desktop },
+        }),
     };
 }
 

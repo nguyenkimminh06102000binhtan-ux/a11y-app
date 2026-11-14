@@ -69,15 +69,19 @@ A local build without `WIDGET_API_BASE` points to `http://localhost:3001` (the b
 The widget mounts after the page's `load` event, inside its own shadow root, and stays mounted across
 single-page-app navigation. It adds nothing to your HTML except one `<style>` while a setting is on.
 
-**Where it shows:** on the sites you've added in the dashboard and their subdomains (`www.` is ignored), and on
-`localhost` for testing. On any other domain it stays hidden and logs one console warning.
+**Where it shows:** on the sites you've added in the dashboard (`shop.com` also covers `www.shop.com`), and on
+`localhost` for testing. A subdomain such as `blog.shop.com` is a separate site with its own plan: it shows there
+only once it's added as a site. On any other domain it stays hidden and logs one console warning.
 
-**Settings per site** (dashboard › your site › Widget on this site):
+**Settings per site** (dashboard › your site › Widget › Customize):
 - **Brand color:** any color. Icons on it are black or white, whichever reads best; it's used for text and borders
   only where it's dark enough to read, so the widget always stays readable.
+- **Position:** bottom right, top right, middle right (or the same on the left), with a distance from the side and
+  from the top or bottom (0–200 px), and optionally a different position on phones (up to 640 px wide). The widget
+  keeps the button on screen whatever the distances, avoids the notch and home bar, and opens its panel toward the
+  middle of the screen.
 - **On by default:** settings that start on for visitors who haven't changed anything. Visitors can turn them
   off, and their own choices always win.
-- A subdomain added as its own site uses its own settings; otherwise it uses its parent site's.
 - Changes reach visitors within about 5 minutes.
 
 **Exclude part of a page** from every setting, or only from some:

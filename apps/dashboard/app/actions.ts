@@ -11,7 +11,17 @@ import { isUuid } from "@/lib/ids";
 import { canDeleteSite } from "@/lib/plan";
 import { widgetConfigTag } from "@/lib/widget-config";
 import * as v from "valibot";
-import { DefaultSettingsSchema, SETTINGS_VERSION, StateColorSchema, type SiteSettings } from "@app/widget-config";
+import {
+  DEFAULT_PLACEMENT,
+  DefaultSettingsSchema,
+  OffsetSchema,
+  SETTINGS_VERSION,
+  SpotSchema,
+  StateColorSchema,
+  isMiddle,
+  type Placement,
+  type SiteSettings,
+} from "@app/widget-config";
 
 
 
@@ -133,11 +143,38 @@ export async function scanPages(_previous: ScanPagesState, formData: FormData): 
   redirect(`${back}?started=${result.started}`);
 }
 
+export type WidgetSettingsField = "stateColor" | `${"desktop" | "phone"}${"Spot" | "Side" | "Edge"}`;
+
 export type WidgetSettingsState = {
   status: "idle" | "saved" | "invalid";
-  errors?: { stateColor?: string }; // one message per field, shown next to it
+  errors?: Partial<Record<WidgetSettingsField, string>>; // one message per field, shown next to it
   settings?: SiteSettings; // what was submitted, so the form keeps it (also when invalid)
 };
+
+/**
+ * One placement from the form (fields desktopSpot, desktopSide, desktopEdge, or the phone ones), checked strictly.
+ * Middle spots are centered vertically, so their edge distance isn't asked for: it keeps its default.
+ */
+function readPlacement(
+  formData: FormData,
+  prefix: "desktop" | "phone",
+  errors: NonNullable<WidgetSettingsState["errors"]>
+): Placement {
+  const spot = v.safeParse(SpotSchema, formData.get(`${prefix}Spot`));
+  if (!spot.success) errors[`${prefix}Spot`] = spot.issues[0].message;
+  const resolvedSpot = spot.success ? spot.output : DEFAULT_PLACEMENT.spot;
+
+  const distance = (field: "Side" | "Edge"): number => {
+    const raw = String(formData.get(`${prefix}${field}`) ?? "").trim();
+    const parsed = v.safeParse(OffsetSchema, raw === "" ? Number.NaN : Number(raw));
+    if (parsed.success) return parsed.output;
+    errors[`${prefix}${field}`] = parsed.issues[0].message;
+    return DEFAULT_PLACEMENT[field === "Side" ? "side" : "edge"];
+  };
+  const side = distance("Side");
+  const edge = isMiddle(resolvedSpot) ? DEFAULT_PLACEMENT.edge : distance("Edge");
+  return { spot: resolvedSpot, side, edge };
+}
 
 /** Save one site's widget settings. Each field is checked by its schema from @app/widget-config. */
 export async function saveWidgetSettings(_previous: WidgetSettingsState, formData: FormData): Promise<WidgetSettingsState> {
@@ -163,14 +200,19 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
     else errors.stateColor = color.issues[0].message;
   }
 
+  // Position: desktop, and phones either the same or their own
+  const desktop = readPlacement(formData, "desktop", errors);
+  const phone = formData.get("samePhone") === "on" ? undefined : readPlacement(formData, "phone", errors);
+  const position = phone ? { desktop, phone } : { desktop };
+
   // On by default: unknown values are dropped, never an error
   const defaults = v.parse(DefaultSettingsSchema, formData.getAll("defaults").map(String));
 
   if (Object.keys(errors).length > 0) {
-    return { status: "invalid", errors, settings: { v: SETTINGS_VERSION, appearance: { stateColor: submittedColor }, defaults } };
+    return { status: "invalid", errors, settings: { v: SETTINGS_VERSION, appearance: { stateColor: submittedColor, position }, defaults } };
   }
 
-  const settings: SiteSettings = { v: SETTINGS_VERSION, appearance: stateColor ? { stateColor } : {}, defaults };
+  const settings: SiteSettings = { v: SETTINGS_VERSION, appearance: { ...(stateColor && { stateColor }), position }, defaults };
   await db
     .insert(widgetSettings)
     .values({ siteId: site.id, settings })

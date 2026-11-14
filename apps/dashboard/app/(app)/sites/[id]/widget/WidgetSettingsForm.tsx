@@ -1,12 +1,22 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { DEFAULTABLE, DEFAULTABLE_LABELS, onStateColor, type SiteSettings } from "@app/widget-config";
-import { saveWidgetSettings, type WidgetSettingsState } from "@/app/actions";
+import { DEFAULTABLE, DEFAULTABLE_LABELS, DEFAULT_PLACEMENT, onStateColor, type Placement, type SiteSettings } from "@app/widget-config";
+import { saveWidgetSettings, type WidgetSettingsField, type WidgetSettingsState } from "@/app/actions";
+import { PositionFields, type PlacementDraft } from "./PositionFields";
 
 
 const DEFAULT_STATE_COLOR = "#5b47c8"; // packages/tokens --bcn-state
 const IDLE: WidgetSettingsState = { status: "idle" };
+
+/** The fields in page order: after a refused save, focus goes to the first one with an error. */
+const FIELD_ORDER: WidgetSettingsField[] = [
+    "stateColor",
+    "desktopSpot", "desktopSide", "desktopEdge",
+    "phoneSpot", "phoneSide", "phoneEdge",
+];
+
+const draft = (p: Placement): PlacementDraft => ({ spot: p.spot, side: String(p.side), edge: String(p.edge) });
 
 /**
  * The widget's settings for one site, in sections (more will come: position, language…).
@@ -22,12 +32,24 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
     const [previewColor, setPreviewColor] = useState(shown.appearance.stateColor ?? DEFAULT_STATE_COLOR);
 
 
+    // Position: kept in state, so what was typed stays (next to its error) after a refused save
+    const savedPosition = settings.appearance.position;
+    const [desktop, setDesktop] = useState(draft(savedPosition?.desktop ?? DEFAULT_PLACEMENT));
+    const [samePhone, setSamePhone] = useState(!savedPosition?.phone);
+    const [phone, setPhone] = useState(draft(savedPosition?.phone ?? savedPosition?.desktop ?? DEFAULT_PLACEMENT));
+    const errors = state.errors ?? {};
+
     useEffect(() => {
-        if (state.errors?.stateColor) colorRef.current?.focus();
+        const first = FIELD_ORDER.find((field) => state.errors?.[field]);
+        if (!first) return;
+        if (first === "stateColor") colorRef.current?.focus();
+        else if (first.endsWith("Spot")) document.querySelector<HTMLInputElement>(`input[name="${first}"]:checked, input[name="${first}"]`)?.focus();
+        else document.getElementById(first)?.focus();
     }, [state]);
 
     return (
-        <form action={formAction} className="flex-col items-start gap-6">
+        // noValidate: our messages (next to each field) instead of the browser's tooltips
+        <form action={formAction} noValidate className="flex-col items-start gap-6">
             <input type="hidden" name="siteId" value={siteId} />
 
             <fieldset aria-describedby="color-hint">
@@ -38,11 +60,11 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                     enough to read.
 
                 </p>
-                <label className="flex items-center gap-2 font-normal">
+                <label className="flex min-h-11 items-center gap-2 font-normal">
                     <input type="radio" name="colorChoice" value="default" defaultChecked={!shown.appearance.stateColor} />
                     Our default color (violet)
                 </label>
-                <label className="flex items-center gap-2 font-normal">
+                <label className="flex min-h-11 items-center gap-2 font-normal">
                     <input type="radio" name="colorChoice" value="custom" defaultChecked={!!shown.appearance.stateColor} />
                     A custom brand color
                 </label>
@@ -84,13 +106,29 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                 )}
             </fieldset>
 
+            <fieldset aria-describedby="position-hint" className="flex flex-col gap-5">
+                <legend className="mb-1 text-lg font-bold">Position</legend>
+                <p id="position-hint" className="m-0 text-sm">
+                    Where the widget button sits on your site. Use the distances to keep it clear of things like a chat button.
+                    The widget always keeps it on screen.
+                </p>
+                <PositionFields prefix="desktop" legend="On computers and tablets" value={desktop} onChange={setDesktop} errors={errors} />
+                <label className="flex min-h-11 items-center gap-2 font-normal">
+                    <input type="checkbox" name="samePhone" checked={samePhone} onChange={(event) => setSamePhone(event.target.checked)} />
+                    Same position on phones
+                </label>
+                {!samePhone && (
+                    <PositionFields prefix="phone" legend="On phones (up to 640 pixels wide)" value={phone} onChange={setPhone} errors={errors} />
+                )}
+            </fieldset>
+
             <fieldset aria-describedby="defaults-hint">
                 <legend className="mb-1 text-lg font-bold">On by default</legend>
                 <p id="defaults-hint" className="mb-3 text-sm">
                     For visitors who haven&apos;t changed anything yet. They can still turn these off.
                 </p>
                 {DEFAULTABLE.map((key) => (
-                    <label key={key} className="flex items-center gap-2 font-normal">
+                    <label key={key} className="flex min-h-11 items-center gap-2 font-normal">
                         <input type="checkbox" name="defaults" value={key} defaultChecked={shown.defaults.includes(key)} />
                         {DEFAULTABLE_LABELS[key]}
                     </label>
@@ -102,7 +140,7 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                 {/* Always rendered, so screen readers announce it when the text appears */}
                 <p role="status">
                     {state.status === "saved" && "Saved. Visitors get the new settings within about 5 minutes."}
-                    {state.status === "invalid" && "Not saved: please fix the field marked above."}
+                    {state.status === "invalid" && "Not saved: please fix the fields marked above."}
                 </p>
             </div>
         </form>

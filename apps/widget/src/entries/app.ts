@@ -12,6 +12,7 @@ import { warnUnknownIgnoreIds } from "../core/ignore";
 import { watchIframes } from "../core/iframes";
 import { cachedConfig, fetchConfig } from "../settings/config";
 import { applyTheme } from "../ui/theme";
+import { applyPosition } from "../ui/position";
 
 const thisScript = document.currentScript as HTMLScriptElement | null; // only valid right now, not later
 const account = thisScript?.dataset.account ?? "";
@@ -33,7 +34,7 @@ function whenPageLoaded(): Promise<void> {
   return new Promise((resolve) => window.addEventListener("load", () => resolve(), { once: true }));
 }
 
-Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults }]) => {
+Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, position }]) => {
   setOwnerDefaults(defaults);
   if (!enabled) {
     // Not one of the account's sites: no widget, and undo anything applied from an older answer.
@@ -47,6 +48,7 @@ Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults }]) =>
   const container = mount();
   const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
   applyTheme(host, theme); // before the first render, so the brand color never flashes
+  applyPosition(host, position); // likewise, so the button never jumps from the default corner
   render(h(Widget, {}), container);
 
   // Single-page apps can remove the widget, our <style> or the text-size variable while navigating: put them back.

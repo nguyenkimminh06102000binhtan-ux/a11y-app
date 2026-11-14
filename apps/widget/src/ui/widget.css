@@ -9,8 +9,11 @@
   all: initial !important;
   display: block !important;
   position: fixed !important;
-  right: 16px !important;
-  bottom: 16px !important;
+  /* Where it sits: see section 3 below */
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
   z-index: 2147483647 !important;
   /* ties with the page's max are won by DOM order: we're appended last */
 
@@ -91,13 +94,8 @@
 }
 
 .panel {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 0.75em);
-  /* above the button */
-  width: min(24em, calc(100vw - 32px));
-  /* fits small screens: 16px gap on each side */
-  max-height: calc(100vh - 6.5em);
+  /* Placed against the screen, next to the button: see section 3 below */
+  position: fixed;
   display: flex;
   flex-direction: column;
   background: var(--bcn-bg);
@@ -418,5 +416,128 @@
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+/*
+ * 3. Where the button and the panel sit: the site owner's placement (ui/position.ts sets the attributes and the
+ *    --ap-* distances on the host). Phones (up to 640px wide) use the -phone ones. All layout, no measuring:
+ *    - the distances are capped so the 3.5em button always stays at least 8px inside the screen;
+ *    - the safe areas (notch, home bar) are added on top;
+ *    - the panel opens toward the middle of the screen: above a bottom button, below a top one, beside a middle
+ *      one (full width on phones), and always fits, scrolling inside when it must.
+ *    Without attributes (they're set before the first render) it's bottom right, 16px in.
+ */
+:host {
+  --ap-s: min(var(--ap-side, 16px), calc(100vw - 3.5em - 8px)) !important;
+  --ap-e: min(var(--ap-edge, 16px), calc(100vh - 3.5em - 8px)) !important;
+  --ap-gap: 0.75em !important; /* between the button and the panel */
+  --ap-out: calc(var(--ap-e) + 3.5em + var(--ap-gap)) !important; /* from the screen edge to the panel */
+}
+
+:host,
+:host([data-x="right"]) {
+  left: auto !important;
+  right: calc(var(--ap-s) + env(safe-area-inset-right, 0px)) !important;
+}
+:host([data-x="left"]) {
+  right: auto !important;
+  left: calc(var(--ap-s) + env(safe-area-inset-left, 0px)) !important;
+}
+:host,
+:host([data-y="bottom"]) {
+  top: auto !important;
+  bottom: calc(var(--ap-e) + env(safe-area-inset-bottom, 0px)) !important;
+}
+:host([data-y="top"]) {
+  bottom: auto !important;
+  top: calc(var(--ap-e) + env(safe-area-inset-top, 0px)) !important;
+}
+:host([data-y="middle"]) {
+  bottom: auto !important;
+  top: calc(50% - 1.75em) !important;
+}
+
+/* The panel, beside the button's side of the screen */
+.panel {
+  left: auto;
+  right: calc(var(--ap-s) + env(safe-area-inset-right, 0px));
+  width: min(24em, calc(100vw - var(--ap-s) - 16px));
+  top: auto;
+  bottom: calc(var(--ap-out) + env(safe-area-inset-bottom, 0px));
+  max-height: calc(100vh - var(--ap-out) - 16px);
+}
+:host([data-x="left"]) .panel {
+  right: auto;
+  left: calc(var(--ap-s) + env(safe-area-inset-left, 0px));
+}
+:host([data-y="top"]) .panel {
+  bottom: auto;
+  top: calc(var(--ap-out) + env(safe-area-inset-top, 0px));
+}
+/* Middle: beside the button, centered on the screen's height */
+:host([data-y="middle"]) .panel {
+  bottom: auto;
+  top: 50%;
+  translate: 0 -50%;
+  right: calc(var(--ap-s) + 3.5em + var(--ap-gap));
+  width: min(24em, calc(100vw - var(--ap-s) - 3.5em - var(--ap-gap) - 16px));
+  max-height: calc(100vh - 32px);
+}
+:host([data-x="left"][data-y="middle"]) .panel {
+  right: auto;
+  left: calc(var(--ap-s) + 3.5em + var(--ap-gap));
+}
+
+@media (max-width: 640px) {
+  :host {
+    --ap-s: min(var(--ap-side-phone, var(--ap-side, 16px)), calc(100vw - 3.5em - 8px)) !important;
+    --ap-e: min(var(--ap-edge-phone, var(--ap-edge, 16px)), calc(100vh - 3.5em - 8px)) !important;
+  }
+  :host([data-x-phone="right"]) {
+    left: auto !important;
+    right: calc(var(--ap-s) + env(safe-area-inset-right, 0px)) !important;
+  }
+  :host([data-x-phone="left"]) {
+    right: auto !important;
+    left: calc(var(--ap-s) + env(safe-area-inset-left, 0px)) !important;
+  }
+  :host([data-y-phone="bottom"]) {
+    top: auto !important;
+    bottom: calc(var(--ap-e) + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  :host([data-y-phone="top"]) {
+    bottom: auto !important;
+    top: calc(var(--ap-e) + env(safe-area-inset-top, 0px)) !important;
+  }
+  :host([data-y-phone="middle"]) {
+    bottom: auto !important;
+    top: calc(50% - 1.75em) !important;
+  }
+
+  /* Phones: the panel uses the screen's width (16px each side), above or below the button */
+  /* as specific as the desktop rules above (and later), so it wins over all of them */
+  .panel,
+  :host([data-x-phone][data-y-phone]) .panel {
+    left: calc(16px + env(safe-area-inset-left, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    width: auto;
+    translate: none;
+  }
+  :host([data-y-phone="bottom"]) .panel {
+    top: auto;
+    bottom: calc(var(--ap-out) + env(safe-area-inset-bottom, 0px));
+    max-height: calc(100vh - var(--ap-out) - 16px);
+  }
+  :host([data-y-phone="top"]) .panel {
+    bottom: auto;
+    top: calc(var(--ap-out) + env(safe-area-inset-top, 0px));
+    max-height: calc(100vh - var(--ap-out) - 16px);
+  }
+  /* Middle on a phone: centered on the screen, over the button (Close and Esc are right there) */
+  :host([data-x-phone][data-y-phone="middle"]) .panel {
+    top: 50%;
+    bottom: auto;
+    translate: 0 -50%;
+    max-height: calc(100vh - 32px);
   }
 }

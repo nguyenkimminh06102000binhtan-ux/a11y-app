@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { db, accounts, sites, widgetSettings, eq } from "@app/db";
+import { db, accounts, sites, widgetSettings, eq, and } from "@app/db";
 import { CONFIG_VERSION, readSiteSettings, toWidgetConfig, type WidgetConfig } from "@app/widget-config";
 import { isLocalHost } from "@/lib/domain";
 
@@ -36,17 +36,14 @@ export async function getWidgetConfig(widgetKey: string, host: string): Promise<
     if (!account) return disabled; // same answer as an unregistered domain: doesn't reveal which keys exist
     cacheTag(widgetConfigTag(account.id));
 
-    const rows = await db
-        .select({ domain: sites.domain, settings: widgetSettings.settings })
+    // Same rule as scans: exactly the site's domain ("www." was already dropped from host). A subdomain such as
+    // blog.shop.com is a separate site with its own plan, so it shows only once it's added as a site.
+    // One row by (account, domain), however many sites the account has.
+    const [site] = await db
+        .select({ settings: widgetSettings.settings })
         .from(sites)
         .leftJoin(widgetSettings, eq(widgetSettings.siteId, sites.id)) // no settings row = our defaults
-        .where(eq(sites.accountId, account.id));
-
-    // Same rule as scans: the site's domain or any subdomain of it. The most specific site wins,
-    // so blog.shop.com uses its own settings when it's added as a site, and shop.com's otherwise.
-    const site = rows
-        .filter(({ domain }) => host === domain || host.endsWith(`.${domain}`))
-        .sort((a, b) => b.domain.length - a.domain.length)[0];
+        .where(and(eq(sites.accountId, account.id), eq(sites.domain, host)));
     if (site) return toWidgetConfig(readSiteSettings(site.settings), true);
 
     // Local development without a "localhost" site: still shows, with our defaults

@@ -2,7 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as v from "valibot";
 import {
+    DEFAULT_PLACEMENT,
     DEFAULT_SITE_SETTINGS,
+    OffsetSchema,
+    SpotSchema,
     DefaultSettingsSchema,
     FALLBACK_CONFIG,
     StateColorSchema,
@@ -78,6 +81,56 @@ test("toWidgetConfig: what the owner chose becomes what the widget gets", () => 
     assert.deepEqual(toWidgetConfig(DEFAULT_SITE_SETTINGS, false), { v: 1, enabled: false, theme: {}, defaults: {} });
     // and the widget accepts what the server sends
     assert.deepEqual(parseConfig(toWidgetConfig(settings, true)), toWidgetConfig(settings, true));
+});
+
+// ─── Position ───
+
+test("position: no choice stored = nothing sent, so the widget uses bottom right, 16px in", () => {
+    assert.equal(toWidgetConfig(readSiteSettings({}), true).position, undefined);
+    assert.deepEqual(DEFAULT_PLACEMENT, { spot: "bottom-right", side: 16, edge: 16 });
+});
+
+test("position: phones use the desktop placement unless they have their own", () => {
+    const desktop = { spot: "top-left", side: 24, edge: 80 };
+    const same = toWidgetConfig(readSiteSettings({ appearance: { position: { desktop } } }), true);
+    assert.deepEqual(same.position, { desktop, phone: desktop });
+
+    const phone = { spot: "middle-right", side: 0, edge: 16 };
+    const own = toWidgetConfig(readSiteSettings({ appearance: { position: { desktop, phone } } }), true);
+    assert.deepEqual(own.position, { desktop, phone });
+    assert.deepEqual(parseConfig(own), own); // and the widget accepts it
+});
+
+test("position: a bad field falls back alone; the rest of the placement is kept", () => {
+    const settings = readSiteSettings({
+        appearance: { stateColor: "#c62828", position: { desktop: { spot: "center", side: 500, edge: 40 }, phone: "nope" } },
+    });
+    assert.deepEqual(settings.appearance, {
+        stateColor: "#c62828",
+        position: { desktop: { spot: "bottom-right", side: 16, edge: 40 } }, // bad phone = same as desktop
+    });
+});
+
+test("position: the widget ignores a broken position from the server, and old configs without one still parse", () => {
+    assert.equal(parseConfig({ v: 1, enabled: true, position: "left" })?.position, undefined);
+    assert.equal(parseConfig({ v: 1, enabled: true })?.position, undefined);
+    const parsed = parseConfig({ v: 1, position: { desktop: { spot: "top-left", side: -5, edge: 12.5 }, phone: { spot: "bottom-left" } } });
+    assert.deepEqual(parsed?.position, {
+        desktop: { spot: "top-left", side: 16, edge: 16 }, // negative and fractional values fall back
+        phone: { spot: "bottom-left", side: 16, edge: 16 },
+    });
+});
+
+test("position fields explain what's wrong", () => {
+    const message = (schema: Parameters<typeof v.safeParse>[0], input: unknown) => v.safeParse(schema, input).issues?.[0].message;
+    assert.equal(v.parse(OffsetSchema, 0), 0);
+    assert.equal(v.parse(OffsetSchema, 200), 200);
+    assert.match(message(OffsetSchema, 201) ?? "", /0 to 200/);
+    assert.match(message(OffsetSchema, -1) ?? "", /0 to 200/);
+    assert.match(message(OffsetSchema, Number.NaN) ?? "", /0 to 200/);
+    assert.match(message(OffsetSchema, 10.5) ?? "", /whole pixels/);
+    assert.equal(v.parse(SpotSchema, "middle-left"), "middle-left");
+    assert.match(message(SpotSchema, "center") ?? "", /where the button goes/);
 });
 
 // ─── Field schemas (dashboard form) ───
