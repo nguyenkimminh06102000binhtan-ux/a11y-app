@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
+import { Mark } from "@/components/Mark";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -26,7 +27,10 @@ export default async function LoginPage({
   // no await here: pass the promise down unresolved
   return (
     <main>
-      <h1>Sign in</h1>
+      <h1 className="flex items-center gap-3">
+        <Mark className="size-10 shrink-0" />
+        Sign in to AccessPilot
+      </h1>
       <Suspense fallback={null}>
         <StatusMessage searchParams={searchParams} />
       </Suspense>
