@@ -1,41 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Spinner } from "@/components/ui/SubmitButton";
-
-type Status = "queued" | "running" | "done" | "failed";
-type Scan = { id: string; status: Status; url: string; issueCount: number; error: string | null };
+import type { Run } from "@/lib/runs";
+import { pageLabel } from "@/lib/page-label";
 
 const POLL_MS = 3000;
 
 /**
- * The latest scan's progress on Audit › Overview: Queued → Checking the page → Done.
- * Updates in place by asking /api/sites/:id/scan-status every 3s (no page reload). When the scan ends it refreshes
- * the server parts of the page once, so the counts and lists below show the new results.
- * Always rendered, with the live region always the same element (screen readers often miss a region that appears
- * with its text already in it), so they hear each step and the result; the "finished" message survives the refresh.
+ * The latest scan run's progress, on Audit › Overview and Pages: "Checking page 2 of 5: /cart".
+ * Updates in place by asking /api/sites/:id/scan-status every 3s (no page reload); when the run ends it refreshes
+ * the server parts of the page once, so the counts and lists show the new results.
+ * The live region is always the same element (screen readers often miss a region that appears with its text
+ * already in it), so they hear each page and the result. A run just started from a button (?started=<its key>)
+ * takes focus, so keyboard and screen reader users follow it.
  */
-export function ScanProgress({ siteId, initial }: { siteId: string; initial: Scan }) {
+export function ScanProgress({ siteId, domain, initial, started }: { siteId: string; domain: string; initial: Run; started?: string }) {
   const router = useRouter();
-  const [scan, setScan] = useState(initial);
-  const [sawItRun, setSawItRun] = useState(isActive(initial.status));
-  // A new scan was started (the server sends a different one): follow that one instead
-  if (initial.id !== scan.id) {
-    setScan(initial);
-    setSawItRun(isActive(initial.status));
+  const [run, setRun] = useState(initial);
+  const [sawItRun, setSawItRun] = useState(initial.active);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // A new run was started (the server sends a different one): follow that one instead
+  if (initial.key !== run.key) {
+    setRun(initial);
+    setSawItRun(initial.active);
   }
-  const active = isActive(scan.status);
+
+  // Just started with "Scan 3 pages" or "Try again": move focus here
+  useEffect(() => {
+    if (started && started === run.key) cardRef.current?.focus();
+  }, [started, run.key]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!run.active) return;
     let stopped = false;
     const timer = setInterval(async () => {
       try {
         const response = await fetch(`/api/sites/${siteId}/scan-status`, { cache: "no-store" });
         if (!response.ok) return;
-        const next = (await response.json()) as Scan;
-        if (!stopped && next.id === initial.id) setScan(next);
+        const next = (await response.json()) as Run;
+        if (!stopped && next.key === run.key) setRun(next);
       } catch {
         // offline or signed out: try again next time
       }
@@ -44,66 +49,50 @@ export function ScanProgress({ siteId, initial }: { siteId: string; initial: Sca
       stopped = true;
       clearInterval(timer);
     };
-  }, [active, siteId, initial.id]);
+  }, [run.active, run.key, siteId]);
 
   // Finished while this page was open: load the results once
   useEffect(() => {
-    if (!active && sawItRun) router.refresh();
-  }, [active, sawItRun, router]);
+    if (!run.active && sawItRun) router.refresh();
+  }, [run.active, sawItRun, router]);
 
-  const announcement = active
-    ? scan.status === "queued"
-      ? `Scan queued for ${scan.url}.`
-      : `Checking ${scan.url}…`
+  const pages = (n: number) => `${n} ${n === 1 ? "page" : "pages"}`;
+  const label = (url: string) => pageLabel(url, domain);
+  const finished = run.done + run.failed;
+
+  const announcement = run.active
+    ? run.current
+      ? `Checking page ${Math.min(finished + 1, run.total)} of ${run.total}: ${label(run.current)}`
+      : finished === 0
+        ? `Scan queued: ${pages(run.total)}.`
+        : `Checked ${finished} of ${run.total} pages…`
     : sawItRun
-      ? scan.status === "done"
-        ? `Scan finished: ${scan.issueCount} ${scan.issueCount === 1 ? "issue" : "issues"} found.`
-        : "Scan failed. The reason is below."
+      ? `Scan finished: ${pages(run.done)} checked, ${run.issueCount} ${run.issueCount === 1 ? "issue" : "issues"} found.` +
+        (run.failed ? ` ${pages(run.failed)} couldn't be checked.` : "")
       : "";
 
-  const idle = !active && !sawItRun; // nothing running, nothing just finished: only the (empty) live region
-
-  const steps: { label: string; state: "done" | "current" | "waiting" }[] = [
-    { label: "Queued", state: scan.status === "queued" ? "current" : "done" },
-    { label: "Checking the page", state: scan.status === "queued" ? "waiting" : scan.status === "running" ? "current" : "done" },
-    { label: "Done", state: active ? "waiting" : "done" },
-  ];
+  const idle = !run.active && !sawItRun; // nothing running, nothing just finished: only the (empty) live region
 
   return (
-    <div className={idle ? "" : `rounded-xl border-[1.5px] p-4 sm:p-5 ${active ? "border-state" : "border-line"}`}>
+    <div
+      ref={cardRef}
+      tabIndex={-1}
+      className={idle ? "" : `rounded-xl border-[1.5px] p-4 sm:p-5 ${run.active ? "border-state" : "border-line"}`}
+    >
       <p role="status" className={idle ? "sr-only" : "font-bold wrap-anywhere"}>
         {announcement}
       </p>
-      {active && (
+      {run.active && (
         <>
-          <ol className="mt-3 flex flex-col gap-2 sm:flex-row sm:gap-6">
-            {steps.map((step) => (
-              <li key={step.label} className={`flex items-center gap-2 ${step.state === "current" ? "font-bold" : ""}`}>
-                {step.state === "done" && <CheckIcon />}
-                {step.state === "current" && <Spinner />}
-                {step.state === "waiting" && <span aria-hidden="true" className="size-4 shrink-0 rounded-full border-2 border-dashed border-frame" />}
-                {step.label}
-                <span className="text-caption font-normal text-muted">
-                  {step.state === "done" ? "done" : step.state === "current" ? "in progress" : "waiting"}
-                </span>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-3 text-small text-muted">You can leave this page: the results appear here when it&apos;s done.</p>
+          {/* The text above says the same, so the bar is decoration */}
+          <div aria-hidden="true" className="mt-3 h-2 overflow-hidden rounded-full bg-state-tint">
+            <div className="h-full bg-state" style={{ width: `${Math.round((finished / Math.max(run.total, 1)) * 100)}%` }} />
+          </div>
+          <p className="mt-3 text-small text-muted">
+            {finished} of {run.total} done. You can leave this page: the results appear when it&apos;s finished.
+          </p>
         </>
       )}
     </div>
-  );
-}
-
-function isActive(status: Status) {
-  return status === "queued" || status === "running";
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-state" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      <path d="M3 8.5 6.5 12 13 4.5" />
-    </svg>
   );
 }

@@ -18,16 +18,17 @@ type Props = Omit<ComponentProps<"button">, "type"> & {
  */
 export function SubmitButton({ variant = "primary", pendingLabel, className, onClick, children, ...props }: Props) {
   const { pending } = useFormStatus();
+  const { "aria-disabled": ariaDisabled, ...rest } = props; // the caller's own "can't do it now", kept while pending too
   return (
     <button
       type="submit"
-      aria-disabled={pending || undefined}
+      aria-disabled={pending || ariaDisabled || undefined}
       onClick={(event) => {
         if (pending) event.preventDefault();
         else onClick?.(event);
       }}
-      className={buttonClass(variant, `${pending ? "cursor-progress" : ""} ${className ?? ""}`)}
-      {...props}
+      className={buttonClass(variant, `${pending ? "cursor-progress" : ariaDisabled ? "cursor-not-allowed" : ""} ${className ?? ""}`)}
+      {...rest}
     >
       {pending && <Spinner />}
       {pending ? pendingLabel : children}

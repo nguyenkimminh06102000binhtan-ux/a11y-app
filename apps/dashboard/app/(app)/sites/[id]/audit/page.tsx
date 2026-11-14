@@ -3,66 +3,48 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getOwnedSite } from "@/lib/site";
 import { getLatestAudit, type Issue } from "@/lib/audit";
+import { getLatestRun, describeScanError } from "@/lib/runs";
+import { getSitePages, pageLabel } from "@/lib/pages";
+import { formatResetDate, nextMonthStartUtc } from "@/lib/month";
 import { ScanProgress } from "@/components/ScanProgress";
-import { RunScanForm } from "@/components/RunScanForm";
-import { FocusedAlert } from "@/components/FocusedAlert";
+import { ScanPagesForm } from "@/components/ScanPagesForm";
 import { ImpactPill } from "@/components/ImpactPill";
 import { Card } from "@/components/ui/Card";
+import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Overview · Audit" };
 
-/** Why a scan didn't start (?error=… from requestScan), worded for this site. */
-function scanError(error: string | undefined, domain: string): React.ReactNode {
-  switch (error) {
-    case "url":
-      return "Enter a full page address starting with https://";
-    case "domain":
-      return `That page isn't on ${domain}. Enter a page on ${domain}.`;
-    case "subdomain":
-      return (
-        <>
-          That page is on a subdomain. Subdomains are separate sites with their own plan: to scan it,{" "}
-          <Link href="/">add it from Sites</Link> first.
-        </>
-      );
-    case "busy":
-      return "A scan is already queued or running for this site.";
-    default:
-      return null;
-  }
-}
 const IMPACT_ORDER: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 
-type PageProps = {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
-};
-
-/** Audit › Overview: how the site is doing, what to fix first, and the running scan. Scans start from Audit › Pages (chunk 11); until then, from the cards here. */
-export default function OverviewPage({ params, searchParams }: PageProps) {
+/** Audit › Overview: how the site is doing, what to fix first, and the running scan. Scans start from Audit › Pages. */
+export default function OverviewPage({ params, searchParams }: PageProps<"/sites/[id]/audit">) {
   return (
     <>
       <h2 className="mt-0">Overview</h2>
       <Suspense fallback={<p>Loading scans…</p>}>
-        <Overview params={params} searchParams={searchParams} />
+        <Overview params={params} searchParams={searchParams as Promise<{ started?: string }>} />
       </Suspense>
     </>
   );
 }
 
-async function Overview({ params, searchParams }: PageProps) {
+async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ started?: string }> }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { started } = await searchParams;
   const site = await getOwnedSite(id); // 404 if it isn't this account's site
-  const { latest, lastFinished, rows, inProgress, comparison, pagesChecked, lastCheckedAt } = await getLatestAudit(site.id);
-  const homepage = `https://${site.domain}/`;
-  const errorMessage = scanError(error, site.domain);
+  const [{ rows, comparison, pagesChecked, lastCheckedAt }, run, sitePages] = await Promise.all([
+    getLatestAudit(site.id),
+    getLatestRun(site.id),
+    getSitePages(site.id),
+  ]);
+  const pagesHref = `/sites/${site.id}/audit/pages`;
+
+  // The last run's failed pages that are still on the list: "Try again" rescans them
+  const failedUrls = new Set(run && !run.active ? run.failures.map((f) => f.url) : []);
+  const retry = sitePages.filter((p) => failedUrls.has(p.url));
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Run scan (the cards below) posts back here with ?error= when it can't start; focus moves to the reason */}
-      {errorMessage && <FocusedAlert>{errorMessage}</FocusedAlert>}
-
       {pagesChecked > 0 && (
         <p className="-mt-1 text-muted">
           Across the {pagesChecked} {pagesChecked === 1 ? "page" : "pages"} checked so far, each from its latest scan
@@ -72,28 +54,41 @@ async function Overview({ params, searchParams }: PageProps) {
         </p>
       )}
 
-      {latest && (
-        <ScanProgress
-          siteId={site.id}
-          initial={{ id: latest.id, status: latest.status, url: latest.url, issueCount: latest.issueCount, error: latest.error }}
-        />
-      )}
+      {run && <ScanProgress siteId={site.id} domain={site.domain} initial={run} started={started} />}
 
-      {!latest && (
+      {!run && (
         <Card>
           <p className="font-bold">No scans yet</p>
-          <p className="mt-1 mb-4">
-            Run your first scan to find accessibility issues on <span className="wrap-anywhere">{homepage}</span>.
-          </p>
-          <RunScanForm siteId={site.id} url={homepage} label="Run your first scan" />
+          <p className="mt-1 mb-4">Choose the pages of {site.domain} to check, then scan them.</p>
+          <ButtonLink href={pagesHref} variant="primary">
+            Choose pages to scan
+          </ButtonLink>
         </Card>
       )}
 
-      {lastFinished?.status === "failed" && !inProgress && (
+      {run && !run.active && run.failures.length > 0 && (
         <div className="rounded-xl border-[1.5px] border-state p-4 sm:p-5">
-          <p className="font-bold">The last scan didn&apos;t finish</p>
-          <p className="mt-1 mb-4 wrap-anywhere">{lastFinished.error ?? "Something went wrong while checking the page."}</p>
-          <RunScanForm siteId={site.id} url={lastFinished.url} label="Try again" variant="secondary" />
+          <p className="font-bold">
+            {run.failures.length === 1 ? "1 page couldn't be checked" : `${run.failures.length} pages couldn't be checked`} in the last scan
+          </p>
+          <ul className="mt-1 mb-4 flex flex-col gap-1">
+            {run.failures.slice(0, 5).map((f) => (
+              <li key={f.url} className="wrap-anywhere">
+                <span className="font-bold">{pageLabel(f.url, site.domain)}</span>: {describeScanError(f.error)}
+              </li>
+            ))}
+          </ul>
+          {retry.length > 0 ? (
+            <ScanPagesForm
+              siteId={site.id}
+              pageIds={retry.map((p) => p.id)}
+              label={retry.length === 1 ? "Try again" : `Try these ${retry.length} again`}
+              variant="secondary"
+              resetsOn={formatResetDate(nextMonthStartUtc())}
+            />
+          ) : (
+            <Link href={pagesHref}>Go to Pages</Link>
+          )}
         </div>
       )}
 
@@ -103,7 +98,6 @@ async function Overview({ params, searchParams }: PageProps) {
           <FixFirst rows={rows} issuesHref={`/sites/${site.id}/audit/issues`} />
         </>
       )}
-
     </div>
   );
 }

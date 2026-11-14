@@ -50,6 +50,13 @@
       "when": 1794622806306,
       "tag": "0006_pages",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794623484763,
+      "tag": "0007_scan_batches_and_page_limit",
+      "breakpoints": true
     }
   ]
 }

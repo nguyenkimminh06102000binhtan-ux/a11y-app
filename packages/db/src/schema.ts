@@ -18,6 +18,9 @@ export const sites = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
     domain: text("domain").notNull(),
+    // How many different pages may be scanned per month (UTC). null = the placeholder default until plans exist:
+    // always read it with getMonthlyPageLimit() in the dashboard, never use the column directly.
+    monthlyPageLimit: integer("monthly_page_limit"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [unique().on(t.accountId, t.domain)]
@@ -61,6 +64,8 @@ export const scans = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     siteId: uuid("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
+    // The pages started together by one "Scan N pages" click share a batch (null = older single-page scans)
+    batchId: uuid("batch_id"),
     status: scanStatus("status").notNull().default("queued"),
     issueCount: integer("issue_count").notNull().default(0),
     error: text("error"),
@@ -68,7 +73,7 @@ export const scans = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
   },
-  (t) => [index().on(t.siteId, t.createdAt), index().on(t.status, t.createdAt)]
+  (t) => [index().on(t.siteId, t.createdAt), index().on(t.status, t.createdAt), index().on(t.batchId)]
 ).enableRLS();
 
 export const issues = pgTable(

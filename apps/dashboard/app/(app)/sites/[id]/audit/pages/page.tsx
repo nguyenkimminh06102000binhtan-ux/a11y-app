@@ -2,20 +2,23 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getOwnedSite } from "@/lib/site";
 import { getLatestAudit } from "@/lib/audit";
-import { getSitePages, getPagesScannedThisMonth, pageLabel } from "@/lib/pages";
-import { nextMonthStartUtc, formatResetDate } from "@/lib/month";
+import { getLatestRun } from "@/lib/runs";
+import { getSitePages, pageLabel } from "@/lib/pages";
+import { getQuota } from "@/lib/quota";
+import { formatResetDate } from "@/lib/month";
 import { AddPagesPanel } from "@/components/AddPagesPanel";
-import { RemovePageButton } from "@/components/RemovePageButton";
+import { PageScanList, type PageRow } from "@/components/PageScanList";
+import { ScanProgress } from "@/components/ScanProgress";
 import { FocusedAlert } from "@/components/FocusedAlert";
 
 export const metadata: Metadata = { title: "Pages · Audit" };
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ removed?: string; n?: string; error?: string }>;
+  searchParams: Promise<{ removed?: string; n?: string; error?: string; started?: string }>;
 };
 
-/** Audit › Pages: the pages the owner wants checked. Scanning from here (checkboxes, quota) comes next. */
+/** Audit › Pages: the pages the owner wants checked; tick some and scan them, within the monthly limit. */
 export default function PagesPage({ params, searchParams }: PageProps) {
   return (
     <>
@@ -27,27 +30,19 @@ export default function PagesPage({ params, searchParams }: PageProps) {
   );
 }
 
-type Row = {
-  id: string;
-  label: string;
-  open: number;
-  critical: number;
-  lastChecked: string | null;
-  locked: boolean; // scanned this month: stays until the quota resets
-};
-
 async function PagesContent({ params, searchParams }: PageProps) {
   const { id } = await params;
-  const { removed, n, error } = await searchParams;
+  const { removed, n, error, started } = await searchParams;
   const site = await getOwnedSite(id); // 404 if it isn't this account's site
-  const [pages, scannedThisMonth, audit] = await Promise.all([
+  const [pages, quota, audit, run] = await Promise.all([
     getSitePages(site.id),
-    getPagesScannedThisMonth(site.id),
+    getQuota(site),
     getLatestAudit(site.id),
+    getLatestRun(site.id),
   ]);
-  const resetsOn = formatResetDate(nextMonthStartUtc());
+  const resetsOn = formatResetDate(quota.resetsOn);
 
-  const rows: Row[] = pages.map((page) => {
+  const rows: PageRow[] = pages.map((page) => {
     const issues = audit.rows.filter((r) => r.pageUrl === page.url);
     const checkedAt = audit.lastCheckedByUrl.get(page.url);
     return {
@@ -58,16 +53,30 @@ async function PagesContent({ params, searchParams }: PageProps) {
       lastChecked: checkedAt
         ? `${checkedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`
         : null,
-      locked: scannedThisMonth.has(page.url),
+      usedThisMonth: quota.used.has(page.url),
     };
   });
 
   return (
     <div className="flex flex-col gap-5">
       <p className="-mt-1 text-muted">
-        The pages you want checked on {site.domain}. Add as many as you like: your plan limits how many different pages
-        you scan each month.
+        The pages you want checked on {site.domain}. Add as many as you like, then tick the ones to scan.
       </p>
+
+      {/* This month's usage. The text says it all, so the bar is decoration. */}
+      <div className="flex flex-col gap-2">
+        <p>
+          <span className="font-bold">
+            {quota.used.size} of {quota.limit} pages
+          </span>{" "}
+          scanned this month · resets {resetsOn}
+        </p>
+        <div aria-hidden="true" className="h-2 max-w-md overflow-hidden rounded-full bg-state-tint">
+          <div className="h-full bg-state" style={{ width: `${Math.min(100, Math.round((quota.used.size / Math.max(quota.limit, 1)) * 100))}%` }} />
+        </div>
+      </div>
+
+      {run && <ScanProgress siteId={site.id} domain={site.domain} initial={run} started={started} />}
 
       {error === "locked" && (
         <FocusedAlert>That page was scanned this month, so it stays on the list until {resetsOn}.</FocusedAlert>
@@ -83,75 +92,15 @@ async function PagesContent({ params, searchParams }: PageProps) {
       {rows.length === 0 ? (
         <p>No pages yet. Add the pages you want checked.</p>
       ) : (
-        <>
-          {/* Wide screens: a table, so screen readers announce the column for each value. "relative" keeps the
-              visually hidden caption and header text inside this scroll box (otherwise they widen the page). */}
-          <div className="relative hidden overflow-x-auto rounded-xl border border-line md:block">
-            <table className="w-full text-left">
-              <caption className="sr-only">Pages on {site.domain}</caption>
-              <thead className="bg-subtle text-small text-muted">
-                <tr>
-                  <th scope="col" className="px-4 py-3 font-normal">Page</th>
-                  <th scope="col" className="px-4 py-3 font-normal">Open issues</th>
-                  <th scope="col" className="px-4 py-3 font-normal">Critical</th>
-                  <th scope="col" className="px-4 py-3 font-normal">Last checked</th>
-                  <th scope="col" className="px-4 py-3 font-normal"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-t border-line align-middle">
-                    <th scope="row" className="px-4 py-3 font-bold wrap-anywhere">{row.label}</th>
-                    <td className="px-4 py-3">{row.lastChecked ? row.open : <NotYet />}</td>
-                    <td className="px-4 py-3">{row.lastChecked ? row.critical : <NotYet />}</td>
-                    <td className="px-4 py-3 text-small text-muted">{row.lastChecked ?? "Not checked yet"}</td>
-                    <td className="px-4 py-2 text-right">
-                      <RowAction row={row} resetsOn={resetsOn} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Phones: one labelled card per page */}
-          <ul className="flex flex-col gap-3 md:hidden" aria-label={`Pages on ${site.domain}`}>
-            {rows.map((row) => (
-              <li key={row.id} className="rounded-xl border border-line p-4">
-                <p className="font-bold wrap-anywhere">{row.label}</p>
-                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-small">
-                  <dt className="text-muted">Open issues</dt>
-                  <dd>{row.lastChecked ? row.open : "–"}</dd>
-                  <dt className="text-muted">Critical</dt>
-                  <dd>{row.lastChecked ? row.critical : "–"}</dd>
-                  <dt className="text-muted">Last checked</dt>
-                  <dd>{row.lastChecked ?? "Not checked yet"}</dd>
-                </dl>
-                <div className="mt-2">
-                  <RowAction row={row} resetsOn={resetsOn} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </>
+        <PageScanList
+          siteId={site.id}
+          domain={site.domain}
+          rows={rows}
+          left={quota.left}
+          resetsOn={resetsOn}
+          running={run?.active ?? false}
+        />
       )}
     </div>
   );
-}
-
-function NotYet() {
-  return (
-    <>
-      <span aria-hidden="true">–</span>
-      <span className="sr-only">not checked yet</span>
-    </>
-  );
-}
-
-/** Remove, or why it can't be removed yet (pages scanned this month stay until the quota resets). */
-function RowAction({ row, resetsOn }: { row: Row; resetsOn: string }) {
-  if (row.locked) {
-    return <span className="text-caption text-muted">Scanned this month: removable from {resetsOn}</span>;
-  }
-  return <RemovePageButton pageId={row.id} label={row.label} />;
 }

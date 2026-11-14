@@ -14,9 +14,10 @@ function fingerprint(ruleId: string, pageUrl: string, selector: string) {
 }
 
 export async function runScan(browser: Browser, scan: Scan, site: Site): Promise<number> {
-  // defense in depth: the dashboard checks this too
-  const host = new URL(scan.url).hostname.replace(/^www\./, "");
-  if (host !== site.domain && !host.endsWith(`.${site.domain}`)) {
+  // Defense in depth (the dashboard checks this too): only the site's own domain, with or without www.
+  // A subdomain is a separate site with its own plan, so it's never scanned as part of this one.
+  const host = new URL(scan.url).hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+  if (host !== site.domain) {
     throw new Error(`${scan.url} is not on ${site.domain}`);
   }
 

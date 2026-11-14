@@ -2,10 +2,11 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { db, sites, pages, widgetSettings, eq, and, scans, inArray } from "@app/db";
+import { db, sites, pages, widgetSettings, eq, and, scans, inArray, sql } from "@app/db";
 import { getCurrentUser } from "@/lib/auth";
-import { normalizeDomain, normalizePageUrl, isSameSite, isSubdomainOf } from "@/lib/domain";
+import { normalizeDomain, normalizePageUrl } from "@/lib/domain";
 import { getPagesScannedThisMonth } from "@/lib/pages";
+import { getMonthlyPageLimit, pagesUsedThisMonth } from "@/lib/quota";
 import { isUuid } from "@/lib/ids";
 import { widgetConfigTag } from "@/lib/widget-config";
 import * as v from "valibot";
@@ -54,47 +55,64 @@ export async function deleteSite(formData: FormData) {
   revalidatePath("/");
 }
 
-export async function requestScan(formData: FormData) {
+export type ScanPagesState = {
+  error?: "none-selected" | "gone" | "busy" | "over-limit";
+  needed?: number; // over-limit: new pages the selection needs
+  left?: number; // over-limit: pages left this month
+  at?: number; // makes each result a new message, so it's announced again
+};
+
+/**
+ * Start a scan run: the chosen pages of one site, checked one after another by the worker (one queued scan per page,
+ * sharing a batch id). Enforces the monthly limit: pages already used this month rescan free; new pages need slots
+ * left. Checked inside a transaction that locks the site's row, so two clicks at once can't both get past it.
+ */
+export async function scanPages(_previous: ScanPagesState, formData: FormData): Promise<ScanPagesState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const siteId = String(formData.get("siteId") ?? "");
   if (!isUuid(siteId)) redirect("/");
-
   const [site] = await db
-    .select()
+    .select({ id: sites.id, monthlyPageLimit: sites.monthlyPageLimit })
     .from(sites)
-    .where(and(eq(sites.id, siteId), eq(sites.accountId, user.id)));
+    .where(and(eq(sites.id, siteId), eq(sites.accountId, user.id))); // ownership check
   if (!site) redirect("/");
 
-  const back = `/sites/${site.id}/audit`; // the Audit section, where the progress and any error show
+  const pageIds = [...new Set(formData.getAll("pageId").map(String).filter(isUuid))];
+  if (pageIds.length === 0) return { error: "none-selected", at: Date.now() };
+  const chosen = await db
+    .select({ url: pages.url })
+    .from(pages)
+    .where(and(eq(pages.siteId, site.id), inArray(pages.id, pageIds))); // only this site's pages
+  if (chosen.length !== pageIds.length) return { error: "gone", at: Date.now() }; // removed meanwhile
 
-  let url: URL;
-  try {
-    url = new URL(String(formData.get("url") ?? "").trim());
-  } catch {
-    redirect(`${back}?error=url`);
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") redirect(`${back}?error=url`);
+  const result = await db.transaction(async (tx): Promise<ScanPagesState | { started: string }> => {
+    await tx.execute(sql`SELECT id FROM sites WHERE id = ${site.id} FOR UPDATE`); // one start at a time per site
 
-  // Exactly this site (www. or not). A subdomain is a separate site with its own plan: it's scanned from its own site.
-  if (!isSameSite(url.hostname, site.domain)) {
-    redirect(`${back}?error=${isSubdomainOf(url.hostname, site.domain) ? "subdomain" : "domain"}`);
-  }
+    const running = await tx
+      .select({ id: scans.id })
+      .from(scans)
+      .where(and(eq(scans.siteId, site.id), inArray(scans.status, ["queued", "running"])))
+      .limit(1);
+    if (running.length) return { error: "busy" };
 
-  const pending = await db
-    .select({ id: scans.id })
-    .from(scans)
-    .where(and(eq(scans.siteId, site.id), inArray(scans.status, ["queued", "running"])))
-    .limit(1);
-  if (pending.length) redirect(`${back}?error=busy`);
+    const used = await pagesUsedThisMonth(tx, site.id);
+    const left = Math.max(0, getMonthlyPageLimit(site) - used.size);
+    const needed = chosen.filter((p) => !used.has(p.url)).length;
+    if (needed > left) return { error: "over-limit", needed, left };
 
-  await db.insert(scans).values({ siteId: site.id, url: url.toString(), status: "queued" });
+    const batchId = crypto.randomUUID();
+    await tx.insert(scans).values(chosen.map((p) => ({ siteId: site.id, url: p.url, batchId, status: "queued" as const })));
+    return { started: batchId };
+  });
+  if (!("started" in result)) return { ...result, at: Date.now() };
 
-  revalidatePath(back);
-  redirect(back);
+  revalidatePath(`/sites/${site.id}/audit`, "layout");
+  // ?started= lets the progress card take focus for this run (and only this one)
+  const back = formData.get("back") === "overview" ? `/sites/${site.id}/audit` : `/sites/${site.id}/audit/pages`;
+  redirect(`${back}?started=${result.started}`);
 }
-
 
 export type WidgetSettingsState = {
   status: "idle" | "saved" | "invalid";
