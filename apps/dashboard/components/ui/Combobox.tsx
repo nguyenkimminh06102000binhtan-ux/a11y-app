@@ -6,10 +6,8 @@ export type ComboboxOption = { value: string; label: string };
 
 type Props = {
   label: string;
-  /** The form field the chosen value is sent as (a hidden input; the text box itself isn't sent). Optional with onChoose. */
-  name?: string;
-  /** Called when an option is picked (Enter or a click): a deliberate choice, e.g. "Go to site" opens it */
-  onChoose?: (value: string) => void;
+  /** The form field the chosen value is sent as (a hidden input; the text box itself isn't sent) */
+  name: string;
   options: ComboboxOption[];
   defaultValue?: string;
   placeholder?: string;
@@ -26,7 +24,7 @@ type Props = {
  * The option with an empty value (e.g. "All pages") shows as an empty box with the placeholder, so typing starts a
  * search right away; focusing the box selects its text, so typing replaces a chosen option instead of adding to it.
  */
-export function Combobox({ label, name, onChoose, options, defaultValue = "", placeholder }: Props) {
+export function Combobox({ label, name, options, defaultValue = "", placeholder }: Props) {
   const id = useId();
   const listId = `${id}-list`;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +58,6 @@ export function Combobox({ label, name, onChoose, options, defaultValue = "", pl
     setTyped(false);
     setOpen(false);
     setActive(-1);
-    onChoose?.(option.value);
   }
 
   function close(revert: boolean) {
@@ -108,7 +105,7 @@ export function Combobox({ label, name, onChoose, options, defaultValue = "", pl
         {label}
       </label>
       <div className="relative">
-        {name && <input type="hidden" name={name} value={value} />}
+        <input type="hidden" name={name} value={value} />
         <input
           ref={inputRef}
           id={id}

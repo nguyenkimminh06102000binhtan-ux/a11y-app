@@ -1,112 +1,118 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { db, sites, eq } from "@app/db";
-import { getCurrentUser } from "@/lib/auth";
-import { InstallCode } from "@/components/InstallCode";
-import { addSite, deleteSite } from "@/app/actions";
+import Form from "next/form";
+import { getSiteCount, getSitesPage } from "@/lib/sites";
+import { SiteList } from "@/components/SiteList";
+import { SitesHeader } from "@/components/SitesHeader";
+import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { PageHeader } from "@/components/ui/PageHeader";
-
-const ERRORS: Record<string, string> = {
-  invalid: "That doesn't look like a valid domain. Try something like shop.com.",
-  duplicate: "You've already added that domain.",
-};
 
 export const metadata: Metadata = { title: "Sites" };
 
-// No async, no await: this whole shell is prerendered.
-export default function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+const fmt = (n: number) => n.toLocaleString("en-US");
+
+/**
+ * Sites: Add site at the top (one click however many sites there are), then a search and the account's sites,
+ * 25 per page, A–Z. ?q= searches domains, ?page= picks the page. Static shell; the list streams in.
+ */
+export default function Home({ searchParams }: PageProps<"/">) {
   return (
     <main id="main">
-      <PageHeader title="Sites" />
-
-
-      <section aria-labelledby="install-heading">
-        <h2 id="install-heading">Install the widget</h2>
-        <p>Paste this once on every site you add below. It&apos;s the same code for all of them.</p>
-        <Suspense fallback={<p>Loading install code…</p>}>
-          <InstallCode />
-        </Suspense>
-      </section>
-
-      <section aria-labelledby="add-site-heading">
-        <h2 id="add-site-heading">Add a site</h2>
-        <Suspense fallback={null}>
-          <AddSiteError searchParams={searchParams} />
-        </Suspense>
-        <form action={addSite}>
-          <label htmlFor="domain">Domain</label>
-          <input id="domain" name="domain" placeholder="shop.com" required />
-          <button type="submit">Add site</button>
-        </form>
-      </section>
+      <SitesHeader
+        description={
+          <Suspense fallback={<>&nbsp;</>}>
+            <SiteCount />
+          </Suspense>
+        }
+      />
 
       <section aria-labelledby="sites-heading">
-        <Suspense
-          fallback={
-            <>
-              <h2 id="sites-heading">Your sites</h2>
-              <p>Loading sites…</p>
-            </>
-          }
-        >
-          <SiteList />
+        <h2 id="sites-heading" className="sr-only">
+          Your sites
+        </h2>
+        <p className="mt-0 mb-4 text-small text-muted">
+          The install code is the same for every site: copy it from any site&apos;s Widget › Install.
+        </p>
+        <Suspense fallback={<p>Loading sites…</p>}>
+          <Sites searchParams={searchParams} />
         </Suspense>
       </section>
     </main>
   );
 }
 
-async function AddSiteError({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
-  if (!error || !ERRORS[error]) return null;
-  return <p role="alert">{ERRORS[error]}</p>;
+async function SiteCount() {
+  const total = await getSiteCount();
+  return <>{`${fmt(total)} ${total === 1 ? "site" : "sites"}`}</>;
 }
 
-async function SiteList() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+function readParams(params: Record<string, string | string[] | undefined>) {
+  const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
+  const q = one(params.q).trim().slice(0, 100);
+  const page = Number.parseInt(one(params.page), 10);
+  return { q, page: Number.isFinite(page) && page > 0 ? page : 1 };
+}
 
-  const rows = await db
-    .select()
-    .from(sites)
-    .where(eq(sites.accountId, user.id))
-    .orderBy(sites.createdAt);
+/** "/?q=shop&page=2", leaving out what's empty or the default */
+function sitesHref(q: string, page: number) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
+
+async function Sites({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const { q, page: requested } = readParams(await searchParams);
+  const { sites, total, page, pages, perPage } = await getSitesPage(requested, q);
+
+  if (total === 0 && !q) {
+    return <p>No sites yet. Use Add site above to add your first one.</p>;
+  }
+
+  const first = (page - 1) * perPage + 1;
+  const last = first + sites.length - 1;
 
   return (
-    <>
-      <h2 id="sites-heading">Your sites ({rows.length})</h2>
-      {rows.length === 0 ? (
-        <p>No sites yet.</p>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {rows.map((site) => (
-            <Card as="li" key={site.id} className="flex items-center justify-between gap-3">
-              <h3 className="min-w-0 break-all">
-                <Link href={`/sites/${site.id}`}>{site.domain}</Link>
-              </h3>
+    <div className="flex flex-col gap-4">
+      {/* GET form: the search is in the URL, and a new search starts at page 1 */}
+      <Form action="/" role="search" aria-label="Sites" className="flex flex-wrap items-end gap-2">
+        <div className="flex min-w-0 flex-1 basis-56 flex-col gap-1 sm:max-w-sm">
+          <label htmlFor="site-q" className="font-bold">
+            Find a site
+          </label>
+          <input id="site-q" name="q" type="search" defaultValue={q} placeholder="Part of a domain, e.g. shop" />
+        </div>
+        <Button type="submit">Search</Button>
+        {q && (
+          <Link href="/" className="inline-flex min-h-11 items-center px-2">
+            Clear search
+          </Link>
+        )}
+      </Form>
 
-              <form action={deleteSite}>
-                <input type="hidden" name="id" value={site.id} />
-                <Button type="submit" variant="secondary" aria-label={`Delete ${site.domain}`}>
-                  Delete
-                </Button>
-              </form>
-            </Card>
-          ))}
-        </ul>
+      {total === 0 ? (
+        <p role="status">
+          No sites match “{q}”. <Link href="/">Clear search</Link>
+        </p>
+      ) : (
+        <>
+          {/* Says what the list now shows after a search (polite, so it doesn't interrupt) */}
+          <p role="status" className="m-0 text-small text-muted">
+            {q
+              ? `${fmt(total)} ${total === 1 ? "site matches" : "sites match"} “${q}”`
+              : `${fmt(total)} ${total === 1 ? "site" : "sites"}, A–Z`}
+          </p>
+          <SiteList sites={sites} />
+          <Pagination
+            page={page}
+            pages={pages}
+            summary={`Showing ${fmt(first)}–${fmt(last)} of ${fmt(total)} sites`}
+            href={(n) => sitesHref(q, n)}
+          />
+        </>
       )}
-    </>
+    </div>
   );
 }

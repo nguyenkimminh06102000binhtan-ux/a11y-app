@@ -15,12 +15,15 @@ import { DefaultSettingsSchema, SETTINGS_VERSION, StateColorSchema, type SiteSet
 
 
 
-export async function addSite(formData: FormData) {
+export type AddSiteState = { error?: "invalid" | "duplicate"; at?: number };
+
+/** Add site: errors come back to the form (shown under the field); a new site opens Widget › Install. */
+export async function addSite(_previous: AddSiteState, formData: FormData): Promise<AddSiteState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const domain = normalizeDomain(String(formData.get("domain") ?? ""));
-  if (!domain) redirect("/?error=invalid");
+  if (!domain) return { error: "invalid", at: Date.now() };
 
   const inserted = await db
     .insert(sites)
@@ -31,14 +34,14 @@ export async function addSite(formData: FormData) {
     .onConflictDoNothing()
     .returning({ id: sites.id });
 
-  if (inserted.length === 0) redirect("/?error=duplicate");
-    updateTag(widgetConfigTag(user.id)); // the widget shows on the new domain right away
+  if (inserted.length === 0) return { error: "duplicate", at: Date.now() };
+  updateTag(widgetConfigTag(user.id)); // the widget shows on the new domain right away
 
   // Every site starts with its homepage on Audit › Pages
   await db.insert(pages).values({ siteId: inserted[0].id, url: `https://${domain}/` }).onConflictDoNothing();
 
   revalidatePath("/");
-  redirect("/");
+  redirect(`/sites/${inserted[0].id}/widget`); // next: install the widget
 }
 
 export async function deleteSite(formData: FormData) {
@@ -53,6 +56,7 @@ export async function deleteSite(formData: FormData) {
     updateTag(widgetConfigTag(user.id)); // and stops showing on the removed one
 
   revalidatePath("/");
+  redirect("/"); // the site's own pages are gone
 }
 
 export type ScanPagesState = {

@@ -25,7 +25,8 @@ export async function InstallCode() {
 
   return (
     <>
-      <pre>
+      {/* Wraps instead of scrolling sideways: easy to read on a phone, and Copy gives the exact line */}
+      <pre className="whitespace-pre-wrap break-all">
         <code>{snippet}</code>
       </pre>
       <CopyButton text={snippet} label="Copy install code" />

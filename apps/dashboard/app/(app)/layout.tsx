@@ -2,12 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getAccountSites } from "@/lib/sites";
 import { createClient } from "@/lib/supabase/server";
 import { Mark } from "@/components/Mark";
 import { NavLink } from "@/components/NavLink";
 import { AppMenu, AppMenuView } from "@/components/AppMenu";
-import { SiteSwitcher } from "@/components/SiteSwitcher";
 import { Badge } from "@/components/ui/Badge";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 
@@ -55,14 +53,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Everything in the menu: site switcher, main sections, account (most of it "Soon" until those features ship). */
+/** Everything in the menu: main sections, account (most of it "Soon" until those features ship). */
 function Menu() {
   return (
     <>
-      <Suspense fallback={<div className="min-h-[4.75rem]" />}>
-        <Switcher />
-      </Suspense>
-
       <nav aria-label="Main" className="flex flex-col gap-5">
         <ul className="flex flex-col gap-1">
           <li>
@@ -103,11 +97,6 @@ function Soon({ label }: { label: string }) {
       <Badge tone="soon" />
     </li>
   );
-}
-
-async function Switcher() {
-  const sites = await getAccountSites();
-  return <SiteSwitcher sites={sites} />;
 }
 
 async function Account() {
