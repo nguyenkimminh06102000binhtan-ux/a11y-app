@@ -4,6 +4,7 @@ import { ImpactPill } from "@/components/ImpactPill";
 import { FocusHeading } from "@/components/FocusHeading";
 import { pageLabel } from "@/lib/page-label";
 import type { RuleGroup } from "@/lib/issues";
+import type { RuleWcag } from "@/lib/wcag";
 
 type Props = {
   group: RuleGroup;
@@ -11,13 +12,14 @@ type Props = {
   domain: string;
   placeHref: (place: number) => string;
   focus: boolean; // the owner just picked this issue or place: move focus to the heading
+  wcag: RuleWcag; // the success criteria this rule checks (none = a best practice)
 };
 
 /**
  * One problem in detail: where it is (one place at a time, with Previous / Next), the code, and how to fix it.
  * An <article> named by its heading; the heading takes focus when it's opened from the list.
  */
-export function IssueDetail({ group, place, domain, placeHref, focus }: Props) {
+export function IssueDetail({ group, place, domain, placeHref, focus, wcag }: Props) {
   const issue = group.places[place - 1];
   const total = group.places.length;
   const headingId = "issue-detail-heading";
@@ -32,6 +34,22 @@ export function IssueDetail({ group, place, domain, placeHref, focus }: Props) {
         <FocusHeading key={`${group.ruleId}-${place}`} id={headingId} focus={focus} className="text-xl wrap-anywhere">
           {group.title}
         </FocusHeading>
+        {wcag.criteria.length > 0 ? (
+          <ul className="flex flex-col gap-0.5">
+            {wcag.criteria.map((c) => (
+              <li key={c.id} className="font-bold">
+                WCAG {c.id}
+                {c.name && ` ${c.name}`} · Level {c.level}
+              </li>
+            ))}
+            {/* The version a criterion arrived in: only worth saying when it's newer than 2.0 */}
+            {(wcag.version === "2.1" || wcag.version === "2.2") && (
+              <li className="text-small text-muted">Added in WCAG {wcag.version}</li>
+            )}
+          </ul>
+        ) : (
+          <p className="font-bold">Best practice (not a WCAG requirement)</p>
+        )}
         <p className="text-small text-muted">
           Rule {group.ruleId} · {total} {total === 1 ? "place" : "places"} on {group.pages} {group.pages === 1 ? "page" : "pages"}
         </p>

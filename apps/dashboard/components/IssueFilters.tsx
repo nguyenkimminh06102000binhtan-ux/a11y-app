@@ -8,6 +8,7 @@ type Props = {
   params: IssueParams;
   counts: Record<Impact, number>; // after the page and search filters, before impact
   pages: { id: string; label: string }[];
+  criteria: { value: string; label: string }[]; // WCAG criteria found, "1.4.3 Contrast (Minimum) · 27"
 };
 
 /**
@@ -16,10 +17,10 @@ type Props = {
  * would move people without asking
  * (WCAG 3.2.2). Everything lives in the URL, so filters can be bookmarked and Back works.
  */
-export function IssueFilters({ base, params, counts, pages }: Props) {
+export function IssueFilters({ base, params, counts, pages, criteria }: Props) {
   const total = IMPACTS.reduce((n, i) => n + counts[i], 0);
-  const keep = { page: params.page, q: params.q }; // a new impact starts a new selection
-  const filtered = !!(params.impact || params.page || params.q);
+  const keep = { wcag: params.wcag, page: params.page, q: params.q }; // a new impact starts a new selection
+  const filtered = !!(params.impact || params.wcag || params.page || params.q);
 
   const pill = (label: string, count: number, impact: Impact | undefined) => {
     const current = params.impact === impact;
@@ -64,11 +65,20 @@ export function IssueFilters({ base, params, counts, pages }: Props) {
             options={[{ value: "", label: "All pages" }, ...pages.map((p) => ({ value: p.id, label: p.label }))]}
           />
         </div>
+        <div className="min-w-0 basis-64">
+          <Combobox
+            label="WCAG criterion"
+            name="wcag"
+            defaultValue={params.wcag ?? ""}
+            placeholder="All criteria · type to find one"
+            options={[{ value: "", label: "All criteria" }, ...criteria]}
+          />
+        </div>
         <div className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
           <label htmlFor="issue-q" className="mb-0">
             Search issues
           </label>
-          <input id="issue-q" name="q" type="search" defaultValue={params.q ?? ""} placeholder="e.g. alt, button, .header" />
+          <input id="issue-q" name="q" type="search" defaultValue={params.q ?? ""} placeholder="e.g. alt, 1.4.3, .header" />
         </div>
         <button type="submit">Apply</button>
         {filtered && (

@@ -8,6 +8,7 @@ import { pageLabel } from "@/lib/page-label";
 import { countByImpact, filterByPageAndSearch, groupByRule, issuesHref, readIssueParams } from "@/lib/issues";
 import { IssueFilters } from "@/components/IssueFilters";
 import { IssueDetail } from "@/components/IssueDetail";
+import { wcagFor, criterionLabel, compareCriteria } from "@/lib/wcag";
 import { ImpactPill } from "@/components/ImpactPill";
 
 export const metadata: Metadata = { title: "Issues · Audit" };
@@ -15,7 +16,7 @@ export const metadata: Metadata = { title: "Issues · Audit" };
 /**
  * Audit › Issues: every listed page's current issues (from its latest scan), as problems (one per rule) with a
  * detail panel: where it is, one place at a time, and how to fix it. Filters and selection live in the URL:
- * ?impact=&page=&q=&rule=&place=
+ * ?impact=&wcag=&page=&q=&rule=&place=
  */
 export default function IssuesPage({ params, searchParams }: PageProps<"/sites/[id]/audit/issues">) {
   return (
@@ -50,11 +51,29 @@ async function Issues({
   }
 
   const pageUrl = sitePages.find((page) => page.id === p.page)?.url;
-  const searched = filterByPageAndSearch(rows, pageUrl, p.q);
-  const counts = countByImpact(searched);
-  const groups = groupByRule(p.impact ? searched.filter((r) => r.impact === p.impact) : searched);
+  const criteriaIds = (ruleId: string) => wcagFor(ruleId).criteria.map((c) => c.id);
+  const searched = filterByPageAndSearch(rows, pageUrl, p.q, (ruleId) =>
+    wcagFor(ruleId).criteria.map((c) => criterionLabel(c))
+  );
 
-  const filters = { impact: p.impact, page: pageUrl ? p.page : undefined, q: p.q };
+  // WCAG criteria found here, with how many issues each (the filter's options), before the criterion filter
+  const byCriterion = new Map<string, { label: string; count: number }>();
+  for (const r of searched) {
+    for (const c of wcagFor(r.ruleId).criteria) {
+      const entry = byCriterion.get(c.id) ?? { label: criterionLabel(c), count: 0 };
+      entry.count++;
+      byCriterion.set(c.id, entry);
+    }
+  }
+  const criteriaOptions = [...byCriterion.entries()]
+    .sort(([a], [b]) => compareCriteria(a, b))
+    .map(([id, { label, count }]) => ({ value: id, label: `${label} · ${count}` }));
+
+  const inCriterion = p.wcag ? searched.filter((r) => criteriaIds(r.ruleId).includes(p.wcag!)) : searched;
+  const counts = countByImpact(inCriterion);
+  const groups = groupByRule(p.impact ? inCriterion.filter((r) => r.impact === p.impact) : inCriterion);
+
+  const filters = { impact: p.impact, wcag: p.wcag, page: pageUrl ? p.page : undefined, q: p.q };
   const selected = groups.find((g) => g.ruleId === p.rule) ?? groups[0];
   const place = selected ? Math.min(p.place ?? 1, selected.places.length) : 1;
 
@@ -70,6 +89,7 @@ async function Issues({
         params={filters}
         counts={counts}
         pages={sitePages.map((page) => ({ id: page.id, label: pageLabel(page.url, site.domain) }))}
+        criteria={criteriaOptions}
       />
 
       {groups.length === 0 ? (
@@ -103,6 +123,7 @@ async function Issues({
                     >
                       <ImpactPill impact={g.impact} />
                       <span className="font-bold wrap-anywhere">{g.title}</span>
+                      <WcagLine ruleId={g.ruleId} />
                       <span className="text-small text-muted">
                         {g.places.length} {g.places.length === 1 ? "place" : "places"} · {g.pages} {g.pages === 1 ? "page" : "pages"}
                       </span>
@@ -120,10 +141,21 @@ async function Issues({
               domain={site.domain}
               placeHref={(n) => issuesHref(base, { ...filters, rule: selected.ruleId, place: n })}
               focus={!!(p.rule || p.place)}
+              wcag={wcagFor(selected.ruleId)}
             />
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** Under each problem in the list: "WCAG 1.1.1 · A" (several criteria joined), or "Best practice". */
+function WcagLine({ ruleId }: { ruleId: string }) {
+  const { criteria } = wcagFor(ruleId);
+  return (
+    <span className="text-caption text-muted">
+      {criteria.length ? `WCAG ${criteria.map((c) => `${c.id} · ${c.level}`).join(", ")}` : "Best practice"}
+    </span>
   );
 }
