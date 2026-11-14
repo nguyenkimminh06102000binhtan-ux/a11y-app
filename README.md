@@ -79,7 +79,8 @@ only once it's added as a site. On any other domain it stays hidden and logs one
 - **Position:** bottom right, top right, middle right (or the same on the left), with a distance from the side and
   from the top or bottom (0–200 px), and optionally a different position on phones (up to 640 px wide). The widget
   keeps the button on screen whatever the distances, avoids the notch and home bar, and opens its panel toward the
-  middle of the screen.
+  middle of the screen. Visitors can move it to the other side from the panel ("Move to the left"); that choice is
+  theirs, kept on the site's pages, and wins over the site's left/right. "Reset all" puts it back.
 - **On by default:** settings that start on for visitors who haven't changed anything. Visitors can turn them
   off, and their own choices always win.
 - Changes reach visitors within about 5 minutes.

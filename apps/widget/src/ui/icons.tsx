@@ -38,6 +38,15 @@ export function CloseIcon() {
     );
 }
 
+/** An arrow pointing where the button will go */
+export function MoveIcon({ to }: { to: "left" | "right" }) {
+    return (
+        <svg class="icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            {to === "left" ? <path d="M16 10 H4 M9 5 L4 10 L9 15" /> : <path d="M4 10 H16 M11 5 L16 10 L11 15" />}
+        </svg>
+    );
+}
+
 export function ResetIcon() {
     return (
         <svg class="icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">

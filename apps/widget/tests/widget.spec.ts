@@ -1417,3 +1417,73 @@ test.describe("button position (/)", () => {
         expect(Math.round(b.y)).toBe(40);
     });
 });
+
+test.describe("visitors move the button (/)", () => {
+    const moveButton = (page: Page, to: "left" | "right") => page.getByRole("button", { name: `Move to the ${to}` });
+    const box = async (page: Page) => (await toggle(page).boundingBox())!;
+    const owner = { desktop: { spot: "bottom-right", side: 24, edge: 40 }, phone: { spot: "top-left", side: 10, edge: 20 } };
+
+    test("Move to the left: the button and the panel move, focus stays, it's announced, and it sticks", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await serveConfig(page, { ...CONFIG, position: owner });
+        await page.goto("/");
+        await toggle(page).click();
+
+        await moveButton(page, "left").click();
+        let b = await box(page);
+        expect(Math.round(b.x)).toBe(24); // the owner's distance, now from the left
+        expect(Math.round(800 - (b.y + b.height))).toBe(40); // the owner's height is kept
+        await expect(panel(page)).toBeVisible(); // still open…
+        const p = (await panel(page).boundingBox())!;
+        expect(Math.round(p.x)).toBe(24); // …and moved with the button
+        expect(p.y + p.height).toBeLessThanOrEqual(b.y);
+        await expect(moveButton(page, "right")).toBeFocused(); // same button, now offering the way back
+        await expect(page.locator("a11yw-root").locator("p[role=status]")).toHaveText("Moved to the left.");
+        expect(await widgetViolations(page)).toEqual([]);
+
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        b = await box(page);
+        expect(Math.round(b.x)).toBe(24); // still on the left on the next page view
+    });
+
+    test("on phones it moves the phone placement too, and the label follows the screen width", async ({ page }) => {
+        await page.setViewportSize({ width: 375, height: 700 });
+        await serveConfig(page, { ...CONFIG, position: owner });
+        await page.goto("/");
+        await toggle(page).click();
+        await expect(moveButton(page, "right")).toBeVisible(); // phone placement is top left
+
+        await moveButton(page, "right").click();
+        const b = await box(page);
+        expect(Math.round(375 - (b.x + b.width))).toBe(10);
+        expect(Math.round(b.y)).toBe(20);
+
+        await page.setViewportSize({ width: 1280, height: 800 }); // desktop: the visitor's side applies there too
+        await expect(moveButton(page, "left")).toBeVisible();
+        expect(Math.round(1280 - ((await box(page)).x + (await box(page)).width))).toBe(24);
+    });
+
+    test("Reset all brings the button back to the site's side and forgets the move", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await serveConfig(page, { ...CONFIG, position: owner });
+        await page.goto("/");
+        await toggle(page).click();
+        await moveButton(page, "left").click();
+        await page.getByRole("button", { name: "Reset all" }).click();
+        const b = await box(page);
+        expect(Math.round(1280 - (b.x + b.width))).toBe(24);
+        await expect(moveButton(page, "left")).toBeVisible();
+        expect(await page.evaluate(() => localStorage.getItem("a11yw:side:v1"))).toBeNull();
+    });
+
+    test("a broken saved side is ignored", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.addInitScript(() => localStorage.setItem("a11yw:side:v1", "center; left: 0"));
+        await serveConfig(page, { ...CONFIG, position: owner });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        const b = await box(page);
+        expect(Math.round(1280 - (b.x + b.width))).toBe(24);
+    });
+});

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { loadSettings, saveSettings, startingSettings, type Settings } from "../settings/settings";
-import { AccessibilityIcon, CheckBadge, CloseIcon, FeatureIcon, Mark, ResetIcon } from "./icons";
+import { AccessibilityIcon, CheckBadge, CloseIcon, FeatureIcon, Mark, MoveIcon, ResetIcon } from "./icons";
+import { PHONE, moveTo, resetSide, visibleSide } from "./position";
 
 
 export function Widget() {
@@ -11,6 +12,24 @@ export function Widget() {
     const toggleRef = useRef<HTMLButtonElement>(null);
 
     const closeRef = useRef<HTMLButtonElement>(null);
+
+    // The side the button is on, for "Move to the left/right". It can change with the screen width (phones may
+    // have their own placement), so it follows the same media query as the CSS.
+    const [side, setSide] = useState(visibleSide);
+    const [moveStatus, setMoveStatus] = useState("");
+    useEffect(() => {
+        const media = matchMedia(PHONE);
+        const follow = () => setSide(visibleSide());
+        media.addEventListener("change", follow);
+        return () => media.removeEventListener("change", follow);
+    }, []);
+
+    function move() {
+        const to = side === "right" ? "left" : "right";
+        moveTo(to); // the button and the panel move; focus stays on this button
+        setSide(visibleSide());
+        setMoveStatus(`Moved to the ${to}.`);
+    }
 
     // Opening moves focus into the panel (to Close, its first control), so keyboard and screen reader users
     // start where the settings are; screen readers also announce the "Accessibility settings" region.
@@ -126,10 +145,28 @@ export function Widget() {
                     </ul>
                 </div>
                 <div class="panel-footer">
-                    <button type="button" class="reset" onClick={() => update(startingSettings())}>
+                    <button
+                        type="button"
+                        class="reset"
+                        onClick={() => {
+                            update(startingSettings());
+                            resetSide(); // and the button goes back to the site's own side
+                            setSide(visibleSide());
+                            setMoveStatus("");
+                        }}
+                    >
                         <ResetIcon />
                         Reset all
                     </button>
+                    {/* Says where it goes. Moving keeps the panel open, with focus here */}
+                    <button type="button" class="reset" onClick={move}>
+                        <MoveIcon to={side === "right" ? "left" : "right"} />
+                        Move to the {side === "right" ? "left" : "right"}
+                    </button>
+                    {/* Always rendered, so the message is announced when it appears */}
+                    <p role="status" class="visually-hidden">
+                        {moveStatus}
+                    </p>
                 </div>
 
             </section>
