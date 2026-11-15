@@ -3,8 +3,13 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ensureAccount } from "@/lib/account";
+import { finishSignIn } from "@/lib/account";
 import { safeNext } from "@/lib/safe-next";
+
+/** Where an email link comes back to: /auth/callback, with where to go next when it isn't Sites */
+function callbackUrl(origin: string | null, next: string): string {
+  return `${origin}/auth/callback${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}`;
+}
 
 export type SignInError = "missing" | "link-missing" | "invalid" | "unconfirmed" | "busy" | "unknown";
 
@@ -28,7 +33,10 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     const origin = (await headers()).get("origin");
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${origin}/auth/callback${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}` },
+      // Only existing accounts: new people use Sign up (with its terms and email confirmation). An unknown email
+      // gets the same answer as a known one, below. Supabase's default email lands on /auth/callback; our email
+      // template (supabase/templates) lands on /auth/confirm, which reads `next` from this address.
+      options: { shouldCreateUser: false, emailRedirectTo: callbackUrl(origin, next) },
     });
     if (error?.status === 429) return { error: "busy", email, at };
     // Any other refusal looks the same as success: the page never tells whether the email has an account
@@ -54,6 +62,6 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     if (kind === "unknown") console.error("[sign-in]", code ?? error?.message);
     return { error: kind, email, at };
   }
-  await ensureAccount({ id: data.user.id, email: data.user.email, name: data.user.user_metadata?.full_name });
-  redirect(next);
+  const newSite = await finishSignIn(data.user);
+  redirect(newSite ? `/embed-code?added=${newSite}` : next);
 }

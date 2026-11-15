@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Pages anyone can open. The sign-in pages send a signed-in visitor on to Sites. */
-const SIGN_IN_PAGES = ["/login"];
+const SIGN_IN_PAGES = ["/login", "/signup"];
 const PUBLIC_PAGES = [...SIGN_IN_PAGES, "/auth", "/terms", "/privacy", "/accessibility"];
 const under = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 

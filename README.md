@@ -53,6 +53,17 @@ pnpm --filter dashboard typecheck
 CI (`.github/workflows/dashboard.yml`) does the same on pull requests and pushes to `main` that touch the dashboard,
 `packages/*` it uses or `supabase/`. It only tests; Vercel still deploys.
 
+### Sign-in setup (Supabase, production)
+Authentication settings in the Supabase dashboard (the local test stack has the same in `supabase/config.toml`):
+- **Sign In / Providers › Email:** on; **Confirm email** on; **minimum password length 10**.
+- **URL Configuration:** Site URL `https://manage.accesspilot.org`; Redirect URLs `https://manage.accesspilot.org/auth/callback**`.
+- **Emails › Templates:** "Confirm signup" and "Magic link" = `supabase/templates/confirm-signup.html` and
+  `magic-link.html` (subjects in `config.toml`). Their links go to `/auth/confirm`, which works when the email is
+  opened on another device. With Supabase's default templates sign-up still works, through `/auth/callback`, but only
+  on the device that asked.
+- Sign-in links never create accounts (only Sign up does); the first site typed at sign-up is made when the
+  confirmation link is opened (`lib/account.ts` › `finishSignIn`).
+
 ### Shared packages
 ```bash
 pnpm --filter @app/tokens test           # every color pairing we use still has enough contrast

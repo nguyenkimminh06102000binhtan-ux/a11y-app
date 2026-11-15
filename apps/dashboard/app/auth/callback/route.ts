@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ensureAccount } from "@/lib/account";
+import { finishSignIn } from "@/lib/account";
 import { safeNext } from "@/lib/safe-next";
 
 /**
@@ -15,8 +15,8 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && data.user) {
-      await ensureAccount({ id: data.user.id, email: data.user.email, name: data.user.user_metadata?.full_name });
-      return NextResponse.redirect(`${origin}${safeNext(searchParams.get("next"))}`);
+      const newSite = await finishSignIn(data.user);
+      return NextResponse.redirect(`${origin}${newSite ? `/embed-code?added=${newSite}` : safeNext(searchParams.get("next"))}`);
     }
   }
   return NextResponse.redirect(`${origin}/login?error=link`);

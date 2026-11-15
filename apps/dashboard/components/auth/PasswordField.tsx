@@ -1,33 +1,42 @@
 "use client";
 
 import { useState } from "react";
+import { FieldError } from "@/components/auth/FieldError";
 
 type Props = {
   id: string;
   label: string;
   autoComplete: "current-password" | "new-password";
   invalid?: boolean;
-  describedBy?: string;
+  hint?: string; // under the field, read with it ("At least 10 characters…")
+  error?: string; // under the field, read with it, with the field marked invalid
+  inputRef?: React.Ref<HTMLInputElement>;
 };
 
 /**
  * A password field with a Show / Hide button inside its edge. The button says what it will do ("Show password"),
  * so its name changes with the state; focus stays on it. Pasting and password managers work as usual.
  */
-export function PasswordField({ id, label, autoComplete, invalid, describedBy }: Props) {
+export function PasswordField({ id, label, autoComplete, invalid, hint, error, inputRef }: Props) {
   const [visible, setVisible] = useState(false);
+  const bad = invalid || !!error;
+  const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(" ") || undefined;
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="m-0">
         {label}
       </label>
-      <div className="flex items-center rounded-[0.625rem] border-[1.5px] border-frame bg-surface pr-1 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink data-invalid:border-[2.5px] data-invalid:border-ink" data-invalid={invalid || undefined}>
+      <div
+        className="flex items-center rounded-[0.625rem] border-[1.5px] border-frame bg-surface pr-1 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink data-invalid:border-[2.5px] data-invalid:border-ink"
+        data-invalid={bad || undefined}
+      >
         <input
+          ref={inputRef}
           id={id}
           name="password"
           type={visible ? "text" : "password"}
           autoComplete={autoComplete}
-          aria-invalid={invalid || undefined}
+          aria-invalid={bad || undefined}
           aria-describedby={describedBy}
           spellCheck={false}
           autoCapitalize="none"
@@ -42,6 +51,12 @@ export function PasswordField({ id, label, autoComplete, invalid, describedBy }:
           {visible ? "Hide" : "Show"}
         </button>
       </div>
+      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+      {hint && (
+        <p id={`${id}-hint`} className="m-0 text-small text-muted">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

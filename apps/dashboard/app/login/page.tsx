@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SignInPanel } from "@/components/auth/SignInPanel";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -24,8 +25,7 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
           Sign in to AccessPilot
         </h1>
         <p className="m-0 text-muted">
-          New here? Create an account: sign-up opens soon. For now, a sign-in
-          link creates one.
+          New here? <Link href="/signup" className="font-bold">Create an account</Link>
         </p>
       </div>
 

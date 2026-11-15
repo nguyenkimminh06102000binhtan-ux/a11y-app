@@ -10,6 +10,7 @@ import { getMonthlyPageLimit, pagesUsedThisMonth } from "@/lib/quota";
 import { isUuid } from "@/lib/ids";
 import { canDeleteSite } from "@/lib/plan";
 import { widgetConfigTag } from "@/lib/widget-config";
+import { createSite } from "@/lib/site-create";
 import * as v from "valibot";
 import {
   DEFAULT_PLACEMENT,
@@ -36,23 +37,12 @@ export async function addSite(_previous: AddSiteState, formData: FormData): Prom
   const domain = normalizeDomain(String(formData.get("domain") ?? ""));
   if (!domain) return { error: "invalid", at: Date.now() };
 
-  const inserted = await db
-    .insert(sites)
-    .values({
-      accountId: user.id,
-      domain,
-    })
-    .onConflictDoNothing()
-    .returning({ id: sites.id });
-
-  if (inserted.length === 0) return { error: "duplicate", at: Date.now() };
+  const siteId = await createSite(user.id, domain); // with its homepage on Audit › Pages
+  if (!siteId) return { error: "duplicate", at: Date.now() };
   updateTag(widgetConfigTag(user.id)); // the widget shows on the new domain right away
 
-  // Every site starts with its homepage on Audit › Pages
-  await db.insert(pages).values({ siteId: inserted[0].id, url: `https://${domain}/` }).onConflictDoNothing();
-
   revalidatePath("/");
-  redirect(`/embed-code?added=${inserted[0].id}`); // next: put the code on it
+  redirect(`/embed-code?added=${siteId}`); // next: put the code on it
 }
 
 export type DeleteSiteState = { error?: "mismatch" | "paid"; at?: number };

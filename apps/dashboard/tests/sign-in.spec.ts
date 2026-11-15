@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
-import { localStack } from "./local-stack";
+import { emailLink, anyEmail } from "./mailbox";
 import { OWNER_EMAIL, OWNER_PASSWORD as PASSWORD, type Seeded } from "./seed";
 
 /*
@@ -95,37 +95,29 @@ test("after signing in you're back where you were going, and only on our own pag
 });
 
 test.describe("sign-in link", () => {
-  test.describe.configure({ mode: "serial" }); // one mailbox
-
   test("the email's link signs you in and opens Sites", async ({ page, request }) => {
-    const mailbox = localStack().mailboxUrl;
-    await request.delete(`${mailbox}/api/v1/messages`);
-
     await ready(page, "/login");
+    const since = Date.now();
     await page.getByLabel("Email").fill(OWNER_EMAIL);
     await page.getByRole("button", { name: "Email me a sign-in link instead" }).click();
     await expect(page.getByRole("heading", { name: "Check your email" })).toBeFocused();
     await expect(page.getByRole("button", { name: /Send again in 0:\d\d/ })).toHaveAttribute("aria-disabled", "true");
     await expectAccessible(page);
 
-    let link: string | undefined;
-    await expect
-      .poll(
-        async () => {
-          const found = await (await request.get(`${mailbox}/api/v1/search?query=${encodeURIComponent(`to:${OWNER_EMAIL}`)}`)).json();
-          const id = found.messages?.[0]?.ID;
-          if (!id) return false;
-          const message = await (await request.get(`${mailbox}/api/v1/message/${id}`)).json();
-          link = /href="([^"]*\/verify[^"]*)"/.exec(message.HTML ?? "")?.[1]?.replace(/&amp;/g, "&");
-          return !!link;
-        },
-        { timeout: 20_000 }
-      )
-      .toBe(true);
-
-    await page.goto(link!); // → /auth/callback?code=… → Sites
+    await page.goto(await emailLink(request, OWNER_EMAIL, since)); // → /auth/confirm → Sites
     await expect(page).toHaveURL("/");
     await expect(page.getByRole("heading", { level: 1, name: "Sites" })).toBeVisible();
+  });
+
+  test("an email without an account gets the same answer, and no email or account", async ({ page, request }) => {
+    const stranger = `nobody-${Date.now()}@accesspilot.test`;
+    await ready(page, "/login");
+    const since = Date.now();
+    await page.getByLabel("Email").fill(stranger);
+    await page.getByRole("button", { name: "Email me a sign-in link instead" }).click();
+    await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+    await expect(page.locator("main")).toContainText(`If ${stranger} has an account`);
+    expect(await anyEmail(request, stranger, since)).toBe(false); // sign-in links don't make accounts: Sign up does
   });
 
   test("a sign-in link without an email asks for one; a broken link says so", async ({ page }) => {
@@ -134,16 +126,18 @@ test.describe("sign-in link", () => {
     await expect(page.locator("main").getByRole("alert")).toContainText("Enter your email first.");
     await expect(page.getByLabel("Email")).toHaveAttribute("aria-invalid", "true");
 
-    await ready(page, "/auth/callback?code=not-a-real-code");
-    await expect(page).toHaveURL(/\/login\?error=link/);
-    await expect(page.locator("main").getByRole("alert")).toContainText("That sign-in link didn’t work.");
+    for (const broken of ["/auth/callback?code=not-a-real-code", "/auth/confirm?token_hash=nope&type=email"]) {
+      await ready(page, broken);
+      await expect(page).toHaveURL(/\/login\?error=link/);
+      await expect(page.locator("main").getByRole("alert")).toContainText("That sign-in link didn’t work.");
+    }
   });
 });
 
 for (const width of [320, 768, 1280]) {
   test(`sign-in and legal pages at ${width}px: accessible, no sideways scroll, 44px controls`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/login", "/terms", "/privacy", "/accessibility"]) {
+    for (const path of ["/login", "/signup", "/terms", "/privacy", "/accessibility"]) {
       await ready(page, path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expectAccessible(page);
