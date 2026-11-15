@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SiteSummary } from "@/lib/sites";
 import { RelativeTime } from "@/components/RelativeTime";
+import { widgetHealth } from "@/lib/widget-health";
 
 type Step = { text: string; href: string };
 
@@ -28,6 +29,18 @@ function LastScan({ site }: { site: SiteSummary }) {
   if (!site.lastScan) return <>Never</>;
   const when = <RelativeTime iso={site.lastScan.at.toISOString()} />;
   return site.lastScan.status === "failed" ? <>Failed · {when}</> : when;
+}
+
+/** "Seen 5 minutes ago", "Last seen Nov 3" (over a week: is the code still there?) or "Not installed yet" */
+function WidgetSeen({ site }: { site: SiteSummary }) {
+  const health = widgetHealth(site.widgetSeenAt);
+  if (health === "never") return <>Not installed yet</>;
+  return (
+    <>
+      {health === "stale" ? "Last seen " : "Seen "}
+      <RelativeTime iso={site.widgetSeenAt!.toISOString()} />
+    </>
+  );
 }
 
 /** "48 · 7 critical", or a dash (read as "not checked yet") before any page has been checked. */
@@ -76,6 +89,7 @@ export function SiteList({ sites }: { sites: SiteSummary[] }) {
           <thead className="bg-subtle text-small text-muted">
             <tr>
               <th scope="col" className="px-4 py-3 font-normal">Site</th>
+              <th scope="col" className="px-4 py-3 font-normal">Widget</th>
               <th scope="col" className="px-4 py-3 font-normal">Open issues</th>
               <th scope="col" className="px-4 py-3 font-normal">Last scan</th>
               <th scope="col" className="px-4 py-3 font-normal">Next step</th>
@@ -89,6 +103,9 @@ export function SiteList({ sites }: { sites: SiteSummary[] }) {
                     {site.domain}
                   </Link>
                 </th>
+                <td className="px-4 py-3 text-small">
+                  <WidgetSeen site={site} />
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <OpenIssues site={site} />
                 </td>
@@ -111,6 +128,10 @@ export function SiteList({ sites }: { sites: SiteSummary[] }) {
               </Link>
             </h3>
             <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-small">
+              <dt className="text-muted">Widget</dt>
+              <dd>
+                <WidgetSeen site={site} />
+              </dd>
               <dt className="text-muted">Open issues</dt>
               <dd>
                 <OpenIssues site={site} />

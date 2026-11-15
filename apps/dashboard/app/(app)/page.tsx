@@ -9,6 +9,10 @@ import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/Button";
 import { ArrivalToast } from "@/components/ui/Toaster";
 import { normalizeDomain } from "@/lib/domain";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { getOnboarding } from "@/lib/widget-seen";
+import { GettingStarted } from "@/components/GettingStarted";
 import { Skeleton, Bone, SkeletonList, SkeletonSearch } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Sites" };
@@ -32,6 +36,10 @@ export default function Home({ searchParams }: PageProps<"/">) {
 
       <Suspense fallback={null}>
         <Deleted searchParams={searchParams} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <Checklist />
       </Suspense>
 
       <section aria-labelledby="sites-heading">
@@ -63,6 +71,13 @@ async function Deleted({ searchParams }: { searchParams: Promise<Record<string, 
   const domain = typeof deleted === "string" ? normalizeDomain(deleted) : null;
   if (!domain) return null;
   return <ArrivalToast key={domain} message={`${domain} was deleted.`} focus="#main h1" clear={["deleted"]} />;
+}
+
+/** Getting started, until every step is done */
+async function Checklist() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return <GettingStarted onboarding={await getOnboarding(user.id)} />;
 }
 
 async function SiteCount() {

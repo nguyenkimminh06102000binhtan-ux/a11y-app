@@ -1,5 +1,6 @@
-import { type NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { getWidgetConfig, isWidgetKey, normalizeHost } from "@/lib/widget-config";
+import { markWidgetSeen, originMatches } from "@/lib/widget-seen";
 
 /*
  * GET /api/widget/config?account=acct_…&host=shop.com
@@ -22,6 +23,11 @@ export async function GET(request: NextRequest) {
 
     try {
         const config = await getWidgetConfig(widgetKey, host);
+        // Asked by a browser on the site itself: the widget is installed there. Noted after answering, so the
+        // widget never waits for it (and a failed write never affects the answer).
+        if (config.enabled && originMatches(request.headers.get("origin"), host)) {
+            after(() => markWidgetSeen(widgetKey, host).catch((error) => console.error("[widget-seen]", error)));
+        }
         return Response.json(config, {
             headers: {
                 ...CORS,

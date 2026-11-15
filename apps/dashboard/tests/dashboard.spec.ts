@@ -62,6 +62,9 @@ const PAGES: [string, (s: Seeded) => string][] = [
   ["Printable report", (s) => `/reports/${s.shop}`],
   ["Customize", (s) => `${site(s.shop)}/widget`],
   ["Settings", (s) => `${site(s.shop)}/widget/settings`],
+  ["Customize, widget never seen", (s) => `${site(s.longSite)}/widget`],
+  ["Customize, widget not seen for 10 days", (s) => `${site(s.site01)}/widget`],
+  ["Embed code, waiting for a new site", (s) => `/embed-code?added=${s.longSite}`],
   ["Not found", () => `${site("00000000-0000-4000-8000-00000000dead")}/audit`],
 ];
 
@@ -210,5 +213,89 @@ test.describe("behaviors", () => {
     await expect(latest).toHaveText(/^2 hours ago/); // then the exact time, for screen readers only
     await expect(latest).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}T/);
     await expect(page.locator("table tbody tr").first().getByRole("link")).toHaveAccessibleName(/^See scan from 2 hours ago \(.+ UTC\)$/);
+  });
+});
+
+test.describe("is the widget installed?", () => {
+  const config = (s: Seeded, host: string) => `/api/widget/config?account=${s.widgetKey}&host=${host}`;
+
+  test("seen only from a browser on the site itself, and at most once a minute", async ({ page }) => {
+    const s = seeded();
+    await page.goto("/");
+    const seenAt = async (id: string) => (await (await page.request.get(`/api/sites/${id}/widget-status`)).json()).seenAt;
+    const ask = (origin?: string) =>
+      page.request.get(config(s, "site-02.example"), { headers: origin ? { Origin: origin } : {} });
+
+    await ask(); // no Origin: not a browser on the site
+    await ask("https://evil.example"); // another site using the public key
+    await page.waitForTimeout(500);
+    expect(await seenAt(s.site02)).toBeNull();
+
+    await ask("https://www.site-02.example"); // the site itself (www. or not)
+    await expect.poll(() => seenAt(s.site02)).not.toBeNull();
+    const first = await seenAt(s.site02);
+    await ask("https://site-02.example");
+    await page.waitForTimeout(500);
+    expect(await seenAt(s.site02)).toBe(first); // no second write within a minute
+  });
+
+  test("Sites says where it's working", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+    await settled(page);
+    const row = (domain: string) => page.locator("table tbody tr", { has: page.getByRole("link", { name: domain, exact: true }) });
+    await expect(row("shop.example")).toContainText("Seen 5 minutes ago");
+    await expect(row("site-01.example")).toContainText(/Last seen \w{3} \d{1,2}/);
+    await expect(row("busy.example")).toContainText("Not installed yet");
+  });
+
+  test("Embed code waits for a new site, then says it's working", async ({ page }) => {
+    const s = seeded();
+    await page.goto(`/embed-code?added=${s.site03}`);
+    await settled(page);
+    const status = page.locator("main p[role=status]").filter({ hasText: /Waiting for the widget|The widget is working/ });
+    await expect(status).toContainText("Waiting for the widget on site-03.example");
+    await expectAccessible(page);
+
+    await page.request.get(config(s, "site-03.example"), { headers: { Origin: "https://site-03.example" } }); // the widget loads there
+    await expect(status).toContainText("The widget is working on site-03.example.", { timeout: 15_000 });
+    await expectAccessible(page);
+  });
+});
+
+test.describe("Getting started", () => {
+  test("the owner has done every step: no checklist", async ({ page }) => {
+    await page.goto("/");
+    await settled(page);
+    await expect(page.getByRole("heading", { name: "Getting started" })).toHaveCount(0);
+  });
+
+  test.describe("a new account", () => {
+    test.use({ storageState: "tests/.state/new.json" });
+
+    test("starts at 0 of 4, and adding a site ticks the first step", async ({ page }) => {
+      for (const width of [320, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto("/");
+        await settled(page);
+        const checklist = page.getByRole("region", { name: "Getting started" });
+        await expect(checklist).toContainText("0 of 4 done");
+        await expect(checklist.getByRole("listitem")).toHaveCount(4);
+        await expectAccessible(page);
+      }
+
+      await page.getByRole("button", { name: "Add site" }).click();
+      await page.getByLabel("Domain").fill("fresh-start.example");
+      await page.getByRole("button", { name: "Add this site" }).click();
+      await expect(page).toHaveURL(/\/embed-code\?added=/);
+      await expect(page.locator("main p[role=status]").filter({ hasText: "Waiting for the widget" })).toBeVisible();
+
+      await page.goto("/");
+      await settled(page);
+      const checklist = page.getByRole("region", { name: "Getting started" });
+      await expect(checklist).toContainText("1 of 4 done");
+      await expect(checklist.getByRole("listitem").first()).toContainText("Add your site · Done");
+      await expect(checklist.getByRole("link", { name: "Choose pages to scan" })).toBeVisible();
+    });
   });
 });

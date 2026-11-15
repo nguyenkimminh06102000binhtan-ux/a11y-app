@@ -7,6 +7,8 @@ import { localStack } from "./local-stack";
  *   busy.example     a scan running now (progress card)
  *   delete-me.example  for the delete test
  *   a very long domain, and site-01 … site-27 (never scanned): wrapping, empty states, pagination
+ * Widget seen: shop.example 5 minutes ago (working), site-01 ten days ago (stale), the rest never.
+ * A second account, new@accesspilot.test, is emptied: Getting started from zero.
  */
 
 export type Seeded = {
@@ -16,9 +18,14 @@ export type Seeded = {
   deleteMe: string;
   longSite: string;
   latestRun: string; // shop.example's latest scan run (batch id)
+  widgetKey: string; // the account's public embed key
+  site01: string; // widget seen 10 days ago
+  site02: string; // never seen (the "seen" rules test marks it)
+  site03: string; // never seen (the Embed code wait test)
 };
 
 export const OWNER_EMAIL = "owner@accesspilot.test";
+export const NEW_EMAIL = "new@accesspilot.test";
 export const LONG_DOMAIN = "a-really-long-subdomain-name.some-very-long-domain-name-example.co.uk";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000);
@@ -40,7 +47,7 @@ export async function seed(userId: string): Promise<Seeded> {
   const { db, accounts, sites, pages, scans, issues, widgetSettings, eq, closeDb } = await import("@app/db");
 
   await db.insert(accounts).values({ id: userId, email: OWNER_EMAIL }).onConflictDoNothing();
-  const account = { id: userId };
+  const [account] = await db.select({ id: accounts.id, widgetKey: accounts.widgetKey }).from(accounts).where(eq(accounts.id, userId));
   await db.delete(sites).where(eq(sites.accountId, account.id)); // cascades to pages, scans, issues, settings
 
   const site = async (domain: string) =>
@@ -49,7 +56,10 @@ export async function seed(userId: string): Promise<Seeded> {
   const busy = await site("busy.example");
   const deleteMe = await site("delete-me.example");
   const longSite = await site(LONG_DOMAIN);
-  for (let i = 1; i <= 27; i++) await site(`site-${String(i).padStart(2, "0")}.example`);
+  const numbered: string[] = [];
+  for (let i = 1; i <= 27; i++) numbered.push(await site(`site-${String(i).padStart(2, "0")}.example`));
+  await db.update(sites).set({ widgetSeenAt: ago(5) }).where(eq(sites.id, shop));
+  await db.update(sites).set({ widgetSeenAt: ago(10 * 24 * 60) }).where(eq(sites.id, numbered[0]));
 
   const url = (path: string) => `https://shop.example${path}`;
   await db.insert(pages).values(["/", "/cart", "/about", "/contact"].map((p) => ({ siteId: shop, url: url(p) })));
@@ -96,5 +106,16 @@ export async function seed(userId: string): Promise<Seeded> {
   await scan({ site: busy, path: "/", batch: randomUUID(), status: "running", at: ago(1) });
 
   await closeDb();
-  return { accountId: account.id, shop, busy, deleteMe, longSite, latestRun };
+  return {
+    accountId: account.id, shop, busy, deleteMe, longSite, latestRun, widgetKey: account.widgetKey,
+    site01: numbered[0], site02: numbered[1], site03: numbered[2],
+  };
+}
+
+/** The second account: exists, with no sites (Getting started from zero). Call before seed(), which closes the connection. */
+export async function resetNewAccount(userId: string): Promise<void> {
+  process.env.DATABASE_URL = localStack().dbUrl;
+  const { db, accounts, sites, eq } = await import("@app/db");
+  await db.insert(accounts).values({ id: userId, email: NEW_EMAIL }).onConflictDoNothing();
+  await db.delete(sites).where(eq(sites.accountId, userId));
 }

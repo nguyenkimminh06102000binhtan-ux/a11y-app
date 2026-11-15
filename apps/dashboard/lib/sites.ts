@@ -11,6 +11,7 @@ export type SiteSummary = {
   critical: number;
   scanning: boolean; // a scan is queued or running
   lastScan: { status: "queued" | "running" | "done" | "failed"; at: Date } | null; // the newest scan, any status
+  widgetSeenAt: Date | null; // when the widget was last seen on the site (lib/widget-seen.ts)
 };
 
 export const SITES_PER_PAGE = 25;
@@ -46,7 +47,7 @@ export const getSitesPage = cache(async (requestedPage: number, search: string):
   const page = Math.min(Math.max(1, requestedPage), pages);
 
   const siteRows = await db
-    .select({ id: sites.id, domain: sites.domain })
+    .select({ id: sites.id, domain: sites.domain, widgetSeenAt: sites.widgetSeenAt })
     .from(sites)
     .where(where)
     .orderBy(sites.domain)

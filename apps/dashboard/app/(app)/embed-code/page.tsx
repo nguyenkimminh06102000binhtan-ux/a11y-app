@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isUuid } from "@/lib/ids";
 import { InstallCode } from "@/components/InstallCode";
 import { FocusedAlert } from "@/components/FocusedAlert";
+import { WidgetWait } from "@/components/WidgetWait";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Skeleton, SkeletonCards } from "@/components/ui/Skeleton";
@@ -63,15 +64,17 @@ async function Added({ searchParams }: { searchParams: Promise<Record<string, st
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const [site] = await db
-    .select({ domain: sites.domain })
+    .select({ domain: sites.domain, seenAt: sites.widgetSeenAt })
     .from(sites)
     .where(and(eq(sites.id, added), eq(sites.accountId, user.id)));
   if (!site) return null;
   return (
-    <div className="mb-6">
+    <div className="mb-6 flex flex-col gap-3">
       <FocusedAlert key={added} tone="success">
         <strong className="wrap-anywhere">{site.domain}</strong> is added. Paste this code on it to turn on the widget.
       </FocusedAlert>
+      {/* Then: "Waiting for the widget on brand.com…" until it's seen there */}
+      <WidgetWait key={`wait-${added}`} siteId={added} domain={site.domain} seen={!!site.seenAt} />
     </div>
   );
 }

@@ -21,6 +21,9 @@ export const sites = pgTable(
     // How many different pages may be scanned per month (UTC). null = the placeholder default until plans exist:
     // always read it with getMonthlyPageLimit() in the dashboard, never use the column directly.
     monthlyPageLimit: integer("monthly_page_limit"),
+    // When the widget last asked for its config from this exact domain in a browser (Origin matched): "installed and
+    // working". At most one write a minute (lib/widget-seen.ts). null = never seen. No visitor data.
+    widgetSeenAt: timestamp("widget_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [unique().on(t.accountId, t.domain)]

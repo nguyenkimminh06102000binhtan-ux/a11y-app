@@ -137,6 +137,10 @@ same-origin iframes too, and survive single-page-app navigation. Turning a setti
 - **When it shows:** once the page has loaded, so it doesn't slow the page down, but at most 3 seconds after the
   HTML is in: an image or ad that never finishes loading can't keep the widget hidden. The visitor's saved settings
   are applied at once either way; only Text size waits for the full load (it measures the page's final font sizes).
+- **Installed?** When the config request comes from a browser on the site itself (its `Origin` is the site's
+  domain, www. or not), the dashboard notes the time on the site (`sites.widget_seen_at`, at most once a minute,
+  after answering). Sites, the Widget section and Embed code show "Seen 5 minutes ago" / "Not installed yet".
+  Nothing about visitors is stored. A script outside a browser could fake the Origin: at worst "seen" looks newer.
 - **Fails open:** no answer (server down, blocked request) means the last answer this visitor got, or our defaults.
   An accessibility tool shouldn't vanish because our server had a problem.
 - **Caching:** the dashboard caches each answer (cleared at once when a site or its settings change); browsers ask
