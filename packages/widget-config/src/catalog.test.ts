@@ -25,11 +25,11 @@ test("level settings have an off level first and at least one more", () => {
     }
 });
 
-test("settings on by default are on/off catalog settings, with the panel's words", () => {
+test("settings on by default are catalog settings, with the panel's words", () => {
     assert.equal(DEFAULTABLE_ENTRIES.length, DEFAULTABLE.length);
     for (const key of DEFAULTABLE) {
         const entry = CATALOG.find((e) => e.key === key);
-        assert.equal(entry?.kind, "toggle", key);
+        assert.ok(entry, key);
         assert.equal(DEFAULTABLE_LABELS[key], entry.label);
     }
 });
@@ -40,6 +40,6 @@ test("bySection keeps section order and leaves out empty sections", () => {
         groups.map((g) => g.section.id),
         ["content", "appearance", "navigation"]
     );
-    assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "line-height", "font", "text-spacing", "align-left"]);
+    assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "text-spacing", "line-height", "font", "text-align", "image-descriptions"]);
     assert.deepEqual(bySection([]), []);
 });

@@ -61,6 +61,21 @@ export const CATALOG = [
             { label: "Largest (200%)", short: "200%" },
         ],
     },
+    // Before Line height: level settings' CSS is written in this order, so a chosen Line height wins over Text spacing's 1.5
+    {
+        kind: "levels",
+        id: "text-spacing",
+        key: "textSpacing",
+        section: "content",
+        label: "Text spacing",
+        hint: "Adds space between lines, letters, words and paragraphs. Wide uses the WCAG values.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Wide", short: "Wide" },
+            { label: "Wider", short: "Wider" },
+            { label: "Widest", short: "Widest" },
+        ],
+    },
     {
         kind: "levels",
         id: "line-height",
@@ -90,20 +105,25 @@ export const CATALOG = [
         ],
     },
     {
-        kind: "toggle",
-        id: "text-spacing",
-        key: "textSpacing",
+        kind: "levels",
+        id: "text-align",
+        key: "textAlign",
         section: "content",
-        label: "Text spacing",
-        hint: "Adds space between lines, letters, words and paragraphs.",
+        label: "Align text",
+        hint: "Lines text up on one side instead of centering or stretching it.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Left", short: "Left" },
+            { label: "Right", short: "Right" },
+        ],
     },
     {
         kind: "toggle",
-        id: "align-left",
-        key: "alignLeft",
+        id: "image-descriptions",
+        key: "imageDescriptions",
         section: "content",
-        label: "Align left",
-        hint: "Lines text up on one side instead of centering or stretching it.",
+        label: "Image descriptions",
+        hint: "Shows an image's description when you point at it or tab to it.",
     },
     // Appearance
     {
@@ -150,8 +170,12 @@ export function bySection<T extends { readonly section: SectionId }>(items: read
 
 // ─── Settings a site owner can turn on by default ──────────────────────────────────────────────────────────
 
-/** On/off settings an owner can turn on by default. Part of the stored and served contract: only ever add. */
-export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pauseAnimations"] as const satisfies readonly ToggleKey[];
+/**
+ * Settings an owner can turn on by default. Part of the stored and served contract: only ever add.
+ * Served as `true`; for a level setting that means its first level above Default (Text spacing: Wide, which is what
+ * it was when it was an on/off setting).
+ */
+export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pauseAnimations"] as const satisfies readonly (ToggleKey | LevelKey)[];
 export type DefaultableSetting = (typeof DEFAULTABLE)[number];
 
 /** Their catalog entries, in panel order (by section), for the dashboard. */

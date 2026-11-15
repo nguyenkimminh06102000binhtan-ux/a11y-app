@@ -4,7 +4,8 @@ import { buildFonts } from "./fonts.mjs";
 const fontCss = await buildFonts("public", { hash: false }); // → public/fonts/
 
 const ctx = await esbuild.context({
-  entryPoints: { l: "src/entries/loader.ts", app: "src/entries/app.ts" }, // → public/l.js, public/app.js
+  // → public/l.js, public/app.js, public/parts/<name>.js
+  entryPoints: { l: "src/entries/loader.ts", app: "src/entries/app.ts", "parts/image-descriptions": "src/parts/image-descriptions.ts" },
   outdir: "public",
   bundle: true,
   format: "iife",
@@ -17,6 +18,7 @@ const ctx = await esbuild.context({
     // The dashboard's dev server, where the widget asks for its config (WIDGET_API_BASE=http://localhost:3001 to change)
     __API_BASE__: JSON.stringify(process.env.WIDGET_API_BASE ?? "http://localhost:3001"),
     __FONT_CSS__: JSON.stringify(fontCss),
+    __PARTS__: JSON.stringify({ "image-descriptions": { file: "parts/image-descriptions.js", integrity: "" } }), // dev: no hashes
 
   }, // dev: no hash in the name
 });

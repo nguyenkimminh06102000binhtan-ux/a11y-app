@@ -149,13 +149,20 @@ Grouped in the panel by section. Each setting's words, section and levels are de
 | Section | Setting | What it does |
 |---|---|---|
 | Content | Text size | Default, 125%, 150%, 200%. Enlarges text only (no page zoom), so pages reflow instead of scrolling sideways. |
-| Content | Line height | Default, 1.5, 1.75, 2. Wins over Text spacing's 1.5. |
+| Content | Text spacing | Default, Wide (WCAG 1.4.12: letters 0.12em, words 0.16em, paragraphs 2em, lines 1.5), Wider (0.16/0.24/2), Widest (0.2/0.32/2.5). It was on/off: a saved `true` and an owner's "on by default" mean Wide. |
+| Content | Line height | Default, 1.5, 1.75, 2. Wins over Text spacing's 1.5 (it comes after it in the catalog, and level CSS is written in catalog order). |
 | Content | Font | Default, Clear (Atkinson Hyperlegible Next), Wide (Lexend), Simple (Andika); see below. Code and icon fonts keep theirs. |
-| Content | Text spacing | WCAG 1.4.12 values: line height 1.5, letters 0.12em, words 0.16em, paragraphs 2em. |
-| Content | Align left | Centered and justified text blocks line up at the start (the right on right-to-left pages). Layout `div`s don't move. |
+| Content | Align text | Default, Left, Right. Centered and justified text blocks line up on that side (physical sides, on right-to-left pages too). Layout `div`s don't move. |
+| Content | Image descriptions | Pointing at an image, or tabbing to something containing one, shows its alt text / aria-label / SVG title (WCAG 1.4.13: hoverable, persistent, Esc closes). Decorative and undescribed images show nothing. A part (below). |
 | Appearance | Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
 | Navigation | Highlight links | Yellow background and underline on every link. |
 | Navigation | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
+
+**Parts.** Heavier features are separate files (`src/parts/*.ts` → `dist/parts/<name>.<hash>.js`, 8 KB limit each),
+downloaded only when a visitor turns them on (or arrives with them saved on). The app carries each part's name and
+integrity hash, like the loader carries the app's, so a changed byte is refused; a part that can't load (CSP,
+offline) leaves its setting doing nothing, with one console warning. Parts must only import stateless helpers.
+The CSS bundled into the app is minified in production builds (`scripts/minify-css.mjs`).
 
 **Fonts.** SIL Open Font License 1.1, from their Fontsource packages (the Google Fonts releases), served unchanged
 from our CDN next to the app (`dist/fonts/`, with each license): never from Google, so visitors' IPs aren't sent

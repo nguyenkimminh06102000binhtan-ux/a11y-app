@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { buildFonts } from "./fonts.mjs";
+import { minifyCss } from "./minify-css.mjs";
 
 const OUT = "dist";
 // The dashboard's origin, where the widget asks for its config. Set it for each deployment:
@@ -15,6 +16,7 @@ const shared = {
   target: "es2018",
   minify: true,
   loader: { ".css": "text" },
+  plugins: [minifyCss],
   write: false, // keep output in memory so we can hash it before writing
   logLevel: "warning",
   define: { __API_BASE__: JSON.stringify(API_BASE) },
@@ -25,6 +27,23 @@ await mkdir(OUT, { recursive: true });
 
 // 0. The Font setting's fonts and their stylesheets, next to the app (dist/fonts/).
 shared.define.__FONT_CSS__ = JSON.stringify(await buildFonts(OUT, { hash: true }));
+
+// 0b. Parts (src/parts/*.ts, see src/core/parts.ts): built and hashed first, so the app can carry their names
+//     and integrity hashes, as the loader carries the app's.
+const PARTS = ["image-descriptions"];
+const partFiles = [];
+const parts = {};
+for (const name of PARTS) {
+  const out = await esbuild.build({ ...shared, entryPoints: [`src/parts/${name}.ts`], outfile: `${name}.js` });
+  const bytes = out.outputFiles[0].contents;
+  const hash = createHash("sha384").update(bytes).digest();
+  const file = `parts/${name}.${hash.toString("hex").slice(0, 10)}.js`;
+  await mkdir(`${OUT}/parts`, { recursive: true });
+  await writeFile(`${OUT}/${file}`, bytes);
+  parts[name] = { file, integrity: `sha384-${hash.toString("base64")}` };
+  partFiles.push({ name: file, bytes });
+}
+shared.define.__PARTS__ = JSON.stringify(parts);
 
 // 1. Build the app and hash its exact bytes.
 const app = await esbuild.build({ ...shared, entryPoints: ["src/entries/app.ts"], outfile: "app.js" });
@@ -50,7 +69,8 @@ await writeFile(`${OUT}/l.js`, loader.outputFiles[0].contents);
 
 // 3. Response headers for the CDN (Cloudflare Pages reads dist/_headers). All files are loaded by customers' sites:
 //    - l.js keeps its name across releases: cache it briefly, so a release reaches every site within minutes.
-//    - app.<hash>.js and fonts/*.<hash>.(woff2|css) get a new name whenever they change: cache them for a year.
+//    - app.<hash>.js, parts/*.<hash>.js and fonts/*.<hash>.(woff2|css) get a new name whenever they change: cache
+//      them for a year.
 //    - CORS: the loader fetches the app with an integrity check (crossorigin="anonymous"), which needs it; fonts
 //      from another origin always need it.
 //    - CORP: sites that isolate themselves (Cross-Origin-Embedder-Policy) only load scripts that allow it.
@@ -70,6 +90,10 @@ ${SHARED_HEADERS}
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
 ${SHARED_HEADERS}
+
+/parts/*
+  Cache-Control: public, max-age=31536000, immutable
+${SHARED_HEADERS}
 `
 );
 
@@ -77,6 +101,7 @@ ${SHARED_HEADERS}
 const LIMITS = [
   { name: "l.js", bytes: loader.outputFiles[0].contents, max: 1024 },
   { name: appFile, bytes: appBytes, max: 25 * 1024 },
+  ...partFiles.map((part) => ({ ...part, max: 8 * 1024 })), // each part, downloaded only when its setting is on
 ];
 
 let overLimit = false;
@@ -85,7 +110,7 @@ for (const { name, bytes, max } of LIMITS) {
   const ok = gzipped <= max;
   if (!ok) overLimit = true;
   console.log(
-    `${ok ? "✓" : "✗"} ${name.padEnd(20)} ${String(bytes.length).padStart(7)} B raw  ${String(gzipped).padStart(6)} B gzip  (limit ${max} B)`
+    `${ok ? "✓" : "✗"} ${name.padEnd(40)} ${String(bytes.length).padStart(7)} B raw  ${String(gzipped).padStart(6)} B gzip  (limit ${max} B)`
   );
 }
 console.log(`integrity: ${integrity}`);

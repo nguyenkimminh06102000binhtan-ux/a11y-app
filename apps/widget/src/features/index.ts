@@ -1,11 +1,12 @@
 import { CATALOG } from "@app/widget-config";
-import { alignLeft } from "./align-left";
 import { font } from "./font";
+import { imageDescriptions } from "./image-descriptions";
 import { lineHeight } from "./line-height";
 import { focusOutline } from "./focus-outline";
 import { highlightLinks } from "./highlight-links";
 import { pauseAnimations } from "./pause-animations";
 import { textSizeFeature } from "./text-size";
+import { textAlign } from "./text-align";
 import { textSpacing } from "./text-spacing";
 import type { Feature, Implementations } from "./types";
 
@@ -17,7 +18,8 @@ const IMPLEMENTATIONS: Implementations = {
     "line-height": lineHeight,
     font,
     "text-spacing": textSpacing,
-    "align-left": alignLeft,
+    "text-align": textAlign,
+    "image-descriptions": imageDescriptions,
     "pause-animations": pauseAnimations,
     "highlight-links": highlightLinks,
     "focus-outline": focusOutline,

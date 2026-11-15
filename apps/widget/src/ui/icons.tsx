@@ -98,9 +98,16 @@ const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
             <path d="M25 15 V23" />
         </>
     ),
-    "align-left": (
+    "text-align": (
         <>
             <path d="M4 6 H24 M4 11 H17 M4 16 H24 M4 21 H15" />
+        </>
+    ),
+    "image-descriptions": (
+        <>
+            <rect x="3" y="4" width="16" height="13" rx="2" />
+            <path d="M3 14 L8 10 L12 13.5 L15 11 L19 14" />
+            <path d="M12 21 H25 M17 25 H25 M23 8 V17" />
         </>
     ),
     "text-spacing": (

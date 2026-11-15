@@ -1,5 +1,5 @@
 // The visitor's choices, saved per site in localStorage on the customer's domain.
-import { CATALOG, type DefaultableSetting, type FeatureSettings, type WidgetConfig } from "@app/widget-config";
+import { CATALOG, type FeatureSettings, type WidgetConfig } from "@app/widget-config";
 
 /** One value per catalog setting: on/off, or a level (0 = the page's own state). */
 export type Settings = FeatureSettings;
@@ -7,8 +7,10 @@ export type Settings = FeatureSettings;
 /** Everything off. */
 export const DEFAULTS = Object.fromEntries(CATALOG.map((entry) => [entry.key, entry.kind === "levels" ? 0 : false])) as Settings;
 
-// The settings a site owner can turn on by default must exist here, as on/off settings
-DEFAULTS satisfies Record<DefaultableSetting, boolean>;
+/** The value "on" means for a setting: true, or a level setting's first level above Default. */
+function onValue(key: keyof Settings): boolean | number {
+    return typeof DEFAULTS[key] === "number" ? 1 : true;
+}
 
 /**
  * What a visitor starts with: our defaults plus the site owner's "on by default" settings.
@@ -17,7 +19,10 @@ DEFAULTS satisfies Record<DefaultableSetting, boolean>;
 let startingPoint: Settings = { ...DEFAULTS };
 
 export function setOwnerDefaults(defaults: WidgetConfig["defaults"]): void {
-    startingPoint = { ...DEFAULTS, ...defaults };
+    startingPoint = { ...DEFAULTS };
+    for (const key of Object.keys(defaults) as (keyof typeof defaults)[]) {
+        (startingPoint as Record<string, unknown>)[key] = onValue(key);
+    }
 }
 
 export function startingSettings(): Settings {
@@ -36,8 +41,11 @@ export function loadSettings(): Settings {
         const saved = JSON.parse(raw) as Record<string, unknown>;
         // Keep only known keys whose type matches the default; ignore anything else.
         for (const key of Object.keys(DEFAULTS) as (keyof Settings)[]) {
-            if (typeof saved[key] === typeof DEFAULTS[key]) {
-                (settings as Record<string, unknown>)[key] = saved[key];
+            let value = saved[key];
+            // A setting that was on/off and now has levels (Text spacing): on = its first level
+            if (typeof value === "boolean" && typeof DEFAULTS[key] === "number") value = value ? onValue(key) : 0;
+            if (typeof value === typeof DEFAULTS[key]) {
+                (settings as Record<string, unknown>)[key] = value;
             }
         }
         // A number isn't enough: it must be one of that setting's levels

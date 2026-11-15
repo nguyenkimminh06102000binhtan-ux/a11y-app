@@ -13,3 +13,4 @@ apps/dashboard/playwright-report
 apps/dashboard/tests/.state
 
 apps/widget/public/fonts
+apps/widget/public/parts

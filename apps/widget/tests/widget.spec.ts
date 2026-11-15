@@ -27,7 +27,7 @@ async function turnOn(page: Page, label: string) {
 /** Open the panel and pick a level of a level setting, e.g. choose(page, "Font", "Wide"). */
 async function choose(page: Page, setting: string, level: string) {
     await toggle(page).click();
-    await page.getByRole("group", { name: setting }).getByRole("radio", { name: level }).check();
+    await page.getByRole("group", { name: setting }).getByRole("radio", { name: level, exact: true }).check();
 }
 
 /** A silent 2-second WAV as a blob URL on the page: autoplay tests need no files and no network. */
@@ -164,10 +164,28 @@ const PROBES: Record<string, Probe> = {
         turnOn: (page) => choose(page, "Font", "Wide"),
         read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).fontFamily),
     },
-    "align-left": {
+    "text-align": {
         fixture: `<p class="probe" style="text-align: center">Some text</p>`,
-        turnOn: (page) => turnOn(page, "Align left"),
+        turnOn: (page) => choose(page, "Align text", "Left"),
         read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).textAlign),
+    },
+    "image-descriptions": {
+        // Centered with room below, so it never ends up under the widget's button in the bottom corner
+        fixture: `<img class="probe" alt="Probe image" width="80" height="40" style="display: block; margin: 0 auto 240px"
+                    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='40'%3E%3Crect width='80' height='40'/%3E%3C/svg%3E">`,
+        turnOn: async (page) => {
+            await turnOn(page, "Image descriptions");
+            await closeButton(page).click(); // the open panel can cover the images (the hostile page is right-to-left)
+        },
+        read: async (page, area) => {
+            await page.mouse.move(0, 0);
+            // Mid-screen: the hostile page's fixed header and cookie banner cover the top and bottom
+            await page.locator(`#${area} .probe`).evaluate((el) => el.scrollIntoView({ block: "center" }));
+            await page.locator(`#${area} .probe`).hover();
+            await page.waitForTimeout(300); // longer than the label's show delay
+            const tip = page.locator("a11yw-root .a11yw-tip");
+            return (await tip.count()) && (await tip.isVisible()) ? ((await tip.textContent()) ?? "") : "";
+        },
     },
     "highlight-links": {
         fixture: `<a class="probe" href="/probe">A link</a>`,
@@ -176,7 +194,7 @@ const PROBES: Record<string, Probe> = {
     },
     "text-spacing": {
         fixture: `<p class="probe">Some text</p>`,
-        turnOn: (page) => turnOn(page, "Text spacing"),
+        turnOn: (page) => choose(page, "Text spacing", "Wide"),
         read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).letterSpacing),
     },
     "focus-outline": {
@@ -381,7 +399,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 await page.reload();
                 await toggle(page).click();
                 await expect(page.getByRole("group", { name: "Text size" }).getByRole("radio", { name: "Default" }), String(textSize)).toBeChecked();
-                await expect(page.getByRole("checkbox", { name: "Text spacing" })).toBeChecked(); // the rest is kept
+                await expect(page.getByRole("group", { name: "Text spacing" }).getByRole("radio", { name: "Wide", exact: true })).toBeChecked(); // the rest is kept (an old saved `true` = Wide)
             }
         });
 
@@ -390,13 +408,13 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             const headings = panel(page).getByRole("heading", { level: 3 });
             await expect(headings).toHaveText(["Content", "Appearance", "Navigation"]);
             for (const [section, settings] of [
-                ["Content", ["Text size", "Line height", "Font", "Text spacing", "Align left"]],
+                ["Content", ["Text size", "Text spacing", "Line height", "Font", "Align text", "Image descriptions"]],
                 ["Appearance", ["Pause animations"]],
                 ["Navigation", ["Highlight links", "Stronger focus outline"]],
             ] as const) {
                 const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
                 for (const name of settings) {
-                    const isLevels = ["Text size", "Line height", "Font"].includes(name);
+                    const isLevels = ["Text size", "Text spacing", "Line height", "Font", "Align text"].includes(name);
                     await expect(list.getByRole(isLevels ? "group" : "checkbox", { name })).toBeVisible();
                 }
                 await expect(list.getByRole("listitem")).toHaveCount(settings.length);
@@ -413,7 +431,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
         });
 
         test("Text spacing applies WCAG 1.4.12 values to the page, not the widget", async ({ page }) => {
-            await turnOn(page, "Text spacing");
+            await choose(page, "Text spacing", "Wide");
 
             const p = await page.locator("main p, body > p").first().evaluate((el) => {
                 const s = getComputedStyle(el);
@@ -720,7 +738,7 @@ test.describe("web components (/components.html)", () => {
     });
 
     test("Text spacing applies inside open shadow roots", async ({ page }) => {
-        await turnOn(page, "Text spacing");
+        await choose(page, "Text spacing", "Wide");
         const ratio = () =>
             page.getByRole("link", { name: "Open shadow link", exact: true }).evaluate((el) => {
                 const s = getComputedStyle(el);
@@ -1118,7 +1136,7 @@ test.describe("staying mounted (/)", () => {
 });
 
 
-test.describe("Line height, Font and Align left (/)", () => {
+test.describe("Line height, Font and Align text (/)", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
         await expect(toggle(page)).toBeVisible();
@@ -1139,9 +1157,9 @@ test.describe("Line height, Font and Align left (/)", () => {
         }
         expect(await ratio(page, "a11yw-root .feature-hint")).toBeCloseTo(1.4, 1); // the widget keeps its own
 
-        await turnOn(page, "Text spacing"); // its line height is 1.5: the chosen 2 still wins
+        await choose(page, "Text spacing", "Widest"); // its line height is 1.5: the chosen 2 still wins
         expect(await ratio(page, "body > p")).toBeCloseTo(2, 1);
-        await page.getByRole("checkbox", { name: "Text spacing" }).uncheck();
+        await page.getByRole("group", { name: "Text spacing" }).getByRole("radio", { name: "Default" }).check();
 
         await page.getByRole("group", { name: "Line height" }).getByRole("radio", { name: "Default" }).check();
         expect(await page.locator("body > p").first().evaluate((el) => getComputedStyle(el).lineHeight)).toBe(before);
@@ -1169,12 +1187,12 @@ test.describe("Line height, Font and Align left (/)", () => {
         await toggle(page).click();
         expect(fontRequests).toEqual([]); // the panel alone downloads nothing
 
-        await page.getByRole("group", { name: "Font" }).getByRole("radio", { name: "Wide" }).check();
+        await page.getByRole("group", { name: "Font" }).getByRole("radio", { name: "Wide", exact: true }).check();
         expect(await family("font-text")).toMatch(/^"AccessPilot Wide"/);
         await expect.poll(() => page.evaluate(async () => (await document.fonts.ready, document.fonts.check('16px "AccessPilot Wide"', "đ")))).toBe(true);
         expect(fontRequests.length).toBeGreaterThan(0);
         expect(fontRequests.every((path) => /^\/fonts\/(wide\.[0-9a-f]{10}\.css|lexend-[a-z-]+\.[0-9a-f]{10}\.woff2)$/.test(path)), fontRequests.join(", ")).toBe(true);
-        expect(fontRequests.some((path) => path.includes("vietnamese"))).toBe(true); // the page has Vietnamese: its part is fetched too
+        await expect.poll(() => fontRequests.some((path) => path.includes("vietnamese"))).toBe(true); // the page has Vietnamese: its part is fetched too
 
         expect(await family("font-code")).toBe(codeFont);
         expect(await page.locator("#font-pre span").evaluate((el) => getComputedStyle(el).fontFamily)).toBe(codeFont);
@@ -1218,7 +1236,7 @@ test.describe("Line height, Font and Align left (/)", () => {
         expect(headers).toMatch(/\/fonts\/\*\n\s+Cache-Control: public, max-age=31536000, immutable\n\s+Access-Control-Allow-Origin: \*/);
     });
 
-    test("Align left: centered and justified text lines up at the start (the right on RTL pages); centered layouts stay", async ({ page }) => {
+    test("Align text: Left and Right line up centered and justified text on that side, on RTL pages too; centered layouts stay", async ({ page }) => {
         await page.evaluate(() => {
             document.body.insertAdjacentHTML(
                 "beforeend",
@@ -1229,18 +1247,193 @@ test.describe("Line height, Font and Align left (/)", () => {
                  <div id="al-layout" style="text-align: center"><button type="button">Centered button</button></div>`
             );
         });
-        await turnOn(page, "Align left");
         const align = (id: string) => page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).textAlign);
-        for (const id of ["al-center", "al-justify", "al-heading", "al-rtl"]) expect(await align(id), id).toBe("start");
-        const rtl = await page.locator("#al-rtl").evaluate((el) => {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            return el.getBoundingClientRect().right - range.getBoundingClientRect().right;
-        });
-        expect(rtl).toBeLessThan(2); // starts on the right
-        expect(await align("al-layout")).toBe("center");
-        await page.getByRole("checkbox", { name: "Align left" }).uncheck();
+        /** Space between the text and the paragraph's left and right edges. */
+        const gaps = (id: string) =>
+            page.locator(`#${id}`).evaluate((el) => {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                const [box, text] = [el.getBoundingClientRect(), range.getBoundingClientRect()];
+                return { left: text.left - box.left, right: box.right - text.right };
+            });
+
+        for (const [level, side] of [["Left", "left"], ["Right", "right"]] as const) {
+            await choose(page, "Align text", level);
+            for (const id of ["al-center", "al-justify", "al-heading", "al-rtl"]) expect(await align(id), `${level} ${id}`).toBe(side);
+            expect((await gaps("al-rtl"))[side], `${level} on an RTL paragraph`).toBeLessThan(2); // the physical side, RTL too
+            expect(await align("al-layout")).toBe("center");
+            await toggle(page).click(); // close, for the next choose()
+        }
+        await choose(page, "Align text", "Default");
         expect(await align("al-center")).toBe("center");
+    });
+});
+
+test.describe("Text spacing levels (/)", () => {
+    const spacing = (page: Page) =>
+        page.locator("body > p").first().evaluate((el) => {
+            const s = getComputedStyle(el);
+            const font = parseFloat(s.fontSize);
+            return {
+                letters: +(parseFloat(s.letterSpacing) / font).toFixed(2),
+                words: +(parseFloat(s.wordSpacing) / font).toFixed(2),
+                paragraphs: +(parseFloat(s.marginBottom) / font).toFixed(2),
+            };
+        });
+
+    test("each level's spacing on the page", async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        for (const [level, expected] of [
+            ["Wide", { letters: 0.12, words: 0.16, paragraphs: 2 }],
+            ["Wider", { letters: 0.16, words: 0.24, paragraphs: 2 }],
+            ["Widest", { letters: 0.2, words: 0.32, paragraphs: 2.5 }],
+        ] as const) {
+            await choose(page, "Text spacing", level);
+            expect(await spacing(page), level).toEqual(expected);
+            await toggle(page).click(); // close, for the next choose()
+        }
+    });
+
+    test("an owner's 'Text spacing on by default' means Wide", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, defaults: { textSpacing: true } });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await expect.poll(() => spacing(page)).toEqual({ letters: 0.12, words: 0.16, paragraphs: 2 });
+        await toggle(page).click();
+        await expect(page.getByRole("group", { name: "Text spacing" }).getByRole("radio", { name: "Wide", exact: true })).toBeChecked();
+    });
+});
+
+test.describe("Image descriptions (/)", () => {
+    const pic = (w: number, h: number) =>
+        `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><rect width='${w}' height='${h}' fill='#c33'/></svg>`)}`;
+    const tip = (page: Page) => page.locator("a11yw-root .a11yw-tip");
+    const partRequests: string[] = [];
+
+    test.beforeEach(async ({ page }) => {
+        partRequests.length = 0;
+        page.on("request", (r) => {
+            if (r.url().includes("/parts/")) partRequests.push(new URL(r.url()).pathname);
+        });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate((src) => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<div style="display:flex;flex-wrap:wrap;gap:24px;padding:24px">
+                   <img id="i-alt" alt="A red bicycle" src="${src}">
+                   <img id="i-empty" alt="" src="${src}">
+                   <img id="i-none" src="${src}">
+                   <a id="i-link" href="#home"><img alt="Home page" src="${src}"></a>
+                   <svg id="i-svg" role="img" width="100" height="60"><title>Sales chart</title><rect width="100" height="60" fill="#36c"/></svg>
+                   <div data-a11yw-ignore="image-descriptions"><img id="i-ignored" alt="Not shown" src="${src}"></div>
+                 </div>`
+            );
+        }, pic(100, 60));
+    });
+
+    test("off: nothing downloaded and nothing shown; on: the part downloads once, and pointing shows the description", async ({ page }) => {
+        await page.locator("#i-alt").hover();
+        await page.waitForTimeout(400);
+        await expect(tip(page)).toHaveCount(0);
+        expect(partRequests).toEqual([]);
+
+        await turnOn(page, "Image descriptions");
+        await expect.poll(() => partRequests).toEqual([expect.stringMatching(/^\/parts\/image-descriptions\.[0-9a-f]{10}\.js$/)]);
+        await closeButton(page).click();
+
+        await page.locator("#i-alt").hover();
+        await expect(tip(page)).toBeVisible();
+        await expect(tip(page)).toHaveText("A red bicycle");
+        await expect(tip(page)).toHaveAttribute("aria-hidden", "true"); // screen readers already read the alt text
+        const [img, box] = [await page.locator("#i-alt").boundingBox(), await tip(page).boundingBox()];
+        expect(box!.y).toBeGreaterThan(img!.y + img!.height); // below the image
+
+        // WCAG 1.4.13: the pointer can move onto it, and it stays
+        await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2, { steps: 4 });
+        await page.waitForTimeout(500);
+        await expect(tip(page)).toBeVisible();
+        // ...Esc closes it
+        await page.keyboard.press("Escape");
+        await expect(tip(page)).toBeHidden();
+
+        await page.locator("#i-svg").hover();
+        await expect(tip(page)).toHaveText("Sales chart");
+        await page.mouse.move(5, 500); // away
+        await expect(tip(page)).toBeHidden();
+        expect(partRequests).toHaveLength(1); // downloaded once
+        expect(await widgetViolations(page)).toEqual([]);
+    });
+
+    test("decorative, undescribed and opted-out images show nothing; keyboard focus shows a link's image", async ({ page }) => {
+        await turnOn(page, "Image descriptions");
+        await closeButton(page).click();
+        await expect.poll(() => partRequests.length).toBe(1);
+        await page.locator("#i-alt").hover();
+        await expect(tip(page)).toBeVisible(); // the part is running
+        for (const id of ["i-empty", "i-none", "i-ignored"]) {
+            await page.locator(`#${id}`).hover();
+            await expect(tip(page), id).toBeHidden();
+        }
+
+        await page.mouse.move(5, 500);
+        await page.locator("#i-link").focus();
+        await expect(tip(page)).toHaveText("Home page");
+        await page.locator("#i-link").blur();
+        await expect(tip(page)).toBeHidden();
+    });
+
+    test("stays on screen next to the screen's edges, at 320px too", async ({ page }) => {
+        await turnOn(page, "Image descriptions");
+        await closeButton(page).click();
+        await page.setViewportSize({ width: 320, height: 640 });
+        await page.evaluate((src) => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<img id="i-corner" alt="A long description of a photo taken at the very edge of the screen" src="${src}"
+                  style="position:fixed;right:0;bottom:100px">`
+            );
+        }, pic(60, 40));
+        await page.locator("#i-corner").hover();
+        await expect(tip(page)).toBeVisible();
+        const box = (await tip(page).boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(320);
+        expect(box.y + box.height).toBeLessThanOrEqual(640);
+    });
+
+    test("turning it off removes it; a saved 'on' downloads the part at the next visit", async ({ page }) => {
+        await turnOn(page, "Image descriptions");
+        await page.getByRole("checkbox", { name: "Image descriptions" }).uncheck();
+        await closeButton(page).click();
+        await page.locator("#i-alt").hover();
+        await page.waitForTimeout(400);
+        await expect(tip(page)).toHaveCount(0);
+
+        await toggle(page).click();
+        await page.getByRole("checkbox", { name: "Image descriptions" }).check();
+        partRequests.length = 0;
+        await page.reload();
+        await expect.poll(() => partRequests.length).toBe(1); // without opening the panel
+    });
+
+    test("a part whose bytes don't match its integrity hash is refused: the setting does nothing, the page sees no errors", async ({ page }) => {
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.route("**/parts/**", async (route) => {
+            const response = await route.fetch();
+            route.fulfill({ response, body: (await response.text()) + "\n;window.tampered = true;" });
+        });
+        await turnOn(page, "Image descriptions");
+        await expect.poll(() => partRequests.length).toBe(1);
+        await closeButton(page).click();
+        await page.locator("#i-alt").hover();
+        await page.waitForTimeout(400);
+        await expect(tip(page)).toHaveCount(0);
+        expect(await page.evaluate(() => (window as unknown as { tampered?: boolean }).tampered)).toBeUndefined();
+        expect(errors).toEqual([]);
     });
 });
 
@@ -1288,7 +1481,7 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
 
         await toggle(page).click();
         await page.getByRole("radio", { name: "Larger (150%)" }).check();
-        await page.getByRole("checkbox", { name: "Text spacing" }).check();
+        await page.getByRole("group", { name: "Text spacing" }).getByRole("radio", { name: "Wide", exact: true }).check();
         expect(await style()).toEqual(before); // nothing inherited from the paragraph around it
     });
 
@@ -1305,7 +1498,7 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
         await expect(toggle(page)).toBeVisible();
 
         await turnOn(page, "Highlight links");
-        await page.getByRole("checkbox", { name: "Text spacing" }).check();
+        await page.getByRole("group", { name: "Text spacing" }).getByRole("radio", { name: "Wide", exact: true }).check();
 
         // A rule using :has() would be dropped whole by such a browser
         const css = await page.locator("#a11yw-page-adjustments").evaluate((el) => el.textContent ?? "");
@@ -1384,7 +1577,7 @@ test.describe("same-origin iframes (/)", () => {
     test("an <iframe> with data-a11yw-ignore skips only the settings it names", async ({ page }) => {
         await addFrame(page, "f-ignored", "/frame.html", 'data-a11yw-ignore="highlight-links"');
         await turnOn(page, "Highlight links");
-        await page.getByRole("checkbox", { name: "Text spacing" }).check();
+        await page.getByRole("group", { name: "Text spacing" }).getByRole("radio", { name: "Wide", exact: true }).check();
 
         const letterSpacing = () => frameLink(page, "f-ignored").evaluate((el) => getComputedStyle(el).letterSpacing);
         await expect.poll(letterSpacing).not.toBe("normal"); // Text spacing applies...
