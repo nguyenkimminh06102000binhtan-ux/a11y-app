@@ -26,6 +26,8 @@ export type Seeded = {
 
 export const OWNER_EMAIL = "owner@accesspilot.test";
 export const NEW_EMAIL = "new@accesspilot.test";
+/** The owner's password (set in setup, before any session is saved: changing it later signs other sessions out) */
+export const OWNER_PASSWORD = "correct horse battery staple";
 export const LONG_DOMAIN = "a-really-long-subdomain-name.some-very-long-domain-name-example.co.uk";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000);

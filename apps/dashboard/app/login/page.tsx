@@ -1,55 +1,46 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
-import { Mark } from "@/components/Mark";
 import type { Metadata } from "next";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { SignInPanel } from "@/components/auth/SignInPanel";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { safeNext } from "@/lib/safe-next";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-async function sendMagicLink(formData: FormData) {
-  "use server";
-  const email = String(formData.get("email") ?? "").trim();
-  const origin = (await headers()).get("origin");
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
-  });
-  redirect(error ? "/login?error=1" : "/login?sent=1");
-}
-
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sent?: string; error?: string }>;
-}) {
-  // no await here: pass the promise down unresolved
+/**
+ * Sign in: Google (coming soon), email + password, or a sign-in link by email. ?next= is where to go afterwards
+ * (only a page of ours); ?error=link means a sign-in link didn't work. A signed-in visitor never sees this page:
+ * the proxy sends them to Sites.
+ */
+export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
-    <main>
-      <h1 className="flex items-center gap-3">
-        <Mark className="size-10 shrink-0" />
-        Sign in to AccessPilot
-      </h1>
+    <AuthShell
+      tagline="Find every barrier. Fix what matters first."
+      panel={<SignInPanel />}
+      panelLabel="About AccessPilot"
+    >
+      <div className="flex flex-col gap-2 md:mt-6">
+        <h1 className="m-0 text-[2rem] leading-tight md:text-[2.125rem]">
+          Sign in to AccessPilot
+        </h1>
+        <p className="m-0 text-muted">
+          New here? Create an account: sign-up opens soon. For now, a sign-in
+          link creates one.
+        </p>
+      </div>
+
       <Suspense fallback={null}>
-        <StatusMessage searchParams={searchParams} />
+        <Form searchParams={searchParams} />
       </Suspense>
-      <form action={sendMagicLink}>
-        <label htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" autoComplete="email" required />
-        <button type="submit">Send sign-in link</button>
-      </form>
-    </main>
+    </AuthShell>
   );
 }
 
-async function StatusMessage({
+async function Form({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { sent, error } = await searchParams; // now inside Suspense
-  if (sent) return <p role="status">Check your email for a sign-in link.</p>;
-  if (error) return <p role="alert">Something went wrong. Please try again.</p>;
-  return null;
+  const { next, error } = await searchParams;
+  return <LoginForm next={safeNext(next)} linkError={error === "link"} />;
 }

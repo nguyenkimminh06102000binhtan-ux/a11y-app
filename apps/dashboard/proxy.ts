@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/** Pages anyone can open. The sign-in pages send a signed-in visitor on to Sites. */
+const SIGN_IN_PAGES = ["/login"];
+const PUBLIC_PAGES = [...SIGN_IN_PAGES, "/auth", "/terms", "/privacy", "/accessibility"];
+const under = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -22,9 +27,17 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
 
-  if (!user && !path.startsWith("/login") && !path.startsWith("/auth")) {
+  if (!user && !under(path, PUBLIC_PAGES)) {
+    // Back to this page after signing in (the sign-in page checks it's one of ours: lib/safe-next.ts)
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = path === "/" ? "" : `?next=${encodeURIComponent(path + request.nextUrl.search)}`;
+    return NextResponse.redirect(url);
+  }
+  if (user && under(path, SIGN_IN_PAGES)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
     return NextResponse.redirect(url);
   }
   return response;

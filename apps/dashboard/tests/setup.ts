@@ -3,7 +3,7 @@ import { test as setup, expect, type BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { localStack } from "./local-stack";
-import { NEW_EMAIL, OWNER_EMAIL, resetNewAccount, seed } from "./seed";
+import { NEW_EMAIL, OWNER_EMAIL, OWNER_PASSWORD, resetNewAccount, seed } from "./seed";
 
 /*
  * Signs the test users in WITHOUT the sign-in page, so these tests don't depend on which login options it offers
@@ -15,13 +15,21 @@ import { NEW_EMAIL, OWNER_EMAIL, resetNewAccount, seed } from "./seed";
  *   new@accesspilot.test    an account with no sites (Getting started from zero)
  */
 
-/** Signs `email` in, in this browser context. Returns the user's id. */
-async function signIn(context: BrowserContext, email: string, baseURL: string): Promise<string> {
+/** Signs `email` in, in this browser context (with `password` set first, if given). Returns the user's id. */
+async function signIn(context: BrowserContext, email: string, baseURL: string, password?: string): Promise<string> {
   const stack = localStack();
   const admin = createClient(stack.apiUrl, stack.secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  const created = await admin.auth.admin.createUser({ email, email_confirm: true });
+  const created = await admin.auth.admin.createUser({ email, email_confirm: true, password });
   if (created.error && !/already been registered|already exists/i.test(created.error.message)) throw created.error;
+  if (created.error && password) {
+    // Already there (an earlier run): set the password now, before this run's session exists
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const existing = data.users.find((u) => u.email === email);
+    if (!existing) throw new Error(`No user ${email}`);
+    const updated = await admin.auth.admin.updateUserById(existing.id, { password });
+    if (updated.error) throw updated.error;
+  }
   const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
   if (link.error) throw link.error;
 
@@ -49,7 +57,7 @@ setup("sign in the test users and seed their accounts", async ({ browser }) => {
   const baseURL = setup.info().project.use.baseURL ?? "http://localhost:3990";
   const owner = await browser.newContext({ baseURL });
   const fresh = await browser.newContext({ baseURL });
-  const ownerId = await signIn(owner, OWNER_EMAIL, baseURL);
+  const ownerId = await signIn(owner, OWNER_EMAIL, baseURL, OWNER_PASSWORD);
   const freshId = await signIn(fresh, NEW_EMAIL, baseURL);
 
   await resetNewAccount(freshId);

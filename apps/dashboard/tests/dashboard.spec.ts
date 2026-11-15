@@ -93,7 +93,7 @@ test.describe("signed out", () => {
       await expectAccessible(page);
     }
     await page.goto(`${site(s.shop)}/audit`);
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=/); // and back there after signing in (sign-in.spec.ts)
   });
 });
 

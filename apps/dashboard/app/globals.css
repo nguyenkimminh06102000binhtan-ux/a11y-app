@@ -22,6 +22,16 @@
   --color-muted: var(--bcn-frame);
   /* text-muted: secondary text (help, dates, captions). Same color as frame, named for the job */
 
+  /* The dark panel on sign-in pages only (bg-ink): text and decoration that read on it */
+  --color-night-muted: #d9d4f7;
+  /* secondary text on ink: 12:1 */
+  --color-night-raised: #2c2950;
+  /* a card on the panel */
+  --color-night-edge: #6a5fc2;
+  /* that card's edge (decoration) */
+  --color-night-accent: #a99ef0;
+  /* decoration only: rings, bars */
+
 
   --font-sans: var(--font-atkinson), system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
