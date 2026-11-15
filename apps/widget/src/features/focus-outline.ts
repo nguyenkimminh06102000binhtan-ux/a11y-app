@@ -1,10 +1,7 @@
-import type { ToggleFeature } from "./types";
+import type { ToggleImpl } from "./types";
 
-export const focusOutline: ToggleFeature = {
-    id: "focus-outline",
-    key: "focusOutline",
-    label: "Stronger focus outline",
-    hint: "Shows a thick outline around whatever the keyboard is on.",
+/** Stronger focus outline (id "focus-outline"; words in the catalog, @app/widget-config). */
+export const focusOutline: ToggleImpl = {
     // Same two-tone ring as the widget's own: a dark ring next to the element, a white one outside it.
     css: (scope) => `
       :focus-visible${scope} {

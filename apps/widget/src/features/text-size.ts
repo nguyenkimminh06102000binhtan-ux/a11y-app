@@ -1,7 +1,8 @@
 import { onElementsAdded } from "../core/dom-watcher";
 import { ignoreSelectors, ignoredBy } from "../core/ignore";
 import { deepQueryAll, onNewShadowRoot } from "../core/shadow-roots";
-import type { LevelFeature } from "./types";
+import type { CATALOG } from "@app/widget-config";
+import type { LevelImpl } from "./types";
 
 /*
  * Text size: enlarges the font size of every element with its own text, without zooming the layout
@@ -114,17 +115,11 @@ export const textSize = {
     },
 };
 
-export const textSizeFeature: LevelFeature = {
-    kind: "levels",
-    id: ID,
-    key: "textSize",
-    label: "Text size",
-    hint: "Makes the page's text bigger without zooming the whole page.",
-    levels: [
-        { label: "Default", scale: 1 },
-        { label: "Large (125%)", scale: 1.25 },
-        { label: "Larger (150%)", scale: 1.5 },
-        { label: "Largest (200%)", scale: 2 },
-    ],
-    apply: textSize.apply,
+/** The scale of each level in the catalog (Default, 125%, 150%, 200%): one per level, checked by the type below. */
+const SCALES = [1, 1.25, 1.5, 2] as const;
+type TextSizeLevels = Extract<(typeof CATALOG)[number], { id: typeof ID }>["levels"];
+SCALES satisfies { length: TextSizeLevels["length"] };
+
+export const textSizeFeature: LevelImpl = {
+    apply: (level) => textSize.apply(SCALES[level] ?? 1),
 };

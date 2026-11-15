@@ -1,21 +1,11 @@
 // The visitor's choices, saved per site in localStorage on the customer's domain.
-import type { DefaultableSetting, WidgetConfig } from "@app/widget-config";
+import { CATALOG, type DefaultableSetting, type FeatureSettings, type WidgetConfig } from "@app/widget-config";
 
-export type Settings = {
-    textSize: number; // 0 = the page's own size; 1–3 = the levels in features.ts
-    highlightLinks: boolean;
-    textSpacing: boolean;
-    focusOutline: boolean;
-    pauseAnimations: boolean;
-};
+/** One value per catalog setting: on/off, or a level (0 = the page's own state). */
+export type Settings = FeatureSettings;
 
-export const DEFAULTS: Settings = {
-    textSize: 0,
-    highlightLinks: false,
-    textSpacing: false,
-    focusOutline: false,
-    pauseAnimations: false,
-};
+/** Everything off. */
+export const DEFAULTS = Object.fromEntries(CATALOG.map((entry) => [entry.key, entry.kind === "levels" ? 0 : false])) as Settings;
 
 // The settings a site owner can turn on by default must exist here, as on/off settings
 DEFAULTS satisfies Record<DefaultableSetting, boolean>;
@@ -35,8 +25,6 @@ export function startingSettings(): Settings {
 }
 
 
-const MAX_TEXT_SIZE = 3; // keep in step with the Text size levels in features.ts
-
 const KEY = "a11yw:settings:v1"; // bump the version if the shape changes incompatibly
 
 /** Read saved settings. Never throws: storage can be blocked, full, or written to by the page's own scripts. */
@@ -52,8 +40,12 @@ export function loadSettings(): Settings {
                 (settings as Record<string, unknown>)[key] = saved[key];
             }
         }
-        // A number isn't enough: it must be one of our levels
-        if (!Number.isInteger(settings.textSize) || settings.textSize < 0 || settings.textSize > MAX_TEXT_SIZE) settings.textSize = 0;
+        // A number isn't enough: it must be one of that setting's levels
+        for (const entry of CATALOG) {
+            if (entry.kind !== "levels") continue;
+            const level = settings[entry.key];
+            if (!Number.isInteger(level) || level < 0 || level >= entry.levels.length) settings[entry.key] = 0;
+        }
     } catch {
         // Corrupt JSON or blocked storage (e.g. Safari private mode, strict cookie settings): use defaults.
     }

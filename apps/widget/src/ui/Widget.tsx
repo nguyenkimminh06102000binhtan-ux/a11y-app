@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { bySection } from "@app/widget-config";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { loadSettings, saveSettings, startingSettings, type Settings } from "../settings/settings";
-import { AccessibilityIcon, CheckBadge, CloseIcon, FeatureIcon, Mark, MoveIcon, ResetIcon } from "./icons";
+import { LevelRow, ToggleTile } from "./FeatureControls";
+import { AccessibilityIcon, CloseIcon, Mark, MoveIcon, ResetIcon } from "./icons";
 import { PHONE, moveTo, resetSide, visibleSide } from "./position";
 
 
@@ -84,65 +86,23 @@ export function Widget() {
                 </div>
                 <div class="panel-body">
 
-                    <ul class="features">
-                        {FEATURES.map((f) =>
-                            f.kind === "levels" ? (
-                                <li key={f.key} class="feature feature-levels" data-feature-id={f.id}>
-                                    {/* Native radios in a fieldset: arrow keys move between levels, and the legend names the group */}
-                                    <fieldset class="levels" aria-describedby={`${f.key}-hint`}>
-                                        <legend class="levels-legend">
-                                            <FeatureIcon id={f.id} />
-                                            {f.label}
-                                        </legend>
-                                        <p id={`${f.key}-hint`} class="feature-hint">
-                                            {f.hint}
-                                        </p>
-                                        <div class="level-options">
-                                            {f.levels.map((level, i) => (
-                                                <label key={level.label} class="level">
-                                                    <input
-                                                        type="radio"
-                                                        name={f.key}
-                                                        class="level-input"
-                                                        checked={settings[f.key] === i}
-                                                        onChange={() => update({ ...settings, [f.key]: i })}
-                                                    />
-                                                    {/* Short on screen ("150%"); the full name ("Larger (150%)") contains it, for speech input */}
-                                                    <span class="level-face">
-                                                        <span class="visually-hidden">{level.label}</span>
-                                                        <span aria-hidden="true">{level.scale === 1 ? level.label : `${Math.round(level.scale * 100)}%`}</span>
-                                                    </span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </fieldset>
-                                </li>
-                            ) : (
-                                <li key={f.key} class="feature tile" data-feature-id={f.id}>
-                                    {/* A real checkbox laid over the whole tile: the tile is its click target, and keyboard,
-                                        screen readers and forced-colors mode all work as with any checkbox */}
-                                    <input
-                                        id={f.key}
-                                        type="checkbox"
-                                        class="tile-input"
-                                        checked={settings[f.key]}
-                                        aria-describedby={`${f.key}-hint`}
-                                        onChange={(e) => update({ ...settings, [f.key]: e.currentTarget.checked })}
-                                    />
-                                    <div class="tile-face">
-                                        <CheckBadge />
-                                        <FeatureIcon id={f.id} />
-                                        <label for={f.key} class="tile-label">
-                                            {f.label}
-                                        </label>
-                                        <p id={`${f.key}-hint`} class="feature-hint">
-                                            {f.hint}
-                                        </p>
-                                    </div>
-                                </li>
-                            )
-                        )}
-                    </ul>
+                    {/* One heading per section (the panel title is the h2), so screen reader users can jump between them; each list is named by its heading */}
+                    {bySection(FEATURES).map(({ section, items }) => (
+                        <div key={section.id} class="section" data-section={section.id}>
+                            <h3 id={`section-${section.id}`} class="section-title">
+                                {section.label}
+                            </h3>
+                            <ul class="features" aria-labelledby={`section-${section.id}`}>
+                                {items.map((f) =>
+                                    f.kind === "levels" ? (
+                                        <LevelRow key={f.key} feature={f} level={settings[f.key]} onChange={(level) => update({ ...settings, [f.key]: level })} />
+                                    ) : (
+                                        <ToggleTile key={f.key} feature={f} on={settings[f.key]} onChange={(on) => update({ ...settings, [f.key]: on })} />
+                                    )
+                                )}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
                 <div class="panel-footer">
                     <button

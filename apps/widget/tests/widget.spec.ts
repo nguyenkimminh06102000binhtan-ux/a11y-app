@@ -313,6 +313,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             const badge = tile.locator(".check-badge");
             await expect(badge).toBeHidden();
 
+            await tile.scrollIntoViewIfNeeded(); // the panel body scrolls; a visitor scrolls to it first
             const box = (await tile.boundingBox())!;
             await page.mouse.click(box.x + 12, box.y + box.height - 12); // a corner, away from the label text
             await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked();
@@ -351,6 +352,42 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             await page.reload();
             await expect(toggle(page)).toBeVisible();
             expect(errors).toEqual([]);
+        });
+
+        test("a saved level that isn't one of the setting's levels falls back to Default", async ({ page }) => {
+            for (const textSize of [4, -1, 1.5, "2"]) {
+                await page.evaluate((value) => localStorage.setItem("a11yw:settings:v1", JSON.stringify({ textSize: value, textSpacing: true })), textSize);
+                await page.reload();
+                await toggle(page).click();
+                await expect(page.getByRole("radio", { name: "Default" }), String(textSize)).toBeChecked();
+                await expect(page.getByRole("checkbox", { name: "Text spacing" })).toBeChecked(); // the rest is kept
+            }
+        });
+
+        test("settings are grouped under section headings, in order, and empty sections don't show", async ({ page }) => {
+            await toggle(page).click();
+            const headings = panel(page).getByRole("heading", { level: 3 });
+            await expect(headings).toHaveText(["Content", "Appearance", "Navigation"]);
+            for (const [section, settings] of [
+                ["Content", ["Text size", "Text spacing"]],
+                ["Appearance", ["Pause animations"]],
+                ["Navigation", ["Highlight links", "Stronger focus outline"]],
+            ] as const) {
+                const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
+                for (const name of settings) {
+                    await expect(list.getByRole(name === "Text size" ? "group" : "checkbox", { name })).toBeVisible();
+                }
+                await expect(list.getByRole("listitem")).toHaveCount(settings.length);
+            }
+            // Every section reachable and accessible on phones, tablets, desktops and at 200% zoom (1280×900 → 640×450)
+            for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
+                await page.setViewportSize({ width, height });
+                await panel(page).getByRole("heading", { name: "Navigation" }).scrollIntoViewIfNeeded();
+                await expect(panel(page).getByRole("checkbox", { name: "Stronger focus outline" })).toBeInViewport();
+                expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
+            }
+            // Text size's segments follow its number of levels
+            expect(await panel(page).locator(".level-options").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length)).toBe(4);
         });
 
         test("Text spacing applies WCAG 1.4.12 values to the page, not the widget", async ({ page }) => {

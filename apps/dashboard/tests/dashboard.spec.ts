@@ -131,6 +131,29 @@ test.describe("open states", () => {
     await expect(save).toBeFocused();
     await expectAccessible(page);
   });
+
+  test("On by default: grouped like the widget's panel, and a choice is saved", async ({ page }) => {
+    const s = seeded();
+    await page.goto(`${site(s.site01)}/widget`);
+    await settled(page);
+    const onByDefault = page.getByRole("group", { name: "On by default" });
+    for (const [section, settings] of [
+      ["Content", ["Text spacing"]],
+      ["Appearance", ["Pause animations"]],
+      ["Navigation", ["Highlight links", "Stronger focus outline"]],
+    ] as const) {
+      const group = onByDefault.getByRole("group", { name: section });
+      await expect(group.getByRole("checkbox")).toHaveCount(settings.length);
+      for (const name of settings) await expect(group.getByRole("checkbox", { name })).toBeVisible();
+    }
+
+    const box = onByDefault.getByRole("checkbox", { name: "Stronger focus outline" });
+    await box.check();
+    await page.getByRole("button", { name: "Save widget settings" }).click();
+    await expect(page.getByRole("button", { name: /^Dismiss/ })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("group", { name: "On by default" }).getByRole("checkbox", { name: "Stronger focus outline" })).toBeChecked();
+  });
 });
 
 test.describe("behaviors", () => {

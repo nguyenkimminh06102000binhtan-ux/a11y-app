@@ -1,10 +1,7 @@
-import type { ToggleFeature } from "./types";
+import type { ToggleImpl } from "./types";
 
-export const highlightLinks: ToggleFeature = {
-    id: "highlight-links",
-    key: "highlightLinks",
-    label: "Highlight links",
-    hint: "Makes every link stand out with a yellow background and underline.",
+/** Highlight links (id "highlight-links"; words in the catalog, @app/widget-config). */
+export const highlightLinks: ToggleImpl = {
     inherited: true, // `color` passes down to children (e.g. an ignored <span> inside a link)
     css: (scope) => `
       a[href]${scope} {

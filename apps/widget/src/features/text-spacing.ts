@@ -1,10 +1,7 @@
-import type { ToggleFeature } from "./types";
+import type { ToggleImpl } from "./types";
 
-export const textSpacing: ToggleFeature = {
-    id: "text-spacing",
-    key: "textSpacing",
-    label: "Text spacing",
-    hint: "Adds space between lines, letters, words and paragraphs.",
+/** Text spacing (id "text-spacing"; words in the catalog, @app/widget-config). */
+export const textSpacing: ToggleImpl = {
     inherited: true, // line-height, letter-spacing and word-spacing pass down to children
     css: (scope) => `
       *${scope} {

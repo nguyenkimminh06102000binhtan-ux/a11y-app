@@ -1,0 +1,45 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { CATALOG, DEFAULTABLE, DEFAULTABLE_ENTRIES, DEFAULTABLE_LABELS, SECTIONS, bySection } from "./index.ts";
+
+test("catalog ids and keys are unique", () => {
+    const ids = CATALOG.map((e) => e.id);
+    const keys = CATALOG.map((e) => e.key);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.equal(new Set(keys).size, keys.length);
+});
+
+test("every entry is in a known section, and entries are listed in section order", () => {
+    const order = SECTIONS.map((s) => s.id as string);
+    const positions = CATALOG.map((e) => order.indexOf(e.section));
+    assert.ok(positions.every((p) => p >= 0));
+    assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+});
+
+test("level settings have an off level first and at least one more", () => {
+    for (const entry of CATALOG) {
+        if (entry.kind !== "levels") continue;
+        assert.ok(entry.levels.length >= 2, entry.id);
+        assert.equal(entry.levels[0].label, "Default", entry.id);
+        assert.ok(entry.levels.every((level) => level.label.includes(level.short) || level.short === level.label), entry.id); // speech input: the visible text is in the name
+    }
+});
+
+test("settings on by default are on/off catalog settings, with the panel's words", () => {
+    assert.equal(DEFAULTABLE_ENTRIES.length, DEFAULTABLE.length);
+    for (const key of DEFAULTABLE) {
+        const entry = CATALOG.find((e) => e.key === key);
+        assert.equal(entry?.kind, "toggle", key);
+        assert.equal(DEFAULTABLE_LABELS[key], entry.label);
+    }
+});
+
+test("bySection keeps section order and leaves out empty sections", () => {
+    const groups = bySection(CATALOG);
+    assert.deepEqual(
+        groups.map((g) => g.section.id),
+        ["content", "appearance", "navigation"]
+    );
+    assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "text-spacing"]);
+    assert.deepEqual(bySection([]), []);
+});

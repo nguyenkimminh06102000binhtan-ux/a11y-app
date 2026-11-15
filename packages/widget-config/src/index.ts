@@ -13,19 +13,121 @@
  */
 import * as v from "valibot";
 
+// ─── Feature catalog: every setting the widget offers, in one place ────────────────────────────────────────
+/*
+ * The words and structure of each setting: which section it's in, its name and hint, and its levels. The widget's
+ * panel and the dashboard both read this list, so they always use the same words; what each setting does to the
+ * page lives in apps/widget/src/features (one implementation per entry, checked by the widget's types).
+ *
+ * Adding a setting: add an entry here (in the order it should appear in its section), then its implementation.
+ * `id` is public (data-a11yw-ignore="…") and `key` is stored in visitors' browsers: never rename either once
+ * customers use them.
+ */
+
+/** The panel's sections, in order. A section shows only once it has settings. */
+export const SECTIONS = [
+    { id: "profiles", label: "Profiles" },
+    { id: "content", label: "Content" },
+    { id: "appearance", label: "Appearance" },
+    { id: "navigation", label: "Navigation" },
+    { id: "tools", label: "Tools" },
+] as const;
+export type SectionId = (typeof SECTIONS)[number]["id"];
+export type Section = (typeof SECTIONS)[number];
+
+/** One level of a level setting. `label` is its full name (what assistive tech reads); `short` is what's shown. */
+export type CatalogLevel = { readonly label: string; readonly short: string };
+
+type CatalogBase = { readonly id: string; readonly key: string; readonly section: SectionId; readonly label: string; readonly hint: string };
+/** On or off. */
+export type ToggleEntry = CatalogBase & { readonly kind: "toggle" };
+/** One of several levels. Level 0 is always the page's own state (off). */
+export type LevelEntry = CatalogBase & { readonly kind: "levels"; readonly levels: readonly CatalogLevel[] };
+export type CatalogEntry = ToggleEntry | LevelEntry;
+
+export const CATALOG = [
+    // Content
+    {
+        kind: "levels",
+        id: "text-size",
+        key: "textSize",
+        section: "content",
+        label: "Text size",
+        hint: "Makes the page's text bigger without zooming the whole page.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Large (125%)", short: "125%" },
+            { label: "Larger (150%)", short: "150%" },
+            { label: "Largest (200%)", short: "200%" },
+        ],
+    },
+    {
+        kind: "toggle",
+        id: "text-spacing",
+        key: "textSpacing",
+        section: "content",
+        label: "Text spacing",
+        hint: "Adds space between lines, letters, words and paragraphs.",
+    },
+    // Appearance
+    {
+        kind: "toggle",
+        id: "pause-animations",
+        key: "pauseAnimations",
+        section: "appearance",
+        label: "Pause animations",
+        hint: "Stops moving effects, GIFs, carousels, and autoplaying video and sound. You can still press play.",
+    },
+    // Navigation
+    {
+        kind: "toggle",
+        id: "highlight-links",
+        key: "highlightLinks",
+        section: "navigation",
+        label: "Highlight links",
+        hint: "Makes every link stand out with a yellow background and underline.",
+    },
+    {
+        kind: "toggle",
+        id: "focus-outline",
+        key: "focusOutline",
+        section: "navigation",
+        label: "Stronger focus outline",
+        hint: "Shows a thick outline around whatever the keyboard is on.",
+    },
+] as const satisfies readonly CatalogEntry[];
+
+type Entry = (typeof CATALOG)[number];
+export type FeatureId = Entry["id"];
+export type ToggleKey = Extract<Entry, { kind: "toggle" }>["key"];
+export type LevelKey = Extract<Entry, { kind: "levels" }>["key"];
+
+/** A visitor's choices: on/off for each toggle, a level number (0 = off) for each level setting. */
+export type FeatureSettings = { [K in ToggleKey]: boolean } & { [K in LevelKey]: number };
+
+/** Items grouped by section, in section order, leaving out sections with none (so no empty heading shows). */
+export function bySection<T extends { readonly section: SectionId }>(items: readonly T[]): Array<{ section: Section; items: T[] }> {
+    return SECTIONS.map((section) => ({ section, items: items.filter((item) => item.section === section.id) })).filter(
+        (group) => group.items.length > 0
+    );
+}
+
 // ─── Settings a site owner can turn on by default ──────────────────────────────────────────────────────────
 
-/** Keys of the widget's Settings. */
-export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pauseAnimations"] as const;
+/** On/off settings an owner can turn on by default. Part of the stored and served contract: only ever add. */
+export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pauseAnimations"] as const satisfies readonly ToggleKey[];
 export type DefaultableSetting = (typeof DEFAULTABLE)[number];
 
+/** Their catalog entries, in panel order (by section), for the dashboard. */
+export const DEFAULTABLE_ENTRIES = CATALOG.filter((entry): entry is Extract<Entry, { key: DefaultableSetting }> =>
+    (DEFAULTABLE as readonly string[]).includes(entry.key)
+);
+
 /** Their names in the dashboard: the same words as the widget's panel, so site owners recognize them. */
-export const DEFAULTABLE_LABELS: Record<DefaultableSetting, string> = {
-    highlightLinks: "Highlight links",
-    textSpacing: "Text spacing",
-    focusOutline: "Stronger focus outline",
-    pauseAnimations: "Pause animations",
-};
+export const DEFAULTABLE_LABELS = Object.fromEntries(DEFAULTABLE_ENTRIES.map((entry) => [entry.key, entry.label])) as Record<
+    DefaultableSetting,
+    string
+>;
 
 // ─── Field schemas: strict, with the messages the dashboard shows next to the field ───────────────────────
 

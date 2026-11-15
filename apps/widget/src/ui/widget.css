@@ -178,14 +178,29 @@
   width: auto;
 }
 
-/* Settings: a level setting (Text size) across the full width, then on/off tiles two per row */
+/* Sections (Content, Appearance…), one after another in the scrolling body */
+.section {
+  padding: 0.875em 0;
+}
+
+.section + .section {
+  border-top: 1px solid var(--bcn-frame);
+}
+
+.section-title {
+  margin: 0 0 0.625em;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+/* Settings in a section: level settings across the full width, on/off tiles two per row */
 .features {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.625em;
   margin: 0;
-  padding: 0.875em 0;
+  padding: 0;
 }
 
 .feature-levels {
@@ -317,7 +332,7 @@
 /* A row of 4 segments: real radios, laid over each segment like the tiles */
 .level-options {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--levels, 4), minmax(0, 1fr)); /* one segment per level (set by LevelRow) */
   border: 2px solid var(--bcn-frame);
   border-radius: 0.625em;
   overflow: hidden;

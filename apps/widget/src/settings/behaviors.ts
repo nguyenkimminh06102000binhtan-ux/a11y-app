@@ -12,8 +12,7 @@ export function applyBehaviors(settings: Settings): void {
       const level = settings[feature.key];
       if (appliedLevel.get(feature.key) === level) continue;
       appliedLevel.set(feature.key, level);
-      const scale = feature.levels[level]?.scale ?? 1;
-      safely(() => feature.apply(scale));
+      safely(() => feature.apply(level));
       continue;
     }
 
