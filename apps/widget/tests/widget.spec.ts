@@ -427,7 +427,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
         test("settings are grouped under section headings, in order, and empty sections don't show", async ({ page }) => {
             await toggle(page).click();
             const headings = panel(page).getByRole("heading", { level: 3 });
-            await expect(headings).toHaveText(["Content", "Appearance", "Navigation"]);
+            await expect(headings).toHaveText(["Profiles", "Content", "Appearance", "Navigation"]);
             for (const [section, settings] of [
                 ["Content", ["Text size", "Text spacing", "Line height", "Font", "Align text", "Image descriptions"]],
                 ["Appearance", ["Contrast", "Color", "Hide images", "Pause animations"]],
@@ -1921,6 +1921,114 @@ test.describe("Page structure (/)", () => {
             await expect(openButton(page)).toBeFocused();
         });
     }
+});
+
+test.describe("Profiles (/)", () => {
+    const profile = (page: Page, name: string) => panel(page).getByRole("list", { name: "Profiles" }).getByRole("checkbox", { name });
+    const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("a11yw:settings:v1") ?? "null"));
+    const level = (page: Page, setting: string, name: string) => page.getByRole("group", { name: setting }).getByRole("radio", { name, exact: true });
+
+    const EXPECTED: Record<string, Record<string, boolean | number>> = {
+        "Seizure safe": { pauseAnimations: true, color: 1 },
+        Vision: { textSize: 2, font: 1, contrast: 1, bigCursor: 1, focusOutline: true, imageDescriptions: true },
+        "ADHD friendly": { pauseAnimations: true, readingAid: 2, color: 1 },
+        "Easier reading": { textSize: 1, contrast: 1, readingAid: 1, imageDescriptions: true, pauseAnimations: true },
+        "Dyslexia friendly": { font: 2, lineHeight: 1, textSpacing: 1, textAlign: 1 },
+        "Motor & keyboard": { focusOutline: true, bigCursor: 1, highlightLinks: true, pauseAnimations: true },
+    };
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    });
+
+    test("each profile turns on exactly its settings, and off puts them all back", async ({ page }) => {
+        await toggle(page).click();
+        await expect(panel(page).getByRole("list", { name: "Profiles" }).getByRole("checkbox")).toHaveCount(6);
+        for (const [name, expected] of Object.entries(EXPECTED)) {
+            await profile(page, name).check();
+            await expect(profile(page, name)).toBeChecked();
+            const changed = Object.fromEntries(Object.entries(await saved(page)).filter(([, v]) => v !== false && v !== 0));
+            expect(changed, name).toEqual(expected);
+            await profile(page, name).uncheck();
+            expect(await saved(page), name).toBeNull(); // back to the starting point exactly
+        }
+    });
+
+    test("screen readers hear what a profile turned on; Reset all clears profiles too", async ({ page }) => {
+        await toggle(page).click();
+        await profile(page, "Vision").check();
+        await expect(panel(page).getByRole("status")).toHaveText("Vision on: Text size 150%, Font Clear, Contrast Smart, Big cursor Black, Stronger focus outline, Image descriptions.");
+        await profile(page, "Vision").uncheck();
+        await expect(panel(page).getByRole("status")).toHaveText("Vision off.");
+        await profile(page, "Seizure safe").check();
+        await page.getByRole("button", { name: "Reset all" }).click();
+        await expect(profile(page, "Seizure safe")).not.toBeChecked();
+        expect(await saved(page)).toBeNull();
+    });
+
+    test("combined: size-like settings take the larger; turning one off falls back to what the other needs", async ({ page }) => {
+        await toggle(page).click();
+        await profile(page, "Easier reading").check();
+        await profile(page, "Vision").check();
+        await expect(level(page, "Text size", "Larger (150%)")).toBeChecked();
+        await expect(profile(page, "Easier reading")).toBeChecked(); // 150% is at least its 125%
+        await profile(page, "Vision").uncheck();
+        await expect(level(page, "Text size", "Large (125%)")).toBeChecked(); // not Default: Easier reading still needs it
+        await expect(level(page, "Contrast", "Smart")).toBeChecked(); // shared setting kept
+        await expect(page.getByRole("group", { name: "Font" }).getByRole("radio", { name: "Default" })).toBeChecked(); // Vision's own setting gone
+    });
+
+    test("the newest profile wins a conflict; changing a setting by hand turns a profile's tile off (raising size doesn't)", async ({ page }) => {
+        await toggle(page).click();
+        await profile(page, "Vision").check();
+        await profile(page, "Dyslexia friendly").check();
+        await expect(level(page, "Font", "Wide")).toBeChecked();
+        await expect(profile(page, "Vision")).not.toBeChecked();
+        await expect(profile(page, "Dyslexia friendly")).toBeChecked();
+
+        await profile(page, "Dyslexia friendly").uncheck();
+        await profile(page, "Vision").check();
+        await level(page, "Text size", "Largest (200%)").check();
+        await expect(profile(page, "Vision")).toBeChecked(); // still at least 150%
+        await level(page, "Font", "Default").check();
+        await expect(profile(page, "Vision")).not.toBeChecked();
+    });
+
+    test("a profile inside another (Seizure safe in ADHD friendly) shows as on with it, and goes off with it", async ({ page }) => {
+        await toggle(page).click();
+        await profile(page, "ADHD friendly").check();
+        await expect(profile(page, "Seizure safe")).toBeChecked(); // its settings are all in effect
+        await profile(page, "ADHD friendly").uncheck();
+        await expect(profile(page, "Seizure safe")).not.toBeChecked();
+        expect(await saved(page)).toBeNull();
+    });
+
+    test("an owner's 'on by default' setting survives a profile turned on and off", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, defaults: { highlightLinks: true } });
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        await toggle(page).click();
+        await profile(page, "Motor & keyboard").check();
+        await profile(page, "Motor & keyboard").uncheck();
+        await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked();
+        expect(await saved(page)).toBeNull();
+    });
+
+    test("Tab goes from Close into the profiles first; accessible at every width and 200% zoom", async ({ page }) => {
+        await toggle(page).click();
+        await expect(closeButton(page)).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expect(profile(page, "Seizure safe")).toBeFocused();
+        await profile(page, "ADHD friendly").check();
+        for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
+            await page.setViewportSize({ width, height });
+            await profile(page, "Motor & keyboard").scrollIntoViewIfNeeded();
+            expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
+            const body = panel(page).locator(".panel-body");
+            expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth), `${width}×${height}: scrolls sideways`).toBeLessThanOrEqual(0);
+        }
+    });
 });
 
 test.describe("data-a11yw-ignore with setting names (/)", () => {

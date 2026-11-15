@@ -148,6 +148,7 @@ Grouped in the panel by section. Each setting's words, section and levels are de
 
 | Section | Setting | What it does |
 |---|---|---|
+| Profiles | Seizure safe, Vision, ADHD friendly, Easier reading, Dyslexia friendly, Motor & keyboard | One-tap groups of the settings below, named by need (`PROFILES` in the catalog). Not saved: on while all their settings are in effect (Text size, Text spacing and Line height: at least their level). On: never lowers a size, newest wins other conflicts. Off: back to what a profile still on needs, else the visitor's starting point (owner defaults included); a profile entirely inside it goes off too. What changed is announced to screen readers. |
 | Content | Text size | Default, 125%, 150%, 200%. Enlarges text only (no page zoom), so pages reflow instead of scrolling sideways. |
 | Content | Text spacing | Default, Wide (WCAG 1.4.12: letters 0.12em, words 0.16em, paragraphs 2em, lines 1.5), Wider (0.16/0.24/2), Widest (0.2/0.32/2.5). It was on/off: a saved `true` and an owner's "on by default" mean Wide. |
 | Content | Line height | Default, 1.5, 1.75, 2. Wins over Text spacing's 1.5 (it comes after it in the catalog, and level CSS is written in catalog order). |

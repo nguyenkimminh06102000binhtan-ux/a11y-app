@@ -293,6 +293,34 @@
   font-weight: 700;
 }
 
+/* Profiles: compact tiles, icon beside the words, so six of them stay short */
+.tile-compact .tile-face {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5em;
+  padding: 0.625em 2em 0.625em 0.625em; /* room for the check badge on the right */
+  text-align: start;
+}
+
+.tile-compact .feature-icon {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.tile-text {
+  min-width: 0;
+  overflow-wrap: anywhere; /* a long word never pushes the tile wider than its column */
+}
+
+/* Narrow screens: the icon above the words, so the words get the tile's full width */
+@media (max-width: 440px) {
+  .tile-compact .tile-face {
+    flex-direction: column;
+    padding: 0.625em;
+  }
+}
+
 .check-badge {
   display: none;
   position: absolute;

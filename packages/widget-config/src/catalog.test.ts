@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, DEFAULTABLE, DEFAULTABLE_ENTRIES, DEFAULTABLE_LABELS, SECTIONS, SETTINGS, bySection } from "./index.ts";
+import { CATALOG, DEFAULTABLE, DEFAULTABLE_ENTRIES, DEFAULTABLE_LABELS, PROFILES, SECTIONS, SETTINGS, bySection } from "./index.ts";
 
 test("catalog ids and keys are unique", () => {
     const ids = CATALOG.map((e) => e.id);
@@ -48,4 +48,24 @@ test("bySection keeps section order and leaves out empty sections", () => {
     );
     assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "text-spacing", "line-height", "font", "text-align", "image-descriptions"]);
     assert.deepEqual(bySection([]), []);
+});
+
+test("profiles: unique ids, and every setting and level they name exists (and isn't Default/off)", () => {
+    assert.equal(new Set(PROFILES.map((p) => p.id)).size, PROFILES.length);
+    for (const profile of PROFILES) {
+        const entries = Object.entries(profile.settings);
+        assert.ok(entries.length >= 2, profile.id);
+        for (const [key, value] of entries) {
+            const setting = SETTINGS.find((e) => e.key === key);
+            assert.ok(setting, `${profile.id}: ${key}`);
+            if (setting.kind === "levels") {
+                assert.ok(Number.isInteger(value) && (value as number) > 0 && (value as number) < setting.levels.length, `${profile.id}: ${key}=${value}`);
+            } else assert.equal(value, true, `${profile.id}: ${key}`);
+        }
+    }
+});
+
+test("only size-like level settings are ordered", () => {
+    const ordered = SETTINGS.filter((e) => e.kind === "levels" && "ordered" in e && e.ordered).map((e) => e.key);
+    assert.deepEqual(ordered, ["textSize", "textSpacing", "lineHeight"]);
 });

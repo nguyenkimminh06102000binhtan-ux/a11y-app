@@ -79,6 +79,43 @@ export function CheckBadge() {
 }
 
 const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
+    "profile-seizure-safe": (
+        <>
+            <path d="M14 3 L5 7 V13 C5 19 9 23.5 14 25 C19 23.5 23 19 23 13 V7 Z" />
+            <path d="M15.5 8 L11.5 14.5 H16.5 L12.5 21" />
+        </>
+    ),
+    "profile-vision": (
+        <>
+            <path d="M2.5 14 C6 8 10 6 14 6 C18 6 22 8 25.5 14 C22 20 18 22 14 22 C10 22 6 20 2.5 14 Z" />
+            <circle cx="14" cy="14" r="4" />
+        </>
+    ),
+    "profile-adhd-friendly": (
+        <>
+            <circle cx="14" cy="14" r="11" />
+            <circle cx="14" cy="14" r="6" />
+            <circle cx="14" cy="14" r="1.5" fill="currentColor" />
+        </>
+    ),
+    "profile-easier-reading": (
+        <>
+            <path d="M14 7 C11 5 7 5 3.5 6 V22 C7 21 11 21 14 23 C17 21 21 21 24.5 22 V6 C21 5 17 5 14 7 Z" />
+            <path d="M14 7 V23" />
+        </>
+    ),
+    "profile-dyslexia-friendly": (
+        <>
+            <path d="M3 21 L8 7 L13 21 M4.8 16.5 H11.2" />
+            <path d="M16 7 V21 H21 A4 4 0 0 0 21 13 H16 M16 13 H20 A3 3 0 0 0 20 7 H16" />
+        </>
+    ),
+    "profile-motor-keyboard": (
+        <>
+            <rect x="2.5" y="7" width="23" height="14" rx="2.5" />
+            <path d="M6.5 11 H8 M11 11 H12.5 M15.5 11 H17 M20 11 H21.5 M9 17 H19" />
+        </>
+    ),
     "text-size": (
         <>
             <path d="M3 23 L10 5 L17 23 M5.6 16.5 H14.4" />

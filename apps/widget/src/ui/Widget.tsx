@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { bySection } from "@app/widget-config";
+import { PROFILES, bySection } from "@app/widget-config";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { loadSettings, saveSettings, startingSettings, type Settings } from "../settings/settings";
-import { ActionRow, LevelRow, ToggleTile } from "./FeatureControls";
+import { describe, isOn, turnOff, turnOn } from "../settings/profiles";
+import { ActionRow, LevelRow, ProfileTile, ToggleTile } from "./FeatureControls";
 import { AccessibilityIcon, CloseIcon, Mark, MoveIcon, ResetIcon } from "./icons";
 import { PHONE, moveTo, resetSide, visibleSide } from "./position";
 
@@ -18,7 +19,7 @@ export function Widget() {
     // The side the button is on, for "Move to the left/right". It can change with the screen width (phones may
     // have their own placement), so it follows the same media query as the CSS.
     const [side, setSide] = useState(visibleSide);
-    const [moveStatus, setMoveStatus] = useState("");
+    const [status, setStatus] = useState("");
     useEffect(() => {
         const media = matchMedia(PHONE);
         const follow = () => setSide(visibleSide());
@@ -30,7 +31,7 @@ export function Widget() {
         const to = side === "right" ? "left" : "right";
         moveTo(to); // the button and the panel move; focus stays on this button
         setSide(visibleSide());
-        setMoveStatus(`Moved to the ${to}.`);
+        setStatus(`Moved to the ${to}.`);
     }
 
     // Opening moves focus into the panel (to Close, its first control), so keyboard and screen reader users
@@ -85,6 +86,25 @@ export function Widget() {
                     </button>
                 </div>
                 <div class="panel-body">
+                    {/* Profiles: shortcuts to the settings below, on while all of their settings are in effect */}
+                    <div class="section" data-section="profiles">
+                        <h3 id="section-profiles" class="section-title">
+                            Profiles
+                        </h3>
+                        <ul class="features" aria-labelledby="section-profiles">
+                            {PROFILES.map((p) => (
+                                <ProfileTile
+                                    key={p.id}
+                                    profile={p}
+                                    on={isOn(p, settings)}
+                                    onChange={(on) => {
+                                        update(on ? turnOn(p, settings) : turnOff(p, settings, startingSettings()));
+                                        setStatus(on ? `${p.label} on: ${describe(p)}.` : `${p.label} off.`);
+                                    }}
+                                />
+                            ))}
+                        </ul>
+                    </div>
 
                     {/* One heading per section (the panel title is the h2), so screen reader users can jump between them; each list is named by its heading */}
                     {bySection(FEATURES).map(({ section, items }) => (
@@ -114,7 +134,7 @@ export function Widget() {
                             update(startingSettings());
                             resetSide(); // and the button goes back to the site's own side
                             setSide(visibleSide());
-                            setMoveStatus("");
+                            setStatus("");
                         }}
                     >
                         <ResetIcon />
@@ -127,7 +147,7 @@ export function Widget() {
                     </button>
                     {/* Always rendered, so the message is announced when it appears */}
                     <p role="status" class="visually-hidden">
-                        {moveStatus}
+                        {status}
                     </p>
                 </div>
 

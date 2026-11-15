@@ -1,3 +1,4 @@
+import type { Profile } from "@app/widget-config";
 import type { ActionFeature, LevelFeature, ToggleFeature } from "../features";
 import { CheckBadge, FeatureIcon } from "./icons";
 
@@ -73,6 +74,28 @@ export function ActionRow({ feature: f }: { feature: ActionFeature }) {
             <p id={`${f.id}-hint`} class="feature-hint">
                 {f.hint}
             </p>
+        </li>
+    );
+}
+
+/** A profile: a compact on/off tile (the same real-checkbox pattern as ToggleTile), its hint saying what it turns on. */
+export function ProfileTile({ profile: p, on, onChange }: { profile: Profile; on: boolean; onChange: (on: boolean) => void }) {
+    const id = `profile-${p.id}`;
+    return (
+        <li class="feature tile tile-compact" data-profile-id={p.id}>
+            <input id={id} type="checkbox" class="tile-input" checked={on} aria-describedby={`${id}-hint`} onChange={(e) => onChange(e.currentTarget.checked)} />
+            <div class="tile-face">
+                <CheckBadge />
+                <FeatureIcon id={id} />
+                <div class="tile-text">
+                    <label for={id} class="tile-label">
+                        {p.label}
+                    </label>
+                    <p id={`${id}-hint`} class="feature-hint">
+                        {p.hint}
+                    </p>
+                </div>
+            </div>
         </li>
     );
 }

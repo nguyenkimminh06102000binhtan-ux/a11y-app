@@ -41,8 +41,11 @@ export type CatalogLevel = { readonly label: string; readonly short: string };
 type CatalogBase = { readonly id: string; readonly section: SectionId; readonly label: string; readonly hint: string };
 /** On or off. */
 export type ToggleEntry = CatalogBase & { readonly kind: "toggle"; readonly key: string };
-/** One of several levels. Level 0 is always the page's own state (off). */
-export type LevelEntry = CatalogBase & { readonly kind: "levels"; readonly key: string; readonly levels: readonly CatalogLevel[] };
+/**
+ * One of several levels. Level 0 is always the page's own state (off). `ordered`: each level is more of the same
+ * (Text size), so a higher level also satisfies a lower one (see PROFILES).
+ */
+export type LevelEntry = CatalogBase & { readonly kind: "levels"; readonly key: string; readonly levels: readonly CatalogLevel[]; readonly ordered?: true };
 /** A button that does something (e.g. opens a dialog). Nothing is saved, so it has no key. */
 export type ActionEntry = CatalogBase & { readonly kind: "action" };
 export type CatalogEntry = ToggleEntry | LevelEntry | ActionEntry;
@@ -53,6 +56,7 @@ export const CATALOG = [
         kind: "levels",
         id: "text-size",
         key: "textSize",
+        ordered: true,
         section: "content",
         label: "Text size",
         hint: "Makes the page's text bigger without zooming the whole page.",
@@ -68,6 +72,7 @@ export const CATALOG = [
         kind: "levels",
         id: "text-spacing",
         key: "textSpacing",
+        ordered: true,
         section: "content",
         label: "Text spacing",
         hint: "Adds space between lines, letters, words and paragraphs. Wide uses the WCAG values.",
@@ -82,6 +87,7 @@ export const CATALOG = [
         kind: "levels",
         id: "line-height",
         key: "lineHeight",
+        ordered: true,
         section: "content",
         label: "Line height",
         hint: "Adds space between the lines of text.",
@@ -234,6 +240,53 @@ export type LevelKey = Extract<Entry, { kind: "levels" }>["key"];
 
 /** A visitor's choices: on/off for each toggle, a level number (0 = off) for each level setting. */
 export type FeatureSettings = { [K in ToggleKey]: boolean } & { [K in LevelKey]: number };
+
+// ─── Profiles: one-tap groups of the settings above, named by need ───────────────────────────────────────
+/*
+ * A profile is a shortcut, not a saved setting: it shows as on while all of its settings are in effect (for
+ * `ordered` settings, at least its level), and turning it off puts them back (apps/widget/src/settings/profiles.ts).
+ * `id` is public (the dashboard will show and hide them): never rename once customers use it.
+ */
+export type Profile = { readonly id: string; readonly label: string; readonly hint: string; readonly settings: Partial<FeatureSettings> };
+
+export const PROFILES = [
+    {
+        id: "seizure-safe",
+        label: "Seizure safe",
+        hint: "No motion, calmer colors.",
+        settings: { pauseAnimations: true, color: 1 },
+    },
+    {
+        id: "vision",
+        label: "Vision",
+        hint: "Bigger, clearer text and cursor.",
+        settings: { textSize: 2, font: 1, contrast: 1, bigCursor: 1, focusOutline: true, imageDescriptions: true },
+    },
+    {
+        id: "adhd-friendly",
+        label: "ADHD friendly",
+        hint: "Fewer distractions.",
+        settings: { pauseAnimations: true, readingAid: 2, color: 1 },
+    },
+    {
+        id: "easier-reading",
+        label: "Easier reading",
+        hint: "Bigger text, a reading guide.",
+        settings: { textSize: 1, contrast: 1, readingAid: 1, imageDescriptions: true, pauseAnimations: true },
+    },
+    {
+        id: "dyslexia-friendly",
+        label: "Dyslexia friendly",
+        hint: "Wide font, more spacing.",
+        settings: { font: 2, lineHeight: 1, textSpacing: 1, textAlign: 1 },
+    },
+    {
+        id: "motor-keyboard",
+        label: "Motor & keyboard",
+        hint: "Clear focus, cursor and links.",
+        settings: { focusOutline: true, bigCursor: 1, highlightLinks: true, pauseAnimations: true },
+    },
+] as const satisfies readonly Profile[];
 
 /** Items grouped by section, in section order, leaving out sections with none (so no empty heading shows). */
 export function bySection<T extends { readonly section: SectionId }>(items: readonly T[]): Array<{ section: Section; items: T[] }> {
