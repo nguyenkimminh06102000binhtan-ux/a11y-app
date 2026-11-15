@@ -8,7 +8,7 @@ import { FocusedAlert } from "@/components/FocusedAlert";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { CheckEmail } from "@/components/auth/CheckEmail";
 import { FieldError } from "@/components/auth/FieldError";
-import { GoogleSoon, OrWithEmail } from "@/components/auth/GoogleSoon";
+import { GoogleButton, OrWithEmail } from "@/components/auth/GoogleButton";
 import { MIN_PASSWORD } from "@/lib/password";
 
 const IDLE: SignUpState = {};
@@ -19,7 +19,7 @@ const ORDER: SignUpField[] = ["name", "email", "site", "password", "terms"]; // 
  * terms. Errors appear under their fields and focus moves to the first one; what was typed stays (not the password).
  * Afterwards "Check your email": the account is made when the confirmation link is opened.
  */
-export function SignUpForm() {
+export function SignUpForm({ google }: { google: boolean }) {
   const [state, formAction] = useActionState(signUp, IDLE);
   const [editing, setEditing] = useState(false);
   const errors = state.errors ?? {};
@@ -52,7 +52,7 @@ export function SignUpForm() {
 
   return (
     <>
-      <GoogleSoon label="Sign up with Google" />
+      <GoogleButton label="Sign up with Google" enabled={google} />
       <OrWithEmail />
       <form action={(data) => (setEditing(false), formAction(data))} noValidate className="flex-col items-stretch gap-[1.125rem]">
         {(state.error === "busy" || state.error === "unknown") && (

@@ -5,6 +5,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { SignInPanel } from "@/components/auth/SignInPanel";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { safeNext } from "@/lib/safe-next";
+import { googleEnabled } from "@/lib/google";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -42,5 +43,5 @@ async function Form({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { next, error } = await searchParams;
-  return <LoginForm next={safeNext(next)} linkError={error === "link"} />;
+  return <LoginForm next={safeNext(next)} urlError={error === "link" || error === "google" ? error : null} google={googleEnabled()} />;
 }

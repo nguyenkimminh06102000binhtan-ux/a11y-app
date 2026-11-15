@@ -61,6 +61,16 @@ Authentication settings in the Supabase dashboard (the local test stack has the 
   `magic-link.html` and `reset-password.html` (subjects in `config.toml`). Their links go to `/auth/confirm`, which works when the email is
   opened on another device. With Supabase's default templates sign-up still works, through `/auth/callback`, but only
   on the device that asked.
+- **Google** (off until `AUTH_GOOGLE_ENABLED=true` is set in Vercel; the button says "coming soon" until then):
+  1. Google Cloud Console → a project → **Google Auth Platform**: Branding (app name AccessPilot, support email,
+     home page, privacy `…/privacy` and terms `…/terms` links), Authorized domains `accesspilot.org` and
+     `<project-ref>.supabase.co`; Audience: External, then publish; Data access: only `openid`, `email`, `profile`.
+  2. **Clients → Create client → Web application**: Authorized JavaScript origin `https://manage.accesspilot.org`;
+     Authorized redirect URI = the **Callback URL** shown in Supabase › Sign In / Providers › Google.
+  3. Paste the Client ID and secret into Supabase › Sign In / Providers › Google, turn it on, save.
+  4. Vercel → the dashboard's Environment Variables: `AUTH_GOOGLE_ENABLED=true`, then redeploy.
+  A first Google sign-in makes the account (with the Google name) and opens Sites; the same email signed up with a
+  password becomes one account.
 - Sign-in links never create accounts (only Sign up does); the first site typed at sign-up is made when the
   confirmation link is opened (`lib/account.ts` › `finishSignIn`).
 

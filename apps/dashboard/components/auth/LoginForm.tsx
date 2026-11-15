@@ -7,11 +7,11 @@ import { SubmitButton } from "@/components/ui/SubmitButton";
 import { FocusedAlert } from "@/components/FocusedAlert";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { CheckEmail } from "@/components/auth/CheckEmail";
-import { GoogleSoon, OrWithEmail } from "@/components/auth/GoogleSoon";
+import { GoogleButton, OrWithEmail } from "@/components/auth/GoogleButton";
 
 const IDLE: SignInState = {};
 
-const MESSAGES: Record<SignInError | "link", { title: string; text: string }> = {
+const MESSAGES: Record<SignInError | "link" | "google", { title: string; text: string }> = {
   missing: { title: "Enter your email and password.", text: "Or use a sign-in link: it only needs your email." },
   "link-missing": { title: "Enter your email first.", text: "Then choose “Email me a sign-in link”." },
   invalid: {
@@ -22,6 +22,7 @@ const MESSAGES: Record<SignInError | "link", { title: string; text: string }> = 
   busy: { title: "Too many tries.", text: "Wait a minute, then try again." },
   unknown: { title: "Something went wrong.", text: "Please try again in a moment." },
   link: { title: "That sign-in link didn’t work.", text: "It may have expired or been used already. Get a new one below." },
+  google: { title: "Google sign-in didn’t finish.", text: "Try again, or sign in with your email below." },
 };
 
 /**
@@ -29,10 +30,10 @@ const MESSAGES: Record<SignInError | "link", { title: string; text: string }> = 
  * One form, one action: the pressed button says which way. A refusal is a message that takes focus (and is
  * announced again on every try); the email stays filled in, the password doesn't.
  */
-export function LoginForm({ next, linkError }: { next: string; linkError: boolean }) {
+export function LoginForm({ next, urlError, google }: { next: string; urlError: "link" | "google" | null; google: boolean }) {
   const [state, formAction] = useActionState(signIn, IDLE);
   const [editing, setEditing] = useState(false); // "Use a different email" after a link was sent
-  const error = state.error ?? (linkError && !state.at ? "link" : undefined);
+  const error = state.error ?? (urlError && !state.at ? urlError : undefined);
   const message = error ? MESSAGES[error] : null;
 
   if (state.sent && !editing) {
@@ -45,12 +46,12 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
 
   return (
     <>
-      <GoogleSoon label="Continue with Google" />
+      <GoogleButton label="Continue with Google" enabled={google} next={next} />
       <OrWithEmail />
       <form action={(data) => (setEditing(false), formAction(data))} noValidate className="flex-col items-stretch gap-5">
         <input type="hidden" name="next" value={next} />
         {message && (
-          <FocusedAlert key={state.at ?? "link"}>
+          <FocusedAlert key={state.at ?? urlError ?? "url"}>
             <span className="block font-bold">{message.title}</span>
             {message.text}
           </FocusedAlert>

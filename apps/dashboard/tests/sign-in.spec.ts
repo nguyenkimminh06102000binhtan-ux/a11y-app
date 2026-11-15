@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { emailLink, anyEmail } from "./mailbox";
+import { localStack } from "./local-stack";
 import { OWNER_EMAIL, OWNER_PASSWORD as PASSWORD, type Seeded } from "./seed";
 
 /*
@@ -131,6 +132,55 @@ test.describe("sign-in link", () => {
       await expect(page).toHaveURL(/\/login\?error=link/);
       await expect(page.locator("main").getByRole("alert")).toContainText("That sign-in link didn’t work.");
     }
+  });
+});
+
+test.describe("Google", () => {
+  /** Clicks the button and returns where it sent the browser (Supabase's /authorize, on the way to Google) */
+  async function handOff(page: Page, path: string, button: string): Promise<URL> {
+    let sentTo: URL | undefined;
+    await page.route(`${localStack().apiUrl}/auth/v1/authorize**`, async (route) => {
+      sentTo = new URL(route.request().url());
+      await route.fulfill({ status: 200, contentType: "text/html", body: "<title>Google</title>" }); // no real Google here
+    });
+    await ready(page, path);
+    await page.getByRole("button", { name: button }).click();
+    await expect.poll(() => sentTo?.href ?? "").not.toBe("");
+    return sentTo!;
+  }
+
+  test("Continue with Google hands off to Google, coming back to the callback (and to ?next=)", async ({ page }) => {
+    const plain = await handOff(page, "/login", "Continue with Google");
+    expect(plain.searchParams.get("provider")).toBe("google");
+    expect(plain.searchParams.get("redirect_to")).toBe("http://localhost:3990/auth/callback");
+    expect(plain.searchParams.get("code_challenge")).toBeTruthy(); // the code is useless without this browser's verifier
+    expect(plain.searchParams.get("prompt")).toBe("select_account");
+
+    const target = `/sites/${seeded().shop}/audit`;
+    const withNext = await handOff(page, `/login?next=${encodeURIComponent(target)}`, "Continue with Google");
+    expect(withNext.searchParams.get("redirect_to")).toBe(`http://localhost:3990/auth/callback?next=${encodeURIComponent(target)}`);
+  });
+
+  test("Sign up with Google, with its note about the terms", async ({ page }) => {
+    await ready(page, "/signup");
+    await expect(page.getByRole("button", { name: "Sign up with Google" })).toHaveAccessibleDescription(
+      /Continuing creates your account, and means you agree to the Terms of Service and Privacy Policy/
+    );
+    // Readable: ink on white (a white-on-white label once slipped past axe, which can't always tell)
+    const colors = await page
+      .getByRole("button", { name: "Sign up with Google" })
+      .evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]);
+    expect(colors).toEqual(["rgb(28, 26, 51)", "rgb(255, 255, 255)"]);
+    const sent = await handOff(page, "/signup", "Sign up with Google");
+    expect(sent.searchParams.get("provider")).toBe("google");
+  });
+
+  test("cancelled at Google: back on sign in, saying so", async ({ page }) => {
+    await ready(page, "/auth/callback?error=access_denied&error_description=The+user+denied");
+    await expect(page).toHaveURL(/\/login\?error=google/);
+    const alert = page.getByRole("main").getByRole("alert");
+    await expect(alert).toContainText("Google sign-in didn’t finish.");
+    await expect(alert).toBeFocused();
   });
 });
 

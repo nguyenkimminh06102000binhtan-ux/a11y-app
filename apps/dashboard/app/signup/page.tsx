@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SignUpPanel } from "@/components/auth/SignUpPanel";
 import { SignUpForm } from "@/components/auth/SignUpForm";
+import { googleEnabled } from "@/lib/google";
 
 export const metadata: Metadata = { title: "Create your account" };
 
@@ -16,7 +17,7 @@ export default function SignUpPage() {
           Already have one? <Link href="/login" className="font-bold">Sign in</Link>
         </p>
       </div>
-      <SignUpForm />
+      <SignUpForm google={googleEnabled()} />
     </AuthShell>
   );
 }

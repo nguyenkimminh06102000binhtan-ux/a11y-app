@@ -37,6 +37,7 @@ export default defineConfig({
     timeout: 300_000,
     env: {
       NEXT_DIST_DIR: ".next-test",
+      AUTH_GOOGLE_ENABLED: "true", // the button is tested up to the hand-off to Google (no real Google in tests)
       DATABASE_URL: stack.dbUrl,
       NEXT_PUBLIC_SUPABASE_URL: stack.apiUrl,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: stack.publishableKey,
