@@ -28,16 +28,29 @@ export type LevelImpl = {
     refresh?(): void; // called after any setting changes, while a level above 0 is chosen
 };
 
+/** What an action does when its button is pressed (e.g. open a dialog). */
+export type ActionImpl = {
+    run(): void;
+};
+
 /** On or off: a checkbox tile. */
 export type ToggleFeature = Extract<Entry, { kind: "toggle" }> & ToggleImpl;
 
 /** One of several levels: a radio group. */
 export type LevelFeature = Extract<Entry, { kind: "levels" }> & LevelImpl;
 
-export type Feature = ToggleFeature | LevelFeature;
+/** A button: nothing saved. */
+export type ActionFeature = Extract<Entry, { kind: "action" }> & ActionImpl;
+
+/** A saved setting: on/off or levels. */
+export type SettingFeature = ToggleFeature | LevelFeature;
+
+export type Feature = SettingFeature | ActionFeature;
 
 /** Exactly one implementation per catalog entry, of the matching kind. */
-export type Implementations = { [E in Entry as E["id"]]: E extends { kind: "levels" } ? LevelImpl : ToggleImpl };
+export type Implementations = {
+    [E in Entry as E["id"]]: E extends { kind: "levels" } ? LevelImpl : E extends { kind: "action" } ? ActionImpl : ToggleImpl;
+};
 
 /** The level count of a catalog setting, to check a per-level table against: `TABLE satisfies { length: LevelCount<"id"> }`. */
 export type LevelCount<Id extends Entry["id"]> = Extract<Entry, { id: Id; kind: "levels" }>["levels"]["length"];

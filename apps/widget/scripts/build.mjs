@@ -1,6 +1,7 @@
 import * as esbuild from "esbuild";
 import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { buildFonts } from "./fonts.mjs";
 import { minifyCss } from "./minify-css.mjs";
@@ -30,11 +31,12 @@ shared.define.__FONT_CSS__ = JSON.stringify(await buildFonts(OUT, { hash: true }
 
 // 0b. Parts (src/parts/*.ts, see src/core/parts.ts): built and hashed first, so the app can carry their names
 //     and integrity hashes, as the loader carries the app's.
-const PARTS = ["image-descriptions", "smart-contrast", "reading-aid"];
+const PARTS = ["image-descriptions", "smart-contrast", "reading-aid", "pause-animations", "page-structure"];
+const partEntry = (name) => (existsSync(`src/parts/${name}.ts`) ? `src/parts/${name}.ts` : `src/parts/${name}/index.ts`); // a file, or a folder
 const partFiles = [];
 const parts = {};
 for (const name of PARTS) {
-  const out = await esbuild.build({ ...shared, entryPoints: [`src/parts/${name}.ts`], outfile: `${name}.js` });
+  const out = await esbuild.build({ ...shared, entryPoints: [partEntry(name)], outfile: `${name}.js` });
   const bytes = out.outputFiles[0].contents;
   const hash = createHash("sha384").update(bytes).digest();
   const file = `parts/${name}.${hash.toString("hex").slice(0, 10)}.js`;

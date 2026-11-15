@@ -11,6 +11,8 @@ const ctx = await esbuild.context({
     "parts/image-descriptions": "src/parts/image-descriptions.ts",
     "parts/smart-contrast": "src/parts/smart-contrast.ts",
     "parts/reading-aid": "src/parts/reading-aid.ts",
+    "parts/pause-animations": "src/parts/pause-animations/index.ts",
+    "parts/page-structure": "src/parts/page-structure.ts",
   },
   outdir: "public",
   bundle: true,
@@ -28,6 +30,8 @@ const ctx = await esbuild.context({
       "image-descriptions": { file: "parts/image-descriptions.js", integrity: "" },
       "smart-contrast": { file: "parts/smart-contrast.js", integrity: "" },
       "reading-aid": { file: "parts/reading-aid.js", integrity: "" },
+      "pause-animations": { file: "parts/pause-animations.js", integrity: "" },
+      "page-structure": { file: "parts/page-structure.js", integrity: "" },
     }),
 
   }, // dev: no hash in the name

@@ -146,6 +146,9 @@ type Probe = {
 };
 
 /** Settings that recolor the whole screen through the lens (core/lens.ts): no area can be excluded from them. */
+/** Buttons, not settings: their opt-out is tested with them (Page structure leaves opted-out areas out of its lists). */
+const ACTIONS = ["page-structure"];
+
 const SCREEN_WIDE = ["color", "reading-aid"]; // reading-aid: a layer over the screen, following the pointer
 
 const PROBES: Record<string, Probe> = {
@@ -428,20 +431,21 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             for (const [section, settings] of [
                 ["Content", ["Text size", "Text spacing", "Line height", "Font", "Align text", "Image descriptions"]],
                 ["Appearance", ["Contrast", "Color", "Hide images", "Pause animations"]],
-                ["Navigation", ["Reading aid", "Big cursor", "Highlight links", "Stronger focus outline"]],
+                ["Navigation", ["Reading aid", "Big cursor", "Highlight links", "Stronger focus outline", "Page structure"]],
             ] as const) {
                 const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
                 for (const name of settings) {
                     const isLevels = ["Text size", "Text spacing", "Line height", "Font", "Align text", "Contrast", "Color", "Reading aid", "Big cursor"].includes(name);
-                    await expect(list.getByRole(isLevels ? "group" : "checkbox", { name })).toBeVisible();
+                    const role = isLevels ? "group" : name === "Page structure" ? "button" : "checkbox";
+                    await expect(list.getByRole(role, { name })).toBeVisible();
                 }
                 await expect(list.getByRole("listitem")).toHaveCount(settings.length);
             }
             // Every section reachable and accessible on phones, tablets, desktops and at 200% zoom (1280×900 → 640×450)
             for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
                 await page.setViewportSize({ width, height });
-                await panel(page).getByRole("checkbox", { name: "Stronger focus outline" }).scrollIntoViewIfNeeded(); // the last setting
-                await expect(panel(page).getByRole("checkbox", { name: "Stronger focus outline" })).toBeInViewport();
+                await panel(page).getByRole("button", { name: "Page structure" }).scrollIntoViewIfNeeded(); // the last item
+                await expect(panel(page).getByRole("button", { name: "Page structure" })).toBeInViewport();
                 expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
             }
             // Text size's segments follow its number of levels
@@ -1810,6 +1814,115 @@ test.describe("Reading aid and Big cursor (/)", () => {
     });
 });
 
+test.describe("Pause animations as a part (/)", () => {
+    test("CSS animations stop at once, even if the part can't load; the part downloads only when turned on, and at page start when saved on", async ({ page }) => {
+        const requests: string[] = [];
+        page.on("request", (r) => {
+            if (r.url().includes("/parts/pause-animations")) requests.push(r.url());
+        });
+        await page.route("**/parts/pause-animations*", (route) => route.abort()); // blocked (e.g. a strict site policy)
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `<style>@keyframes pa-spin { to { transform: rotate(1turn); } }</style><div id="pa-spin" style="animation: pa-spin 1s linear infinite">spin</div>`));
+        expect(requests).toEqual([]);
+        await turnOn(page, "Pause animations");
+        await expect.poll(() => page.locator("#pa-spin").evaluate((el) => el.getAnimations().some((a) => a.playState === "running"))).toBe(false);
+        expect(requests).toHaveLength(1); // asked for, and blocked: the CSS part still works
+
+        await page.unroute("**/parts/pause-animations*");
+        requests.length = 0;
+        await page.reload();
+        await expect.poll(() => requests.length).toBe(1); // saved on: fetched as the page starts, without opening the panel
+    });
+});
+
+test.describe("Page structure (/)", () => {
+    const dialog = (page: Page) => page.getByRole("dialog", { name: "Page structure" });
+    const openButton = (page: Page) => page.getByRole("button", { name: "Page structure" });
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<header id="psx-banner"><nav aria-label="Main menu"><a href="/shop">Shop</a> <a href="/shop">Shop</a> <a href="/about">About</a></nav></header>
+                 <main>
+                   <h1>Store</h1>
+                   <section aria-label="Deals"><h2 id="psx-deals">Today's deals</h2><p>…</p></section>
+                   <section><h3>Unnamed section</h3></section>
+                   <div role="heading" aria-level="4">A div heading</div>
+                   <h2 style="display:none">Hidden heading</h2>
+                   <div data-a11yw-ignore="page-structure"><h2>Opted-out heading</h2><a href="/secret">Opted-out link</a></div>
+                   <div style="height:2000px"></div>
+                   <h2 id="psx-far">Far down</h2>
+                 </main>
+                 <footer>Footer</footer>`
+            );
+            const host = document.createElement("div");
+            host.attachShadow({ mode: "open" }).innerHTML = `<h2>Inside a web component</h2>`;
+            document.querySelector("main")!.append(host);
+        });
+    });
+
+    test("a modal dialog listing headings, landmarks and links; Esc returns focus to its button", async ({ page }) => {
+        await toggle(page).click();
+        await openButton(page).click();
+        await expect(dialog(page)).toBeVisible();
+        await expect(page.getByRole("radio", { name: /^Headings/ })).toBeFocused();
+
+        const items = () => dialog(page).getByRole("list").getByRole("button").allTextContents();
+        const headingTexts = await items();
+        expect(headingTexts.slice(0, 5)).toEqual(["H1 Store", "H2 Today's deals", "H3 Unnamed section", "H4 A div heading", "H2 Far down"]);
+        expect(headingTexts).toContain("H2 Inside a web component");
+        expect(headingTexts.join("|")).not.toMatch(/Hidden heading|Opted-out heading|Accessibility settings/);
+        await expect(page.getByRole("radio", { name: /^Headings/ })).toHaveAccessibleName(`Headings (${headingTexts.length})`);
+
+        await page.getByRole("radio", { name: /^Landmarks/ }).check();
+        expect(await items()).toEqual(expect.arrayContaining(["Header", "Navigation: Main menu", "Main", "Region: Deals", "Footer"]));
+        expect((await items()).filter((t) => t.startsWith("Region"))).toEqual(["Region: Deals"]); // unnamed sections aren't landmarks
+
+        await page.getByRole("radio", { name: /^Links/ }).check();
+        const linkTexts = await items();
+        expect(linkTexts.filter((t) => t === "Shop")).toHaveLength(1); // same words, same place: once
+        expect(linkTexts).toContain("About");
+        expect(linkTexts).not.toContain("Opted-out link");
+
+        expect(await widgetViolations(page)).toEqual([]);
+        await page.keyboard.press("Escape");
+        await expect(dialog(page)).toBeHidden();
+        await expect(openButton(page)).toBeFocused();
+    });
+
+    test("choosing an item scrolls to it and moves focus there (a temporary tabindex for a heading)", async ({ page }) => {
+        await toggle(page).click();
+        await openButton(page).click();
+        await dialog(page).getByRole("button", { name: "H2 Far down" }).click();
+        await expect(dialog(page)).toBeHidden();
+        await expect(page.locator("#psx-far")).toBeFocused();
+        await expect(page.locator("#psx-far")).toBeInViewport();
+        await expect(page.locator("#psx-far")).toHaveAttribute("tabindex", "-1");
+        await page.keyboard.press("Tab"); // focus moves on: the temporary tabindex goes
+        await expect(page.locator("#psx-far")).not.toHaveAttribute("tabindex");
+    });
+
+    for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
+        test(`the dialog fits and passes axe at ${width}×${height}`, async ({ page }) => {
+            await page.setViewportSize({ width, height });
+            await toggle(page).click();
+            await openButton(page).click();
+            await expect(dialog(page)).toBeVisible();
+            const box = (await dialog(page).boundingBox())!;
+            expect(box.x).toBeGreaterThanOrEqual(0);
+            expect(box.x + box.width).toBeLessThanOrEqual(width);
+            expect(box.y + box.height).toBeLessThanOrEqual(height);
+            expect(await widgetViolations(page)).toEqual([]);
+            await dialog(page).getByRole("button", { name: "Close" }).click();
+            await expect(openButton(page)).toBeFocused();
+        });
+    }
+});
+
 test.describe("data-a11yw-ignore with setting names (/)", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
@@ -1822,7 +1935,7 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
         );
         expect(ids.length).toBeGreaterThan(0);
         expect(new Set(ids).size).toBe(ids.length);
-        expect(ids.filter((id) => !PROBES[id] && !SCREEN_WIDE.includes(id))).toEqual([]); // add a PROBES entry for a new setting
+        expect(ids.filter((id) => !PROBES[id] && !SCREEN_WIDE.includes(id) && !ACTIONS.includes(id))).toEqual([]); // add a PROBES entry for a new setting
         expect(Object.keys(PROBES).filter((id) => !ids.includes(id))).toEqual([]);     // no checks for settings that don't exist
     });
 

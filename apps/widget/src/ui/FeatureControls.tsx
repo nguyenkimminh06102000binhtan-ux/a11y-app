@@ -1,4 +1,4 @@
-import type { LevelFeature, ToggleFeature } from "../features";
+import type { ActionFeature, LevelFeature, ToggleFeature } from "../features";
 import { CheckBadge, FeatureIcon } from "./icons";
 
 /** A level setting across the panel's width: native radios in a fieldset, so arrow keys move between levels and the legend names the group. */
@@ -55,6 +55,24 @@ export function ToggleTile({ feature: f, on, onChange }: { feature: ToggleFeatur
                     {f.hint}
                 </p>
             </div>
+        </li>
+    );
+}
+
+/** An action across the panel's width: a button that opens something (Page structure opens a dialog). */
+export function ActionRow({ feature: f }: { feature: ActionFeature }) {
+    return (
+        <li class="feature feature-action" data-feature-id={f.id}>
+            <button type="button" class="action" aria-haspopup="dialog" aria-describedby={`${f.id}-hint`} onClick={() => f.run()}>
+                <FeatureIcon id={f.id} />
+                <span class="action-label">{f.label}</span>
+                <svg class="icon action-arrow" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                    <path d="M7.5 4.5 L13 10 L7.5 15.5" />
+                </svg>
+            </button>
+            <p id={`${f.id}-hint`} class="feature-hint">
+                {f.hint}
+            </p>
         </li>
     );
 }

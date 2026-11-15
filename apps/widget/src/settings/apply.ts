@@ -1,4 +1,4 @@
-import { FEATURES, type LevelFeature, type ToggleFeature } from "../features";
+import { SETTING_FEATURES, type LevelFeature, type ToggleFeature } from "../features";
 import type { Settings } from "./settings";
 import { rescanShadowRoots } from "../core/shadow-roots";
 import { scopeFor } from "../features/scope";
@@ -25,10 +25,10 @@ const fallbackRoots = new Set<ShadowRoot>();
  * Level settings come last, so a chosen level wins over an on/off setting's value (Line height 2 over Text spacing's 1.5).
  */
 export function cssFor(settings: Settings, skip: (id: string) => boolean = () => false): string {
-    const toggles = FEATURES.filter((f): f is ToggleFeature => f.kind !== "levels" && settings[f.key] && !!f.css && !skip(f.id)).map((f) =>
+    const toggles = SETTING_FEATURES.filter((f): f is ToggleFeature => f.kind === "toggle" && settings[f.key] && !!f.css && !skip(f.id)).map((f) =>
         f.css!(scopeFor(f.id, f.inherited))
     );
-    const levels = FEATURES.filter((f): f is LevelFeature => f.kind === "levels" && settings[f.key] > 0 && !!f.css && !skip(f.id)).map((f) =>
+    const levels = SETTING_FEATURES.filter((f): f is LevelFeature => f.kind === "levels" && settings[f.key] > 0 && !!f.css && !skip(f.id)).map((f) =>
         f.css!(settings[f.key], scopeFor(f.id, f.inherited))
     );
     return [...toggles, ...levels].filter(Boolean).join("\n");

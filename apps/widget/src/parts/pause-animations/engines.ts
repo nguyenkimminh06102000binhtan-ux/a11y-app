@@ -1,7 +1,5 @@
-import { onElementsAdded } from "../../core/dom-watcher";
 import { HOST_TAG } from "../../core/host";
-import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../../core/shadow-roots";
-import { isIgnored, type MotionPart } from "./part";
+import { isIgnored, type MotionPart, deepQueryAll, onElementsAdded, onNewShadowRoot, openShadowRootsIn } from "./part";
 
 /*
  * Animation engines built into the browser that CSS can't reach:

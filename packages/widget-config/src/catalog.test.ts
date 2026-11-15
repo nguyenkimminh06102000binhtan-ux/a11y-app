@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, DEFAULTABLE, DEFAULTABLE_ENTRIES, DEFAULTABLE_LABELS, SECTIONS, bySection } from "./index.ts";
+import { CATALOG, DEFAULTABLE, DEFAULTABLE_ENTRIES, DEFAULTABLE_LABELS, SECTIONS, SETTINGS, bySection } from "./index.ts";
 
 test("catalog ids and keys are unique", () => {
     const ids = CATALOG.map((e) => e.id);
-    const keys = CATALOG.map((e) => e.key);
+    const keys = SETTINGS.map((e) => e.key);
     assert.equal(new Set(ids).size, ids.length);
     assert.equal(new Set(keys).size, keys.length);
 });
@@ -28,10 +28,16 @@ test("level settings have an off level first and at least one more", () => {
 test("settings on by default are catalog settings, with the panel's words", () => {
     assert.equal(DEFAULTABLE_ENTRIES.length, DEFAULTABLE.length);
     for (const key of DEFAULTABLE) {
-        const entry = CATALOG.find((e) => e.key === key);
+        const entry = SETTINGS.find((e) => e.key === key);
         assert.ok(entry, key);
         assert.equal(DEFAULTABLE_LABELS[key], entry.label);
     }
+});
+
+test("actions have no saved value; settings are everything else", () => {
+    assert.deepEqual(CATALOG.filter((e) => e.kind === "action").map((e) => e.id), ["page-structure"]);
+    assert.equal(SETTINGS.length, CATALOG.length - 1);
+    assert.ok(SETTINGS.every((e) => typeof e.key === "string"));
 });
 
 test("bySection keeps section order and leaves out empty sections", () => {

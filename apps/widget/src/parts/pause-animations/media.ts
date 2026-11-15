@@ -1,6 +1,5 @@
 import { HOST_TAG } from "../../core/host";
-import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../../core/shadow-roots";
-import { isIgnored, type MotionPart } from "./part";
+import { isIgnored, type MotionPart, deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "./part";
 
 /*
  * Pauses autoplaying video and audio without taking control away from the visitor:

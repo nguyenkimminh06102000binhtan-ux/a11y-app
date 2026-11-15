@@ -127,6 +127,12 @@ const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
             <path d="M7 3 L7 23 L12 18 L15.5 25.5 L19 24 L15.5 16.5 L22 16.5 Z" stroke-linejoin="round" />
         </>
     ),
+    "page-structure": (
+        <>
+            <path d="M4 5 H16 M8 11 H22 M8 17 H20 M12 23 H24" />
+            <path d="M4 5 V23 M4 11 H8 M4 17 H8 M8 17 V23 H12" />
+        </>
+    ),
     "highlight-links": (
         <>
             <path d="M11 17 L17 11" />

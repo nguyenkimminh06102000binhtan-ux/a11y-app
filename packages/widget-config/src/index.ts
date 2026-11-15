@@ -38,12 +38,14 @@ export type Section = (typeof SECTIONS)[number];
 /** One level of a level setting. `label` is its full name (what assistive tech reads); `short` is what's shown. */
 export type CatalogLevel = { readonly label: string; readonly short: string };
 
-type CatalogBase = { readonly id: string; readonly key: string; readonly section: SectionId; readonly label: string; readonly hint: string };
+type CatalogBase = { readonly id: string; readonly section: SectionId; readonly label: string; readonly hint: string };
 /** On or off. */
-export type ToggleEntry = CatalogBase & { readonly kind: "toggle" };
+export type ToggleEntry = CatalogBase & { readonly kind: "toggle"; readonly key: string };
 /** One of several levels. Level 0 is always the page's own state (off). */
-export type LevelEntry = CatalogBase & { readonly kind: "levels"; readonly levels: readonly CatalogLevel[] };
-export type CatalogEntry = ToggleEntry | LevelEntry;
+export type LevelEntry = CatalogBase & { readonly kind: "levels"; readonly key: string; readonly levels: readonly CatalogLevel[] };
+/** A button that does something (e.g. opens a dialog). Nothing is saved, so it has no key. */
+export type ActionEntry = CatalogBase & { readonly kind: "action" };
+export type CatalogEntry = ToggleEntry | LevelEntry | ActionEntry;
 
 export const CATALOG = [
     // Content
@@ -213,9 +215,19 @@ export const CATALOG = [
         label: "Stronger focus outline",
         hint: "Shows a thick outline around whatever the keyboard is on.",
     },
+    {
+        kind: "action",
+        id: "page-structure",
+        section: "navigation",
+        label: "Page structure",
+        hint: "Lists the page's headings, landmarks and links, to jump to any of them.",
+    },
 ] as const satisfies readonly CatalogEntry[];
 
 type Entry = (typeof CATALOG)[number];
+/** The catalog's settings: everything except actions. */
+export type SettingEntry = Exclude<Entry, { kind: "action" }>;
+export const SETTINGS = CATALOG.filter((entry): entry is SettingEntry => entry.kind !== "action");
 export type FeatureId = Entry["id"];
 export type ToggleKey = Extract<Entry, { kind: "toggle" }>["key"];
 export type LevelKey = Extract<Entry, { kind: "levels" }>["key"];
@@ -241,7 +253,7 @@ export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pa
 export type DefaultableSetting = (typeof DEFAULTABLE)[number];
 
 /** Their catalog entries, in panel order (by section), for the dashboard. */
-export const DEFAULTABLE_ENTRIES = CATALOG.filter((entry): entry is Extract<Entry, { key: DefaultableSetting }> =>
+export const DEFAULTABLE_ENTRIES = SETTINGS.filter((entry): entry is Extract<SettingEntry, { key: DefaultableSetting }> =>
     (DEFAULTABLE as readonly string[]).includes(entry.key)
 );
 

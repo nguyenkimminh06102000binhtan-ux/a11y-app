@@ -1,7 +1,7 @@
 import { CDN_BASE } from "./cdn-base";
 import { safely } from "./safely";
 import { onElementsAdded } from "./dom-watcher";
-import { deepQueryAll, onNewShadowRoot } from "./shadow-roots";
+import { deepQueryAll, onNewShadowRoot, openShadowRootsIn, rescanShadowRoots } from "./shadow-roots";
 import { ignoredBy } from "./ignore";
 
 /*
@@ -24,6 +24,8 @@ export type PartContext = {
     onElementsAdded: typeof onElementsAdded;
     onNewShadowRoot: typeof onNewShadowRoot;
     deepQueryAll: typeof deepQueryAll;
+    openShadowRootsIn: typeof openShadowRootsIn;
+    rescanShadowRoots: typeof rescanShadowRoots;
     ignoredBy: typeof ignoredBy;
 };
 
@@ -35,7 +37,7 @@ export type Part = {
     update?(option?: string): void; // the option changed while running
 };
 
-const CONTEXT: PartContext = { onElementsAdded, onNewShadowRoot, deepQueryAll, ignoredBy };
+const CONTEXT: PartContext = { onElementsAdded, onNewShadowRoot, deepQueryAll, openShadowRootsIn, rescanShadowRoots, ignoredBy };
 
 /** Where a part file hands itself over: `window[PART_HANDOFF](name, part)`. Shared with parts/handoff.ts. */
 export const PART_HANDOFF = "__a11ywPart";
@@ -113,4 +115,11 @@ export function partBehavior(name: PartName): { start(option?: string): void; st
             if (part?.refresh) safely(() => part.refresh!());
         },
     };
+}
+
+/** For an action: download its part (once) and start it, e.g. open the Page structure dialog. */
+export function runPart(name: PartName): void {
+    void loadPart(name).then((part) => {
+        if (part) safely(() => part.start(CONTEXT));
+    });
 }

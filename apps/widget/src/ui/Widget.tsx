@@ -3,7 +3,7 @@ import { bySection } from "@app/widget-config";
 import { FEATURES } from "../features";
 import { applyToPage } from "../settings/apply";
 import { loadSettings, saveSettings, startingSettings, type Settings } from "../settings/settings";
-import { LevelRow, ToggleTile } from "./FeatureControls";
+import { ActionRow, LevelRow, ToggleTile } from "./FeatureControls";
 import { AccessibilityIcon, CloseIcon, Mark, MoveIcon, ResetIcon } from "./icons";
 import { PHONE, moveTo, resetSide, visibleSide } from "./position";
 
@@ -94,7 +94,9 @@ export function Widget() {
                             </h3>
                             <ul class="features" aria-labelledby={`section-${section.id}`}>
                                 {items.map((f) =>
-                                    f.kind === "levels" ? (
+                                    f.kind === "action" ? (
+                                        <ActionRow key={f.id} feature={f} />
+                                    ) : f.kind === "levels" ? (
                                         <LevelRow key={f.key} feature={f} level={settings[f.key]} onChange={(level) => update({ ...settings, [f.key]: level })} />
                                     ) : (
                                         <ToggleTile key={f.key} feature={f} on={settings[f.key]} onChange={(on) => update({ ...settings, [f.key]: on })} />

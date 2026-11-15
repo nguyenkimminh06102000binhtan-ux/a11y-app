@@ -1,11 +1,11 @@
-import type { Behavior, ToggleImpl } from "../types";
 import { safely } from "../../core/safely";
-import { rescanShadowRoots } from "../../core/shadow-roots";
+import type { Part } from "../../core/parts";
+import { handOver } from "../handoff";
 import { engines } from "./engines";
 import { gifs } from "./gifs";
 import { libraries } from "./libraries";
 import { media } from "./media";
-import type { MotionPart } from "./part";
+import { FEATURE_ID, rescanShadowRoots, usePage, type MotionPart } from "./part";
 import { carousels } from "./carousels";
 import { embeds } from "./embeds";
 
@@ -23,9 +23,13 @@ function recheck(): void {
   parts.forEach((part) => part.recheck && safely(() => part.recheck!()));
 }
 
-/** Everything "Pause animations" does beyond CSS. One failing part never stops the others. */
-export const pauseMotion: Behavior = {
-  start() {
+/**
+ * Everything "Pause animations" does beyond its CSS (features/pause-animations.ts), downloaded when it's turned on
+ * (see core/parts.ts). One failing kind of motion never stops the others.
+ */
+const pauseMotion: Part = {
+  start(context) {
+    usePage(context);
     parts.forEach((part) => safely(() => part.start()));
     timer = setInterval(recheck, RECHECK_MS);
   },
@@ -36,22 +40,4 @@ export const pauseMotion: Behavior = {
   },
 };
 
-/** Pause animations (id "pause-animations", FEATURE_ID in part.ts; words in the catalog, @app/widget-config). */
-export const pauseAnimations: ToggleImpl = {
-    // Not `animation: none` or `paused`: both can leave fade-in content invisible.
-    // A tiny duration (not 0s) jumps to the end state and still fires animationend/transitionend,
-    // which some sites wait for (e.g. to finish closing a modal).
-    css: (scope) => `
-      *${scope},
-      *${scope}::before,
-      *${scope}::after {
-        animation-duration: 0.001ms !important;
-        animation-delay: 0s !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.001ms !important;
-        transition-delay: 0s !important;
-        scroll-behavior: auto !important;
-      }
-    `,
-    behavior: pauseMotion,
-};
+handOver(FEATURE_ID, pauseMotion);

@@ -1,6 +1,4 @@
-import { onElementsAdded } from "../../core/dom-watcher";
-import { deepQueryAll, onNewShadowRoot, openShadowRootsIn } from "../../core/shadow-roots";
-import { isIgnored, type MotionPart } from "./part";
+import { isIgnored, type MotionPart, deepQueryAll, onElementsAdded, onNewShadowRoot, openShadowRootsIn } from "./part";
 
 /*
  * Freezes animated GIFs on the frame showing now, without losing anything:

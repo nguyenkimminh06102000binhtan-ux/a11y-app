@@ -1,6 +1,4 @@
-import { onElementsAdded } from "../../core/dom-watcher";
-import { deepQueryAll, onNewShadowRoot } from "../../core/shadow-roots";
-import { isIgnored, type MotionPart } from "./part";
+import { isIgnored, type MotionPart, deepQueryAll, onElementsAdded, onNewShadowRoot } from "./part";
 
 /*
  * Pauses YouTube and Vimeo players embedded in iframes, through each player's documented postMessage API.

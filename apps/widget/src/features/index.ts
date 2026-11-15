@@ -8,14 +8,15 @@ import { imageDescriptions } from "./image-descriptions";
 import { lineHeight } from "./line-height";
 import { focusOutline } from "./focus-outline";
 import { highlightLinks } from "./highlight-links";
+import { pageStructure } from "./page-structure";
 import { pauseAnimations } from "./pause-animations";
 import { readingAid } from "./reading-aid";
 import { textSizeFeature } from "./text-size";
 import { textAlign } from "./text-align";
 import { textSpacing } from "./text-spacing";
-import type { Feature, Implementations } from "./types";
+import type { Feature, Implementations, SettingFeature } from "./types";
 
-export type { Behavior, Feature, LevelFeature, ToggleFeature } from "./types";
+export type { ActionFeature, Behavior, Feature, LevelFeature, SettingFeature, ToggleFeature } from "./types";
 
 /** What each catalog entry does. A missing or extra entry, or one of the wrong kind, is a type error. */
 const IMPLEMENTATIONS: Implementations = {
@@ -33,6 +34,7 @@ const IMPLEMENTATIONS: Implementations = {
     "big-cursor": bigCursor,
     "highlight-links": highlightLinks,
     "focus-outline": focusOutline,
+    "page-structure": pageStructure,
 };
 
 /**
@@ -40,3 +42,6 @@ const IMPLEMENTATIONS: Implementations = {
  * joined with what each one does. The UI, the page styles and the saved settings all read this list.
  */
 export const FEATURES: Feature[] = CATALOG.map((entry) => ({ ...entry, ...IMPLEMENTATIONS[entry.id] }) as Feature);
+
+/** The saved settings among them (not the actions). */
+export const SETTING_FEATURES = FEATURES.filter((f): f is SettingFeature => f.kind !== "action");

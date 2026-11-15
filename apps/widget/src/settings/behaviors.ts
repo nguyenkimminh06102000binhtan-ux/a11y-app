@@ -1,4 +1,4 @@
-import { FEATURES } from "../features";
+import { SETTING_FEATURES } from "../features";
 import { safely } from "../core/safely";
 import type { Settings } from "./settings";
 
@@ -7,7 +7,7 @@ const appliedLevel = new Map<string, number>();
 
 /** Bring each setting's JavaScript in line with the settings. Only acts on changes. */
 export function applyBehaviors(settings: Settings): void {
-  for (const feature of FEATURES) {
+  for (const feature of SETTING_FEATURES) {
     if (feature.kind === "levels") {
       const level = settings[feature.key];
       if (appliedLevel.get(feature.key) === level) continue;
@@ -30,7 +30,7 @@ export function applyBehaviors(settings: Settings): void {
   }
 
   // Settings that depend on the page's current look (e.g. Smart contrast) look again after any change
-  for (const feature of FEATURES) {
+  for (const feature of SETTING_FEATURES) {
     const refresh = feature.refresh;
     if (refresh && (feature.kind === "levels" ? settings[feature.key] > 0 : settings[feature.key])) safely(() => refresh());
   }

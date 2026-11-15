@@ -1,11 +1,11 @@
 // The visitor's choices, saved per site in localStorage on the customer's domain.
-import { CATALOG, type FeatureSettings, type WidgetConfig } from "@app/widget-config";
+import { SETTINGS, type FeatureSettings, type WidgetConfig } from "@app/widget-config";
 
 /** One value per catalog setting: on/off, or a level (0 = the page's own state). */
 export type Settings = FeatureSettings;
 
 /** Everything off. */
-export const DEFAULTS = Object.fromEntries(CATALOG.map((entry) => [entry.key, entry.kind === "levels" ? 0 : false])) as Settings;
+export const DEFAULTS = Object.fromEntries(SETTINGS.map((entry) => [entry.key, entry.kind === "levels" ? 0 : false])) as Settings;
 
 /** The value "on" means for a setting: true, or a level setting's first level above Default. */
 function onValue(key: keyof Settings): boolean | number {
@@ -49,7 +49,7 @@ export function loadSettings(): Settings {
             }
         }
         // A number isn't enough: it must be one of that setting's levels
-        for (const entry of CATALOG) {
+        for (const entry of SETTINGS) {
             if (entry.kind !== "levels") continue;
             const level = settings[entry.key];
             if (!Number.isInteger(level) || level < 0 || level >= entry.levels.length) settings[entry.key] = 0;
