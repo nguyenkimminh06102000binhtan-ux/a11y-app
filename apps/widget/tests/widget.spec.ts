@@ -1487,3 +1487,25 @@ test.describe("visitors move the button (/)", () => {
         expect(Math.round(1280 - (b.x + b.width))).toBe(24);
     });
 });
+
+test.describe("slow pages (/)", () => {
+    test("shows within seconds when an image never finishes loading, and works", async ({ page }) => {
+        // An image that never answers: the page's load event never fires
+        await page.route("**/never-loads.png", () => {});
+        await page.route((url) => url.pathname === "/", async (route) => {
+            const response = await route.fetch();
+            const html = (await response.text()).replace("<body>", '<body><img src="/never-loads.png" alt="">');
+            await route.fulfill({ response, body: html });
+        });
+        const started = Date.now();
+        await page.goto("/", { waitUntil: "domcontentloaded" });
+        await expect(toggle(page)).toBeVisible({ timeout: 8000 });
+        expect(Date.now() - started).toBeLessThan(6000);
+        expect(await page.evaluate(() => document.readyState)).not.toBe("complete"); // shown before the page loaded
+
+        await toggle(page).click();
+        await expect(panel(page)).toBeVisible();
+        await page.getByRole("checkbox", { name: "Highlight links" }).check();
+        expect(await page.locator("a[href]").first().evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 0)");
+    });
+});

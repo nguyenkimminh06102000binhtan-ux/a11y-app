@@ -116,6 +116,9 @@ same-origin iframes too, and survive single-page-app navigation. Turning a setti
 ## Widget config: how it works
 - The widget asks `GET /api/widget/config?account=acct_…&host=<page hostname>` as soon as it loads, and waits at
   most 3 seconds. The answer says whether it may show, the brand color, and the settings on by default.
+- **When it shows:** once the page has loaded, so it doesn't slow the page down, but at most 3 seconds after the
+  HTML is in: an image or ad that never finishes loading can't keep the widget hidden. The visitor's saved settings
+  are applied at once either way; only Text size waits for the full load (it measures the page's final font sizes).
 - **Fails open:** no answer (server down, blocked request) means the last answer this visitor got, or our defaults.
   An accessibility tool shouldn't vanish because our server had a problem.
 - **Caching:** the dashboard caches each answer (cleared at once when a site or its settings change); browsers ask

@@ -28,10 +28,21 @@ if (lastConfig?.enabled !== false) applyToPage(loadSettings());
 watchShadowRoots(adoptInto); // from now on, every open shadow root on the page gets the shared stylesheet
 watchIframes(applyToFrame); // same-origin iframes get the CSS settings too (after watchShadowRoots: it starts the observer)
 
-/** The widget isn't needed for first paint: wait for the page so we don't compete with it. */
+/** At most this long after the page's HTML is in: one slow image or ad mustn't keep the widget hidden. */
+const MAX_LOAD_WAIT_MS = 3000;
+
+/**
+ * The widget isn't needed for first paint: wait for the page so we don't compete with it, but not forever.
+ * Resolves at the load event, or MAX_LOAD_WAIT_MS after the HTML is parsed, whichever comes first.
+ */
 function whenPageLoaded(): Promise<void> {
   if (document.readyState === "complete") return Promise.resolve();
-  return new Promise((resolve) => window.addEventListener("load", () => resolve(), { once: true }));
+  return new Promise((resolve) => {
+    window.addEventListener("load", () => resolve(), { once: true });
+    const cap = () => setTimeout(resolve, MAX_LOAD_WAIT_MS);
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", cap, { once: true });
+    else cap();
+  });
 }
 
 Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, position }]) => {
