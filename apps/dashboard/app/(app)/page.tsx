@@ -36,6 +36,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
 
       <Suspense fallback={null}>
         <Deleted searchParams={searchParams} />
+        <PasswordChanged searchParams={searchParams} />
       </Suspense>
 
       <Suspense fallback={null}>
@@ -78,6 +79,13 @@ async function Checklist() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   return <GettingStarted onboarding={await getOnboarding(user.id)} />;
+}
+
+/** After choosing a new password (/reset-password): a toast, focus on the Sites heading */
+async function PasswordChanged({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const { password } = await searchParams;
+  if (password !== "changed") return null;
+  return <ArrivalToast message="Password changed. Other devices were signed out." focus="#main h1" clear={["password"]} />;
 }
 
 async function SiteCount() {

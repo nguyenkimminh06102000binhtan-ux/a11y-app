@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** Pages anyone can open. The sign-in pages send a signed-in visitor on to Sites. */
 const SIGN_IN_PAGES = ["/login", "/signup"];
-const PUBLIC_PAGES = [...SIGN_IN_PAGES, "/auth", "/terms", "/privacy", "/accessibility"];
+const PUBLIC_PAGES = [...SIGN_IN_PAGES, "/auth", "/forgot-password", "/terms", "/privacy", "/accessibility"];
 const under = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 
 export async function proxy(request: NextRequest) {

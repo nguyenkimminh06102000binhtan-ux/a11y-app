@@ -11,21 +11,25 @@ type Props = {
   hint?: string; // under the field, read with it ("At least 10 characters…")
   error?: string; // under the field, read with it, with the field marked invalid
   inputRef?: React.Ref<HTMLInputElement>;
+  labelAside?: React.ReactNode; // beside the label, e.g. "Forgot password?"
 };
 
 /**
  * A password field with a Show / Hide button inside its edge. The button says what it will do ("Show password"),
  * so its name changes with the state; focus stays on it. Pasting and password managers work as usual.
  */
-export function PasswordField({ id, label, autoComplete, invalid, hint, error, inputRef }: Props) {
+export function PasswordField({ id, label, autoComplete, invalid, hint, error, inputRef, labelAside }: Props) {
   const [visible, setVisible] = useState(false);
   const bad = invalid || !!error;
   const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(" ") || undefined;
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="m-0">
-        {label}
-      </label>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <label htmlFor={id} className="m-0">
+          {label}
+        </label>
+        {labelAside}
+      </div>
       <div
         className="flex items-center rounded-[0.625rem] border-[1.5px] border-frame bg-surface pr-1 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink data-invalid:border-[2.5px] data-invalid:border-ink"
         data-invalid={bad || undefined}

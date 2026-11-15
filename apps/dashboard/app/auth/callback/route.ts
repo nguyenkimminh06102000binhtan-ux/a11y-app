@@ -19,5 +19,6 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}${newSite ? `/embed-code?added=${newSite}` : safeNext(searchParams.get("next"))}`);
     }
   }
-  return NextResponse.redirect(`${origin}/login?error=link`);
+  const forReset = searchParams.get("next") === "/reset-password"; // a reset link: get a new one there
+  return NextResponse.redirect(`${origin}${forReset ? "/forgot-password" : "/login"}?error=link`);
 }

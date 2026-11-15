@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn, type SignInError, type SignInState } from "@/app/login/actions";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -15,7 +16,7 @@ const MESSAGES: Record<SignInError | "link", { title: string; text: string }> = 
   "link-missing": { title: "Enter your email first.", text: "Then choose “Email me a sign-in link”." },
   invalid: {
     title: "We couldn’t sign you in.",
-    text: "The email or password doesn’t match an account. Try again, or get a sign-in link by email instead.",
+    text: "The email or password doesn’t match an account. Try again, reset your password, or get a sign-in link by email.",
   },
   unconfirmed: { title: "Confirm your email first.", text: "Open the link we sent when you signed up, or get a sign-in link." },
   busy: { title: "Too many tries.", text: "Wait a minute, then try again." },
@@ -78,6 +79,11 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
           label="Password"
           autoComplete="current-password"
           invalid={error === "invalid" || (error === "missing" && !!state.email)}
+          labelAside={
+            <Link href="/forgot-password" className="inline-flex min-h-11 items-center text-small">
+              Forgot password?
+            </Link>
+          }
         />
         <SubmitButton name="intent" value="password" pendingLabel="Signing in…" className="min-h-[3.25rem] text-[1.0625rem]">
           Sign in

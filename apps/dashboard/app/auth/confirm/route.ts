@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}${safeNext(nextFrom(params.get("redirect_to")))}`);
     }
   }
-  return NextResponse.redirect(`${origin}/login?error=link`);
+  // A reset link that didn't work: get a new one there; any other link: sign in
+  const forReset = type === "recovery" || nextFrom(params.get("redirect_to")) === "/reset-password";
+  return NextResponse.redirect(`${origin}${forReset ? "/forgot-password" : "/login"}?error=link`);
 }
 
 /** redirect_to is ".../auth/callback?next=%2Fsites%2F…": the page to open is its `next` */

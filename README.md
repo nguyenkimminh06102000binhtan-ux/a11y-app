@@ -57,8 +57,8 @@ CI (`.github/workflows/dashboard.yml`) does the same on pull requests and pushes
 Authentication settings in the Supabase dashboard (the local test stack has the same in `supabase/config.toml`):
 - **Sign In / Providers › Email:** on; **Confirm email** on; **minimum password length 10**.
 - **URL Configuration:** Site URL `https://manage.accesspilot.org`; Redirect URLs `https://manage.accesspilot.org/auth/callback**`.
-- **Emails › Templates:** "Confirm signup" and "Magic link" = `supabase/templates/confirm-signup.html` and
-  `magic-link.html` (subjects in `config.toml`). Their links go to `/auth/confirm`, which works when the email is
+- **Emails › Templates:** "Confirm signup", "Magic link" and "Reset password" = `supabase/templates/confirm-signup.html`,
+  `magic-link.html` and `reset-password.html` (subjects in `config.toml`). Their links go to `/auth/confirm`, which works when the email is
   opened on another device. With Supabase's default templates sign-up still works, through `/auth/callback`, but only
   on the device that asked.
 - Sign-in links never create accounts (only Sign up does); the first site typed at sign-up is made when the
