@@ -114,7 +114,7 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                 </p>
                 <PositionFields prefix="desktop" legend="On computers and tablets" value={desktop} onChange={setDesktop} errors={errors} />
                 <label className="flex min-h-11 items-center gap-2 font-normal">
-                    <input type="checkbox" name="samePhone" checked={samePhone} onChange={(event) => setSamePhone(event.target.checked)} />
+                    <input type="checkbox" name="samePhone" defaultChecked={samePhone} onChange={(event) => setSamePhone(event.target.checked)} />
                     Same position on phones
                 </label>
                 {!samePhone && (
@@ -139,7 +139,7 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                 <button type="submit">{pending ? "Saving…" : "Save widget settings"}</button>
                 {/* Always rendered, so screen readers announce it when the text appears */}
                 <p role="status">
-                    {state.status === "saved" && "Saved. Visitors get the new settings within about 5 minutes."}
+                    {state.status === "saved" && "Saved. Visitors see the changes on their next page view, within seconds."}
                     {state.status === "invalid" && "Not saved: please fix the fields marked above."}
                 </p>
             </div>

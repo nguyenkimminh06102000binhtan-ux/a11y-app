@@ -19,7 +19,7 @@ type Props = {
 };
 
 /**
- * One placement: a radio group drawn as a small screen (it's also the preview: the chosen spot shows the button),
+ * One placement: a radio group drawn as a small screen (the chosen spot is highlighted where the button will be),
  * then the distances, labelled for the chosen spot ("Distance from the right"). Middle spots are centered
  * vertically, so they only ask for the side distance.
  */
@@ -46,18 +46,15 @@ export function PositionFields({ prefix, legend, value, onChange, errors }: Prop
                   checked ? "bg-surface font-bold" : ""
                 }`}
               >
+                {/* defaultChecked, not checked: React resets the form after saving, back to these defaults */}
                 <input
                   type="radio"
                   name={field("Spot")}
                   value={spot}
-                  checked={checked}
+                  defaultChecked={checked}
                   onChange={() => onChange({ ...value, spot })}
                 />
                 <span className="min-w-0 flex-1">{SPOT_LABELS[spot]}</span>
-                {/* The button, where it will be (decoration: the checked radio already says it) */}
-                {checked && (
-                  <span aria-hidden="true" className="size-5 shrink-0 rounded-full border-2 border-surface bg-state shadow" />
-                )}
               </label>
             );
           })}

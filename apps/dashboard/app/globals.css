@@ -143,6 +143,12 @@
     border-radius: 0.625rem;
   }
 
+  /* Checkboxes and radios: the browser's own control, in our "selected" color */
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-state);
+  }
+
   ::placeholder {
     color: var(--color-muted);
     opacity: 1;
