@@ -1510,11 +1510,10 @@ test.describe("Appearance: Contrast, Color, Hide images (/)", () => {
         expect(await at()).toEqual([r0, g0, (await at())[2]]);
     });
 
-    test("Contrast High and Color combine in one lens; the lens stays before the widget, also after a page removes it", async ({ page }) => {
-        await choose(page, "Contrast", "High");
-        await page.getByRole("group", { name: "Color" }).getByRole("radio", { name: "Muted" }).check();
+    test("the lens stays before the widget, also after a page removes it; Contrast doesn't use it", async ({ page }) => {
+        await choose(page, "Color", "Muted");
         await expect(lens(page)).toHaveCount(1);
-        expect(await lens(page).evaluate((el) => getComputedStyle(el).backdropFilter)).toBe("contrast(1.5) saturate(0.5)");
+        expect(await lens(page).evaluate((el) => getComputedStyle(el).backdropFilter)).toBe("saturate(0.5)");
         const before = () => lens(page).evaluate((el) => !!(el.compareDocumentPosition(document.querySelector("a11yw-root")!) & Node.DOCUMENT_POSITION_FOLLOWING));
         expect(await before()).toBe(true);
 
@@ -1601,6 +1600,116 @@ test.describe("Appearance: Contrast, Color, Hide images (/)", () => {
 
         await page.getByRole("checkbox", { name: "Hide images" }).uncheck();
         expect(await page.locator("#hi-img").evaluate((el) => getComputedStyle(el).objectPosition)).toBe("50% 50%");
+    });
+});
+
+test.describe("Contrast › Smart (/)", () => {
+    const partRequests: string[] = [];
+    const ids = ["sc-gray", "sc-link", "sc-dark", "sc-large", "sc-ok", "sc-bgimg", "sc-disabled", "sc-semi", "sc-ignored", "sc-inline"];
+
+    test.beforeEach(async ({ page }) => {
+        partRequests.length = 0;
+        page.on("request", (r) => {
+            if (r.url().includes("/parts/smart-contrast")) partRequests.push(r.url());
+        });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<div id="sc" style="background:#fff;padding:8px;font-size:16px">
+                   <p id="sc-gray" style="color:#aaaaaa">Light gray text</p>
+                   <p><a id="sc-link" href="#x" style="color:#88aaff">Pale blue link</a></p>
+                   <div style="background:#222;padding:4px"><p id="sc-dark" style="color:#444">Dark on dark</p></div>
+                   <p id="sc-large" style="color:#949494;font-size:24px">Large text</p>
+                   <p id="sc-ok" style="color:#333">Fine text</p>
+                   <div style="background:#eee linear-gradient(#eee, #ddd)"><p id="sc-bgimg" style="color:#ccc">Over a gradient</p></div>
+                   <button id="sc-disabled" disabled style="color:#ccc;background:#fff">Disabled</button>
+                   <div style="background:rgba(0,0,0,0.5)"><p id="sc-semi" style="color:#555">On semi-transparent</p></div>
+                   <div data-a11yw-ignore="contrast"><p id="sc-ignored" style="color:#bbb">Opted out</p></div>
+                   <p id="sc-inline" style="color:#cccccc !important">Had its own inline color</p>
+                 </div>`
+            );
+        });
+    });
+
+    /** [r, g, b] of an element's text, and its contrast with `bg`. */
+    const measure = (page: Page, id: string, bg: [number, number, number]) =>
+        page.locator(`#${id}`).evaluate((el, bg) => {
+            const [r, g, b] = getComputedStyle(el).color.match(/[\d.]+/g)!.map(Number);
+            const lum = (c: number[]) => {
+                const [R, G, B] = c.map((v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+                return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+            };
+            const [hi, lo] = [lum([r, g, b]), lum(bg)].sort((x, y) => y - x);
+            return { rgb: [r, g, b], ratio: (hi + 0.05) / (lo + 0.05) };
+        }, bg);
+    /** Each element's own inline color and its priority (the browser rewrites the attribute's text, e.g. #aaa → rgb(), when we touch it). */
+    const styles = (page: Page) =>
+        page.evaluate((ids) => ids.map((id) => {
+            const style = document.getElementById(id)!.style;
+            return `${style.getPropertyValue("color")} ${style.getPropertyPriority("color")}`;
+        }), ids);
+    const colorContrastIssues = async (page: Page) =>
+        (await new AxeBuilder({ page }).include("#sc").withRules(["color-contrast"]).analyze()).violations.flatMap((v) => v.nodes.map((n) => n.target.join(" ")));
+
+    test("fixes only failing text, to AA, keeping its hue; leaves passing, large, image-backed, disabled and opted-out text alone; Default restores the page exactly", async ({ page }) => {
+        const before = await styles(page);
+        expect((await colorContrastIssues(page)).length).toBeGreaterThan(0);
+        expect(partRequests).toEqual([]);
+
+        await choose(page, "Contrast", "Smart");
+        await expect.poll(() => measure(page, "sc-gray", [255, 255, 255]).then((m) => m.ratio)).toBeGreaterThanOrEqual(4.5);
+        expect(partRequests).toHaveLength(1);
+        const link = await measure(page, "sc-link", [255, 255, 255]);
+        expect(link.ratio).toBeGreaterThanOrEqual(4.5);
+        expect(link.rgb[2]).toBeGreaterThan(Math.max(link.rgb[0], link.rgb[1]) + 40); // still blue
+        const dark = await measure(page, "sc-dark", [34, 34, 34]);
+        expect(dark.ratio).toBeGreaterThanOrEqual(4.5);
+        expect(dark.rgb[0]).toBeGreaterThan(0x44); // lightened, on a dark background
+        expect((await measure(page, "sc-semi", [128, 128, 128])).ratio).toBeGreaterThanOrEqual(4.5); // black at 50% over white
+        expect(await colorContrastIssues(page)).toEqual(["#sc-ignored"]); // axe agrees: only the opted-out text still fails
+
+        const after = await styles(page);
+        for (const [i, id] of ids.entries()) {
+            if (["sc-large", "sc-ok", "sc-bgimg", "sc-disabled", "sc-ignored"].includes(id)) expect(after[i], id).toBe(before[i]);
+        }
+
+        await page.getByRole("group", { name: "Contrast" }).getByRole("radio", { name: "Default" }).check();
+        expect(await styles(page)).toEqual(before); // every inline style back as it was, own !important colors included
+    });
+
+    test("text added later and text in web components are fixed too; Highlight links still wins; Dark replaces every fix", async ({ page }) => {
+        await choose(page, "Contrast", "Smart");
+        await expect.poll(() => measure(page, "sc-gray", [255, 255, 255]).then((m) => m.ratio)).toBeGreaterThanOrEqual(4.5);
+        await page.evaluate(() => {
+            document.getElementById("sc")!.insertAdjacentHTML("beforeend", `<p id="sc-late" style="color:#bbb">Added later</p>`);
+            const host = document.createElement("div");
+            host.attachShadow({ mode: "open" }).innerHTML = `<p id="sc-shadow" style="color:#bbb">In a web component</p>`;
+            document.getElementById("sc")!.append(host);
+        });
+        await expect.poll(() => measure(page, "sc-late", [255, 255, 255]).then((m) => m.ratio)).toBeGreaterThanOrEqual(4.5);
+        await expect.poll(() => measure(page, "sc-shadow", [255, 255, 255]).then((m) => m.ratio)).toBeGreaterThanOrEqual(4.5);
+
+        await page.getByRole("checkbox", { name: "Highlight links" }).check();
+        await expect.poll(() => measure(page, "sc-link", [255, 255, 0]).then((m) => m.rgb)).toEqual([0, 0, 0]);
+        await page.getByRole("checkbox", { name: "Highlight links" }).uncheck();
+
+        await page.getByRole("group", { name: "Contrast" }).getByRole("radio", { name: "Dark" }).check();
+        expect((await measure(page, "sc-gray", [0, 0, 0])).rgb).toEqual([255, 255, 255]); // no inline fix left to beat Dark
+    });
+
+    test("a long page never blocks the main thread for 50ms or more", async ({ page }) => {
+        await page.evaluate(() => {
+            const html = Array.from({ length: 5000 }, (_, i) => `<p style="color:#b0b0b0">Paragraph ${i}</p>`).join("");
+            document.getElementById("sc")!.insertAdjacentHTML("beforeend", `<div id="sc-long">${html}</div>`);
+            (window as unknown as { longTasks: number[] }).longTasks = [];
+            new PerformanceObserver((list) => list.getEntries().forEach((e) => (window as unknown as { longTasks: number[] }).longTasks.push(e.duration))).observe({ type: "longtask" });
+        });
+        await choose(page, "Contrast", "Smart");
+        await expect.poll(() => page.locator("#sc-long p").last().evaluate((el) => getComputedStyle(el).color), { timeout: 15_000 }).not.toBe("rgb(176, 176, 176)");
+        const longTasks = await page.evaluate(() => (window as unknown as { longTasks: number[] }).longTasks);
+        expect(longTasks, longTasks.join(", ")).toEqual([]); // the browser reports every task of 50ms or more
     });
 });
 

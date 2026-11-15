@@ -2,17 +2,16 @@ import { HOST_TAG } from "./host";
 import { pickParent } from "../ui/mount";
 
 /*
- * The lens: one transparent full-screen layer whose backdrop-filter recolors everything behind it (Color, and
- * Contrast's High). Unlike a `filter` on the page, it changes no layout: an element with a filter becomes the
- * containing block of the fixed elements inside it, so fixed headers and modals would start scrolling with the
- * page. And unlike a filter on <html>, it doesn't touch the widget, which sits above it.
+ * The lens: one transparent full-screen layer whose backdrop-filter recolors everything behind it (Color).
+ * Unlike a `filter` on the page, it changes no layout: an element with a filter becomes the containing block of
+ * the fixed elements inside it, so fixed headers and modals would start scrolling with the page. And unlike a filter on <html>, it doesn't touch the widget, which sits above it.
  * - Clicks, taps and scrolling go through it (pointer-events: none); hidden from assistive tech.
  * - Always placed just before the widget's host, so the widget (same z-index, later in the page) stays on top.
  * - Covers the whole screen: data-a11yw-ignore can't exclude an area from it.
  * - Its own inline !important styles beat any page rule, ours included (e.g. Contrast's backgrounds).
  */
 const TAG = "a11yw-lens";
-const ORDER = ["contrast", "color"] as const; // the order the filters are applied in
+const ORDER = ["color"] as const; // the order the filters are applied in, when more settings use the lens
 type LensPart = (typeof ORDER)[number];
 
 const filters = new Map<LensPart, string>();

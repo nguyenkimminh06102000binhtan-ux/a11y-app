@@ -1,6 +1,6 @@
 import { ignoredBy } from "../core/ignore";
 import { HOST_TAG } from "../core/host";
-import type { Behavior } from "../features/types";
+import type { Part } from "../core/parts";
 import { handOver } from "./handoff";
 
 /*
@@ -175,7 +175,7 @@ const LISTENERS: Array<[string, EventListener]> = [
     ["scroll", hide], // the image moved: the visitor can point at it again
 ];
 
-const imageDescriptions: Behavior = {
+const imageDescriptions: Part = {
     start() {
         LISTENERS.forEach(([type, fn]) => document.addEventListener(type, fn, { capture: true, passive: true }));
         addEventListener("resize", hide);

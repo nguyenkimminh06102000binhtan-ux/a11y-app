@@ -132,12 +132,12 @@ export const CATALOG = [
         key: "contrast",
         section: "appearance",
         label: "Contrast",
-        hint: "Dark and Light: plain backgrounds with strong text colors. High: stronger differences between the site's own colors.",
+        hint: "Smart: makes hard-to-read text darker or lighter, keeping the site's colors. Dark and Light: plain backgrounds with strong text.",
         levels: [
             { label: "Default", short: "Default" },
+            { label: "Smart", short: "Smart" },
             { label: "Dark", short: "Dark" },
             { label: "Light", short: "Light" },
-            { label: "High", short: "High" },
         ],
     },
     {

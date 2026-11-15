@@ -28,4 +28,10 @@ export function applyBehaviors(settings: Settings): void {
       safely(() => behavior.stop());
     }
   }
+
+  // Settings that depend on the page's current look (e.g. Smart contrast) look again after any change
+  for (const feature of FEATURES) {
+    const refresh = feature.refresh;
+    if (refresh && (feature.kind === "levels" ? settings[feature.key] > 0 : settings[feature.key])) safely(() => refresh());
+  }
 }

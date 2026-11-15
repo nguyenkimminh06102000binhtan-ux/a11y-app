@@ -1,6 +1,8 @@
 import { CDN_BASE } from "./cdn-base";
 import { safely } from "./safely";
-import type { Behavior } from "../features/types";
+import { onElementsAdded } from "./dom-watcher";
+import { deepQueryAll, onNewShadowRoot } from "./shadow-roots";
+import { ignoredBy } from "./ignore";
 
 /*
  * Parts: heavier features built as separate files (scripts/build.mjs → parts/<name>.<hash>.js), downloaded only
@@ -8,20 +10,38 @@ import type { Behavior } from "../features/types";
  * - Each file's name and integrity hash are baked into the app (__PARTS__), as the loader does for the app: the
  *   browser refuses a part whose bytes differ.
  * - A part hands itself over through one hidden, non-enumerable spot on window (PART_HANDOFF), not a public API.
- * - Parts are bundled separately, so they must only use stateless helpers (core/ignore, core/host…), never
- *   modules holding state (the DOM watcher, the shadow-root list): they'd get their own copy.
+ * - Parts are bundled separately, so they must only import stateless helpers (core/ignore, core/host,
+ *   core/color-math…). The app's page watchers hold state, so a part gets them from the app instead, in
+ *   PartContext when it starts: a copy of its own would watch nothing.
  * - If a part can't load (blocked by the page's Content-Security-Policy, offline), the setting does nothing,
  *   with one warning, and the page sees no errors.
  */
 
 export type PartName = keyof typeof __PARTS__;
 
-/** Where a part file hands itself over: `window[PART_HANDOFF](name, behavior)`. Shared with parts/handoff.ts. */
+/** What the app lends a part: its page watchers, so the page still pays for one observer. */
+export type PartContext = {
+    onElementsAdded: typeof onElementsAdded;
+    onNewShadowRoot: typeof onNewShadowRoot;
+    deepQueryAll: typeof deepQueryAll;
+    ignoredBy: typeof ignoredBy;
+};
+
+/** What a part file hands over. */
+export type Part = {
+    start(context: PartContext): void;
+    stop(): void;
+    refresh?(): void; // after any setting changes, while running
+};
+
+const CONTEXT: PartContext = { onElementsAdded, onNewShadowRoot, deepQueryAll, ignoredBy };
+
+/** Where a part file hands itself over: `window[PART_HANDOFF](name, part)`. Shared with parts/handoff.ts. */
 export const PART_HANDOFF = "__a11ywPart";
 
-type Handoff = (name: string, part: Behavior) => void;
-const waiting = new Map<string, (part: Behavior) => void>();
-const loads = new Map<PartName, Promise<Behavior | null>>();
+type Handoff = (name: string, part: Part) => void;
+const waiting = new Map<string, (part: Part) => void>();
+const loads = new Map<PartName, Promise<Part | null>>();
 
 function listen(): void {
     const w = window as unknown as Record<string, Handoff | undefined>;
@@ -31,10 +51,10 @@ function listen(): void {
 }
 
 /** Download a part once. Resolves to null if it can't load. */
-export function loadPart(name: PartName): Promise<Behavior | null> {
+export function loadPart(name: PartName): Promise<Part | null> {
     let load = loads.get(name);
     if (load) return load;
-    load = new Promise<Behavior | null>((resolve) => {
+    load = new Promise<Part | null>((resolve) => {
         listen();
         waiting.set(name, resolve); // a part hands itself over while its script runs, before the load event
         const { file, integrity } = __PARTS__[name];
@@ -57,17 +77,20 @@ export function loadPart(name: PartName): Promise<Behavior | null> {
     return load;
 }
 
-/** A setting's Behavior that downloads its part the first time it's turned on. On/off while loading is handled. */
-export function partBehavior(name: PartName): Behavior {
+/**
+ * A setting's start/stop that downloads its part the first time it's turned on. On/off while loading is handled;
+ * refresh() reaches the part only while it runs.
+ */
+export function partBehavior(name: PartName): { start(): void; stop(): void; refresh(): void } {
     let on = false;
-    let running: Behavior | null = null;
+    let running: Part | null = null;
     return {
         start() {
             on = true;
             void loadPart(name).then((part) => {
                 if (!part || !on || running) return;
                 running = part;
-                safely(() => part.start());
+                safely(() => part.start(CONTEXT));
             });
         },
         stop() {
@@ -76,6 +99,10 @@ export function partBehavior(name: PartName): Behavior {
             const part = running;
             running = null;
             safely(() => part.stop());
+        },
+        refresh() {
+            const part = running;
+            if (part?.refresh) safely(() => part.refresh!());
         },
     };
 }

@@ -1,25 +1,27 @@
-import { setLensFilter } from "../core/lens";
+import { partBehavior } from "../core/parts";
 import type { LevelCount, LevelImpl } from "./types";
 
 /*
  * Contrast (id "contrast"; words in the catalog, @app/widget-config).
+ * - Smart: only text that fails WCAG AA gets darker or lighter, keeping its hue (parts/smart-contrast.ts,
+ *   downloaded when chosen). The rest of the site keeps its look.
  * - Dark and Light: page CSS. Plain backgrounds and strong text and link colors (all 4.5:1 or more: white on black
  *   21:1, yellow on black 19.6:1, black on white 21:1, #0000ee on white 9.4:1). Images and video keep their colors
  *   (never inverted); background images stay (Hide images removes them). Links use :any-link, which is less specific
  *   than Highlight links' a[href], so Highlight links still wins. Link contents inherit the link's colors.
  *   Buttons and form fields get a thin inner edge in the text color, so they still look like controls.
- * - High: the lens (core/lens.ts) adds contrast to the site's own colors, so it covers the whole screen.
  */
 type Scheme = { scheme: "dark" | "light"; bg: string; text: string; link: string; placeholder: string };
 const SCHEMES = [
     null, // Default
+    null, // Smart: the part
     { scheme: "dark", bg: "#000", text: "#fff", link: "#ff0", placeholder: "#c8c8c8" },
     { scheme: "light", bg: "#fff", text: "#000", link: "#0000ee", placeholder: "#595959" },
-    null, // High: the lens
 ] as const satisfies ReadonlyArray<Scheme | null>;
 SCHEMES satisfies { length: LevelCount<"contrast"> };
 
-const HIGH = 3;
+const SMART = 1;
+const smart = partBehavior("smart-contrast");
 
 export const contrast: LevelImpl = {
     inherited: true, // color passes down to children (e.g. an ignored area inside a paragraph)
@@ -45,6 +47,8 @@ export const contrast: LevelImpl = {
     `;
     },
     apply(level) {
-        setLensFilter("contrast", level === HIGH ? "contrast(1.5)" : null);
+        if (level === SMART) smart.start();
+        else smart.stop();
     },
+    refresh: () => smart.refresh(),
 };

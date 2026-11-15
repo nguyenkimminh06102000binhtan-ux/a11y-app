@@ -14,6 +14,7 @@ export type ToggleImpl = {
     css?: (scope: string) => string; // page CSS while on; end every selector with `scope` (skips opted-out areas)
     inherited?: boolean; // its CSS sets inherited properties: also skip elements containing an opted-out area
     behavior?: Behavior; // JavaScript run while the setting is on
+    refresh?(): void; // called after any setting changes, while this one is on
 };
 
 /**
@@ -24,6 +25,7 @@ export type LevelImpl = {
     css?: (level: number, scope: string) => string;
     inherited?: boolean;
     apply?(level: number): void;
+    refresh?(): void; // called after any setting changes, while a level above 0 is chosen
 };
 
 /** On or off: a checkbox tile. */
