@@ -154,9 +154,17 @@ Grouped in the panel by section. Each setting's words, section and levels are de
 | Content | Font | Default, Clear (Atkinson Hyperlegible Next), Wide (Lexend), Simple (Andika); see below. Code and icon fonts keep theirs. |
 | Content | Align text | Default, Left, Right. Centered and justified text blocks line up on that side (physical sides, on right-to-left pages too). Layout `div`s don't move. |
 | Content | Image descriptions | Pointing at an image, or tabbing to something containing one, shows its alt text / aria-label / SVG title (WCAG 1.4.13: hoverable, persistent, Esc closes). Decorative and undescribed images show nothing. A part (below). |
+| Appearance | Contrast | Default, Dark (black, white text, yellow links), Light (white, black text, dark blue links): page CSS, images keep their colors (never inverted), buttons and fields get a thin inner edge; Highlight links still wins. High: the lens, `contrast(1.5)`. |
+| Appearance | Color | Default, Muted `saturate(0.5)`, Vivid `saturate(2)`, Grayscale: the lens (below). |
+| Appearance | Hide images | Images, video, `input[type=image]` and `svg[role=img]` become striped boxes of the same size (still in the accessibility tree with their alt text); background images removed. Icon SVGs stay. |
 | Appearance | Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
 | Navigation | Highlight links | Yellow background and underline on every link. |
 | Navigation | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
+
+**The lens.** Color and Contrast's High recolor the screen through one transparent full-screen layer
+(`<a11yw-lens>`, `src/core/lens.ts`) with `backdrop-filter`, placed just before the widget: page layout doesn't change
+(a `filter` on page containers would make their fixed headers scroll) and the widget keeps its colors. Clicks and
+scrolling go through it. It covers the whole screen, so `data-a11yw-ignore` can't exclude an area from these two.
 
 **Parts.** Heavier features are separate files (`src/parts/*.ts` → `dist/parts/<name>.<hash>.js`, 8 KB limit each),
 downloaded only when a visitor turns them on (or arrives with them saved on). The app carries each part's name and

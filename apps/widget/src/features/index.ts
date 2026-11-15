@@ -1,5 +1,8 @@
 import { CATALOG } from "@app/widget-config";
+import { color } from "./color";
+import { contrast } from "./contrast";
 import { font } from "./font";
+import { hideImages } from "./hide-images";
 import { imageDescriptions } from "./image-descriptions";
 import { lineHeight } from "./line-height";
 import { focusOutline } from "./focus-outline";
@@ -20,6 +23,9 @@ const IMPLEMENTATIONS: Implementations = {
     "text-spacing": textSpacing,
     "text-align": textAlign,
     "image-descriptions": imageDescriptions,
+    contrast,
+    color,
+    "hide-images": hideImages,
     "pause-animations": pauseAnimations,
     "highlight-links": highlightLinks,
     "focus-outline": focusOutline,

@@ -127,6 +127,42 @@ export const CATALOG = [
     },
     // Appearance
     {
+        kind: "levels",
+        id: "contrast",
+        key: "contrast",
+        section: "appearance",
+        label: "Contrast",
+        hint: "Dark and Light: plain backgrounds with strong text colors. High: stronger differences between the site's own colors.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Dark", short: "Dark" },
+            { label: "Light", short: "Light" },
+            { label: "High", short: "High" },
+        ],
+    },
+    {
+        kind: "levels",
+        id: "color",
+        key: "color",
+        section: "appearance",
+        label: "Color",
+        hint: "Muted: calmer colors. Vivid: stronger colors. Grayscale: no color.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Muted", short: "Muted" },
+            { label: "Vivid", short: "Vivid" },
+            { label: "Grayscale", short: "Grayscale" },
+        ],
+    },
+    {
+        kind: "toggle",
+        id: "hide-images",
+        key: "hideImages",
+        section: "appearance",
+        label: "Hide images",
+        hint: "Hides pictures and background images. Screen readers still get their descriptions.",
+    },
+    {
         kind: "toggle",
         id: "pause-animations",
         key: "pauseAnimations",

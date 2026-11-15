@@ -129,6 +129,25 @@ const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
             <rect x="8.5" y="10.5" width="11" height="7" rx="2" />
         </>
     ),
+    contrast: (
+        <>
+            <circle cx="14" cy="14" r="11" />
+            <path d="M14 3 A11 11 0 0 1 14 25 Z" fill="currentColor" />
+        </>
+    ),
+    color: (
+        <>
+            <path d="M14 3.5 C14 3.5 6 12.5 6 17.5 A8 8 0 0 0 22 17.5 C22 12.5 14 3.5 14 3.5 Z" />
+            <path d="M10.5 18.5 A3.5 3.5 0 0 0 14 22" />
+        </>
+    ),
+    "hide-images": (
+        <>
+            <rect x="3" y="5" width="22" height="18" rx="2" />
+            <path d="M3 19 L10 13 L15 17.5 L19 14 L25 19" />
+            <path d="M4 25 L24 3" />
+        </>
+    ),
     "pause-animations": (
         <>
             <circle cx="14" cy="14" r="11" />

@@ -145,7 +145,20 @@ type Probe = {
     read: (page: Page, area: string) => Promise<string>; // something the setting changes, read inside #area
 };
 
+/** Settings that recolor the whole screen through the lens (core/lens.ts): no area can be excluded from them. */
+const SCREEN_WIDE = ["color"];
+
 const PROBES: Record<string, Probe> = {
+    contrast: {
+        fixture: `<p class="probe">Some text</p>`,
+        turnOn: (page) => choose(page, "Contrast", "Dark"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).backgroundColor),
+    },
+    "hide-images": {
+        fixture: `<img class="probe" alt="Probe" width="20" height="20" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">`,
+        turnOn: (page) => turnOn(page, "Hide images"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).objectPosition),
+    },
     "text-size": {
         fixture: `<p class="probe">Some text</p>`,
         turnOn: async (page) => {
@@ -409,12 +422,12 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             await expect(headings).toHaveText(["Content", "Appearance", "Navigation"]);
             for (const [section, settings] of [
                 ["Content", ["Text size", "Text spacing", "Line height", "Font", "Align text", "Image descriptions"]],
-                ["Appearance", ["Pause animations"]],
+                ["Appearance", ["Contrast", "Color", "Hide images", "Pause animations"]],
                 ["Navigation", ["Highlight links", "Stronger focus outline"]],
             ] as const) {
                 const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
                 for (const name of settings) {
-                    const isLevels = ["Text size", "Text spacing", "Line height", "Font", "Align text"].includes(name);
+                    const isLevels = ["Text size", "Text spacing", "Line height", "Font", "Align text", "Contrast", "Color"].includes(name);
                     await expect(list.getByRole(isLevels ? "group" : "checkbox", { name })).toBeVisible();
                 }
                 await expect(list.getByRole("listitem")).toHaveCount(settings.length);
@@ -1437,6 +1450,160 @@ test.describe("Image descriptions (/)", () => {
     });
 });
 
+/** The color of one screen pixel, read from a screenshot (so it includes the lens's backdrop-filter). */
+async function pixel(page: Page, x: number, y: number): Promise<[number, number, number]> {
+    const shot = await page.screenshot({ clip: { x, y, width: 1, height: 1 } });
+    return page.evaluate(async (b64) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${b64}`;
+        await img.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 1;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        return [r, g, b] as [number, number, number];
+    }, shot.toString("base64"));
+}
+
+test.describe("Appearance: Contrast, Color, Hide images (/)", () => {
+    const lens = (page: Page) => page.locator("a11yw-lens");
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<div id="ap-box" style="width:120px;height:60px;background:#cc3333;margin:16px"></div>
+                 <button id="ap-under" type="button" onclick="this.dataset.clicked='yes'">Under the lens</button>`
+            );
+        });
+    });
+
+    test("Color: each level recolors the screen through the lens; clicks go through; the widget keeps its colors", async ({ page }) => {
+        const box = (await page.locator("#ap-box").boundingBox())!;
+        const at = () => pixel(page, box.x + 60, box.y + 30);
+        const launcher = (await toggle(page).boundingBox())!;
+        const brand = await pixel(page, launcher.x + 8, launcher.y + launcher.height / 2);
+        const [r0, g0] = await at();
+        expect(r0 - g0).toBeGreaterThan(140); // red
+
+        await choose(page, "Color", "Grayscale");
+        await expect(lens(page)).toHaveCount(1);
+        await expect.poll(async () => { const [r, g, b] = await at(); return Math.max(Math.abs(r - g), Math.abs(g - b)); }).toBeLessThan(6);
+        expect(await pixel(page, launcher.x + 8, launcher.y + launcher.height / 2)).toEqual(brand); // above the lens
+
+        await page.getByRole("group", { name: "Color" }).getByRole("radio", { name: "Muted" }).check();
+        await expect.poll(async () => { const [r, g] = await at(); return r - g; }).toBeLessThan(r0 - g0 - 30);
+        await page.getByRole("group", { name: "Color" }).getByRole("radio", { name: "Vivid" }).check();
+        await expect.poll(async () => { const [r, g] = await at(); return r - g; }).toBeGreaterThan(r0 - g0 + 20);
+
+        await closeButton(page).click();
+        await page.locator("#ap-under").click(); // the lens lets clicks through
+        await expect(page.locator("#ap-under")).toHaveAttribute("data-clicked", "yes");
+        await expect(lens(page)).toHaveAttribute("aria-hidden", "true");
+
+        await toggle(page).click();
+        await page.getByRole("group", { name: "Color" }).getByRole("radio", { name: "Default" }).check();
+        await expect(lens(page)).toHaveCount(0); // nothing left behind
+        expect(await at()).toEqual([r0, g0, (await at())[2]]);
+    });
+
+    test("Contrast High and Color combine in one lens; the lens stays before the widget, also after a page removes it", async ({ page }) => {
+        await choose(page, "Contrast", "High");
+        await page.getByRole("group", { name: "Color" }).getByRole("radio", { name: "Muted" }).check();
+        await expect(lens(page)).toHaveCount(1);
+        expect(await lens(page).evaluate((el) => getComputedStyle(el).backdropFilter)).toBe("contrast(1.5) saturate(0.5)");
+        const before = () => lens(page).evaluate((el) => !!(el.compareDocumentPosition(document.querySelector("a11yw-root")!) & Node.DOCUMENT_POSITION_FOLLOWING));
+        expect(await before()).toBe(true);
+
+        await page.evaluate(() => document.querySelector("a11yw-lens")!.remove()); // e.g. a single-page app replacing <body>'s children
+        await expect(lens(page)).toHaveCount(1);
+        expect(await before()).toBe(true);
+
+        await page.getByRole("group", { name: "Contrast" }).getByRole("radio", { name: "Dark" }).check(); // CSS, not the lens
+        expect(await lens(page).evaluate((el) => getComputedStyle(el).backdropFilter)).toBe("saturate(0.5)");
+    });
+
+    test("the lens doesn't change layout: a fixed header stays fixed while scrolling", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML("beforeend", `<header id="ap-fixed" style="position:fixed;top:0;left:0;right:0;height:40px;background:#036">Fixed</header><div style="height:3000px"></div>`);
+        });
+        await choose(page, "Color", "Grayscale");
+        await closeButton(page).click();
+        await page.mouse.move(300, 300); // over the page: the wheel goes through the lens
+        await page.mouse.wheel(0, 1200);
+        await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(500);
+        expect((await page.locator("#ap-fixed").boundingBox())!.y).toBe(0);
+    });
+
+    test("Contrast Dark and Light: page colors, links and their contents, form borders; Highlight links still wins; the widget keeps its own", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<p id="ap-text" style="color:#777;background:#eee">Text <a id="ap-link" href="#x"><span id="ap-link-span">a link</span></a></p>
+                 <input id="ap-input" placeholder="Search" style="border:2px solid #ccc">`
+            );
+        });
+        const css = (sel: string, prop: string) => page.locator(sel).evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
+        const widgetTitle = await css("a11yw-root .title", "color");
+
+        await choose(page, "Contrast", "Dark");
+        expect(await css("#ap-text", "background-color")).toBe("rgb(0, 0, 0)");
+        expect(await css("#ap-text", "color")).toBe("rgb(255, 255, 255)");
+        expect(await css("#ap-link", "color")).toBe("rgb(255, 255, 0)");
+        expect(await css("#ap-link-span", "color")).toBe("rgb(255, 255, 0)"); // link contents inherit the link's color
+        expect(await css("#ap-input", "border-top-color")).toBe("rgb(255, 255, 255)");
+        expect(await css("#ap-input", "box-shadow")).toBe("rgb(255, 255, 255) 0px 0px 0px 1px inset"); // an edge without changing size
+        expect(await css("html", "color-scheme")).toBe("dark");
+        expect(await css("a11yw-root .title", "color")).toBe(widgetTitle);
+        expect(await widgetViolations(page)).toEqual([]);
+
+        await page.getByRole("checkbox", { name: "Highlight links" }).check();
+        expect(await css("#ap-link", "background-color")).toBe("rgb(255, 255, 0)");
+        expect(await css("#ap-link", "color")).toBe("rgb(0, 0, 0)");
+        expect(await css("#ap-link-span", "color")).toBe("rgb(0, 0, 0)");
+        await page.getByRole("checkbox", { name: "Highlight links" }).uncheck();
+
+        await page.getByRole("group", { name: "Contrast" }).getByRole("radio", { name: "Light" }).check();
+        expect(await css("#ap-text", "background-color")).toBe("rgb(255, 255, 255)");
+        expect(await css("#ap-text", "color")).toBe("rgb(0, 0, 0)");
+        expect(await css("#ap-link", "color")).toBe("rgb(0, 0, 238)");
+        await expect(lens(page)).toHaveCount(0); // Dark and Light are page CSS
+
+        await page.getByRole("group", { name: "Contrast" }).getByRole("radio", { name: "Default" }).check();
+        expect(await css("#ap-text", "color")).toBe("rgb(119, 119, 119)");
+    });
+
+    test("Hide images: pictures become plain boxes of the same size, still described for screen readers; background images go; icons stay", async ({ page }) => {
+        await page.evaluate(() => {
+            const pic = `data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='100' height='60'><rect width='100' height='60' fill='#c33'/></svg>")}`;
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<img id="hi-img" alt="A red bicycle" src="${pic}" width="100" height="60">
+                 <svg id="hi-chart" role="img" width="80" height="40"><title>Sales chart</title><rect id="hi-bar" width="80" height="40" fill="#36c"/></svg>
+                 <button type="button"><svg id="hi-icon" width="16" height="16"><circle cx="8" cy="8" r="6"/></svg> Menu</button>
+                 <div id="hi-bg" style="width:80px;height:40px"></div>`
+            );
+            document.getElementById("hi-bg")!.style.background = `#036 url("${pic}")`;
+        });
+        const size = () => page.locator("#hi-img").boundingBox();
+        const before = await size();
+        await turnOn(page, "Hide images");
+        expect(await page.locator("#hi-img").evaluate((el) => getComputedStyle(el).objectPosition)).toBe("-99999px 0px");
+        expect(await size()).toEqual(before); // nothing moves
+        await expect(page.getByRole("img", { name: "A red bicycle" })).toBeVisible(); // still there for screen readers
+        await expect(page.getByRole("img", { name: "Sales chart" })).toBeVisible();
+        expect(await page.locator("#hi-bar").evaluate((el) => getComputedStyle(el).opacity)).toBe("0");
+        expect(await page.locator("#hi-icon").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+        expect(await page.locator("#hi-bg").evaluate((el) => [getComputedStyle(el).backgroundImage, getComputedStyle(el).backgroundColor])).toEqual(["none", "rgb(0, 51, 102)"]);
+
+        await page.getByRole("checkbox", { name: "Hide images" }).uncheck();
+        expect(await page.locator("#hi-img").evaluate((el) => getComputedStyle(el).objectPosition)).toBe("50% 50%");
+    });
+});
+
 test.describe("data-a11yw-ignore with setting names (/)", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
@@ -1449,7 +1616,7 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
         );
         expect(ids.length).toBeGreaterThan(0);
         expect(new Set(ids).size).toBe(ids.length);
-        expect(ids.filter((id) => !PROBES[id])).toEqual([]);                           // add a PROBES entry for a new setting
+        expect(ids.filter((id) => !PROBES[id] && !SCREEN_WIDE.includes(id))).toEqual([]); // add a PROBES entry for a new setting
         expect(Object.keys(PROBES).filter((id) => !ids.includes(id))).toEqual([]);     // no checks for settings that don't exist
     });
 
