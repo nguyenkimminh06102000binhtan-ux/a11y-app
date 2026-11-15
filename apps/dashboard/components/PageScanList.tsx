@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/Badge";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { RemovePageButton } from "@/components/RemovePageButton";
 import { scanRefusal } from "@/components/scanRefusal";
+import { RelativeTime } from "@/components/RelativeTime";
 
 export type PageRow = {
   id: string;
   label: string;
   open: number;
   critical: number;
-  lastChecked: string | null;
+  lastChecked: string | null; // ISO time of the latest successful scan
   usedThisMonth: boolean; // rescans free; can't be removed until the quota resets
 };
 
@@ -174,7 +175,7 @@ export function PageScanList({ siteId, domain, rows, left, resetsOn, running }: 
                 </th>
                 <td className="px-3 py-3">{row.lastChecked ? row.open : <NotYet />}</td>
                 <td className="px-3 py-3">{row.lastChecked ? row.critical : <NotYet />}</td>
-                <td className="px-3 py-3 text-small text-muted">{row.lastChecked ?? "Not checked yet"}</td>
+                <td className="px-3 py-3 text-small text-muted">{row.lastChecked ? <RelativeTime iso={row.lastChecked} /> : "Not checked yet"}</td>
                 <td className="px-3 py-2 text-right">
                   <RowAction row={row} resetsOn={resetsOn} />
                 </td>
@@ -202,7 +203,7 @@ export function PageScanList({ siteId, domain, rows, left, resetsOn, running }: 
                 <dt className="text-muted">Critical</dt>
                 <dd>{row.lastChecked ? row.critical : "–"}</dd>
                 <dt className="text-muted">Last checked</dt>
-                <dd>{row.lastChecked ?? "Not checked yet"}</dd>
+                <dd>{row.lastChecked ? <RelativeTime iso={row.lastChecked} /> : "Not checked yet"}</dd>
               </dl>
               <div className="mt-2">
                 <RowAction row={row} resetsOn={resetsOn} />

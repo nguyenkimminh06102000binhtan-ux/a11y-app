@@ -5,6 +5,7 @@ import { getOwnedSite } from "@/lib/site";
 import { getSitePlan } from "@/lib/plan";
 import { Card } from "@/components/ui/Card";
 import { DeleteSite } from "@/components/DeleteSite";
+import { Skeleton, SkeletonCards } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Settings · Widget" };
 
@@ -13,7 +14,13 @@ export default function SettingsPage({ params }: PageProps<"/sites/[id]/widget/s
   return (
     <section aria-labelledby="settings-heading">
       <h2 id="settings-heading" className="mt-0">Settings</h2>
-      <Suspense fallback={<p>Loading settings…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading settings…">
+            <SkeletonCards count={1} />
+          </Skeleton>
+        }
+      >
         <Settings params={params} />
       </Suspense>
     </section>

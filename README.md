@@ -35,6 +35,24 @@ The test pages use the fake key `acct_test`: the dashboard answers 400 and the w
 To try your own settings, copy `index.html` to `apps/widget/public/mine.html` (git-ignored), put your real
 `acct_…` key in it, add `localhost` as a site in the dashboard, and open http://localhost:4000/mine.html.
 
+### Dashboard tests
+Every page at 320, 768 and 1280px with axe (WCAG 2.2 A/AA), no sideways scrolling, 44px controls, plus the open
+states (menu, panels, confirmations, toasts) and key behaviors. They run against a **local Supabase test stack**
+(`supabase/config.toml`: database, auth and a test mailbox in Docker, never the real project). The test account is
+reseeded each run. There's no login bypass in the dashboard's code:
+- `tests/setup.ts` signs the test user in **without the sign-in page**: the local stack's admin API makes a one-time
+  sign-in link and the session goes into the browser. So the other tests don't depend on which login options exist.
+- `tests/sign-in.spec.ts` tests the sign-in page itself (today: the magic link through the test mailbox and
+  `/auth/callback`). When the login options change, change only this file.
+```bash
+supabase start                                   # once, from the repo root (needs Docker); `supabase stop` after
+MIGRATION_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm --filter @app/db db:migrate
+pnpm --filter dashboard test                     # builds into .next-test (your .next is untouched), then tests
+pnpm --filter dashboard typecheck
+```
+CI (`.github/workflows/dashboard.yml`) does the same on pull requests and pushes to `main` that touch the dashboard,
+`packages/*` it uses or `supabase/`. It only tests; Vercel still deploys.
+
 ### Shared packages
 ```bash
 pnpm --filter @app/tokens test           # every color pairing we use still has enough contrast

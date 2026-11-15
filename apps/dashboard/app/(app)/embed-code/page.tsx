@@ -8,6 +8,7 @@ import { InstallCode } from "@/components/InstallCode";
 import { FocusedAlert } from "@/components/FocusedAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Skeleton, SkeletonCards } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Embed code" };
 
@@ -25,7 +26,13 @@ export default function EmbedCodePage({ searchParams }: PageProps<"/embed-code">
       </Suspense>
 
       <Card title="Your embed code">
-        <Suspense fallback={<p>Loading embed code…</p>}>
+        <Suspense
+          fallback={
+            <Skeleton label="Loading embed code…">
+              <SkeletonCards count={1} />
+            </Skeleton>
+          }
+        >
           <InstallCode />
         </Suspense>
       </Card>

@@ -7,3 +7,7 @@ apps/widget/public/*.js
 apps/widget/test-results
 apps/widget/playwright-report
 apps/widget/public/mine.html
+apps/dashboard/.next-test
+apps/dashboard/test-results
+apps/dashboard/playwright-report
+apps/dashboard/tests/.state

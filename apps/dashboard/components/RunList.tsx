@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { changesText, formatRunTime, runStatus, type RunSummary } from "@/lib/scans";
+import { changesText, runStatus, type RunSummary } from "@/lib/scans";
+import { RelativeTime } from "@/components/RelativeTime";
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
@@ -19,13 +20,16 @@ export function NotYet() {
   );
 }
 
-/** The run's link: the date, with "See scan from" for screen readers so it makes sense out of context. */
+/**
+ * The run's link: "25 minutes ago", named "See scan from 25 minutes ago (Nov 15, 2026, 9:40 AM UTC)" for screen
+ * readers, so it makes sense out of context and points to one scan.
+ */
 function RunLink({ run, base }: { run: RunSummary; base: string }) {
   return (
     <Link href={`${base}/${run.key}`} className="inline-flex min-h-11 items-center font-bold">
       <span>
         <span className="sr-only">See scan from </span>
-        {formatRunTime(run.startedAt)}
+        <RelativeTime iso={run.startedAt.toISOString()} exact />
       </span>
     </Link>
   );

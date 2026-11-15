@@ -11,6 +11,7 @@ import { PageScanList, type PageRow } from "@/components/PageScanList";
 import { ScanProgress } from "@/components/ScanProgress";
 import { FocusedAlert } from "@/components/FocusedAlert";
 import { ArrivalToast } from "@/components/ui/Toaster";
+import { Skeleton, Bone, SkeletonText, SkeletonList } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Pages · Audit" };
 
@@ -26,7 +27,17 @@ export default function PagesPage({ params, searchParams }: PageProps) {
       <h2 id="pages-heading" className="mt-0">
         Pages
       </h2>
-      <Suspense fallback={<p>Loading pages…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading pages…">
+            <SkeletonText lines={1} />
+            <Bone className="h-5 w-64" />
+            <Bone className="h-2 w-full max-w-md rounded-full" />
+            <Bone className="h-11 w-36 rounded-lg" />
+            <SkeletonList rows={5} />
+          </Skeleton>
+        }
+      >
         <PagesContent params={params} searchParams={searchParams} />
       </Suspense>
     </>
@@ -53,9 +64,7 @@ async function PagesContent({ params, searchParams }: PageProps) {
       label: pageLabel(page.url, site.domain),
       open: issues.length,
       critical: issues.filter((r) => r.impact === "critical").length,
-      lastChecked: checkedAt
-        ? `${checkedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`
-        : null,
+      lastChecked: checkedAt ? checkedAt.toISOString() : null,
       usedThisMonth: quota.used.has(page.url),
     };
   });

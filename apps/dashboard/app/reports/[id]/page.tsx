@@ -7,6 +7,7 @@ import { IMPACTS } from "@/lib/issues";
 import { criterionLabel } from "@/lib/wcag";
 import { Mark } from "@/components/Mark";
 import { PrintButton } from "@/components/PrintButton";
+import { Skeleton, Bone, SkeletonText, SkeletonList } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Accessibility report" };
 
@@ -22,7 +23,16 @@ const IMPACT_NAMES = { critical: "Critical", serious: "Serious", moderate: "Mode
 export default function ReportPage({ params }: PageProps<"/reports/[id]">) {
   return (
     <main id="main" className="max-w-4xl print:max-w-none print:p-0">
-      <Suspense fallback={<p>Preparing the report…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Preparing the report…">
+            <Bone className="h-5 w-32" />
+            <Bone className="h-9 w-full max-w-xl" />
+            <SkeletonText lines={1} />
+            <SkeletonList rows={4} />
+          </Skeleton>
+        }
+      >
         <Report params={params} />
       </Suspense>
     </main>

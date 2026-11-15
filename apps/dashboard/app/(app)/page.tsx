@@ -9,6 +9,7 @@ import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/Button";
 import { ArrivalToast } from "@/components/ui/Toaster";
 import { normalizeDomain } from "@/lib/domain";
+import { Skeleton, Bone, SkeletonList, SkeletonSearch } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Sites" };
 
@@ -40,7 +41,15 @@ export default function Home({ searchParams }: PageProps<"/">) {
         <p className="mt-0 mb-4 text-small text-muted">
           One embed code works for every site: <Link href="/embed-code">get the embed code</Link>.
         </p>
-        <Suspense fallback={<p>Loading sites…</p>}>
+        <Suspense
+          fallback={
+            <Skeleton label="Loading sites…">
+              <SkeletonSearch />
+              <Bone className="h-4 w-40" />
+              <SkeletonList rows={5} />
+            </Skeleton>
+          }
+        >
           <Sites searchParams={searchParams} />
         </Suspense>
       </section>

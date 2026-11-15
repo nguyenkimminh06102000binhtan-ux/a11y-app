@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // The tests build into their own folder, so they never replace your dev or production build
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   cacheComponents: true,
   transpilePackages: ["@app/db", "@app/widget-config"],
   partialPrefetching: true,

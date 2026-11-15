@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { db, sql } from "@app/db";
+import { exactTime } from "./relative-time";
 
 /*
  * Scan history for Audit › Scans. A run = the pages started together by one "Scan N pages" click (scans sharing a
@@ -205,7 +206,7 @@ export const getRun = cache(async (siteId: string, key: string) => {
 
 /** "Nov 15, 2026, 9:40 AM UTC" */
 export function formatRunTime(date: Date): string {
-  return `${date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
+  return exactTime(date);
 }
 
 /** "Done", "Some pages failed"… */

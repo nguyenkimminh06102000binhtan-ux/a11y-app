@@ -10,6 +10,7 @@ import { IssueFilters } from "@/components/IssueFilters";
 import { IssueDetail } from "@/components/IssueDetail";
 import { wcagFor, criterionLabel, compareCriteria } from "@/lib/wcag";
 import { ImpactPill } from "@/components/ImpactPill";
+import { Skeleton, SkeletonList, SkeletonSearch } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Issues · Audit" };
 
@@ -22,7 +23,14 @@ export default function IssuesPage({ params, searchParams }: PageProps<"/sites/[
   return (
     <>
       <h2 className="mt-0">Issues</h2>
-      <Suspense fallback={<p>Loading issues…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading issues…">
+            <SkeletonSearch />
+            <SkeletonList rows={6} />
+          </Skeleton>
+        }
+      >
         <Issues params={params} searchParams={searchParams} />
       </Suspense>
     </>

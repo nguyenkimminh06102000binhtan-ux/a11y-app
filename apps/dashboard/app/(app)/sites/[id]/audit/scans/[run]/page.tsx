@@ -9,13 +9,30 @@ import { changesText, formatDuration, formatRunTime, getRun, runStatus, type Run
 import { isUuid } from "@/lib/ids";
 import { ScanProgress } from "@/components/ScanProgress";
 import { NotYet } from "@/components/RunList";
+import { Skeleton, Bone, SkeletonList } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Scan · Audit" };
 
 /** Audit › Scans › one run: when, how long, the totals, then each page's result and what changed on it. */
 export default function RunPageRoute({ params }: PageProps<"/sites/[id]/audit/scans/[run]">) {
   return (
-    <Suspense fallback={<p>Loading scan…</p>}>
+    <Suspense
+      fallback={
+        <Skeleton label="Loading scan…">
+          <Bone className="h-5 w-24" />
+          <Bone className="h-7 w-80 max-w-full" />
+          <div className="flex flex-wrap gap-6">
+            {["w-24", "w-16", "w-28", "w-12", "w-24"].map((w, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <Bone className="h-3 w-16" />
+                <Bone className={`h-5 ${w}`} />
+              </div>
+            ))}
+          </div>
+          <SkeletonList rows={3} />
+        </Skeleton>
+      }
+    >
       <Run params={params} />
     </Suspense>
   );
@@ -86,9 +103,10 @@ async function Run({ params }: { params: Promise<{ id: string; run: string }> })
         <ScanProgress siteId={site.id} domain={site.domain} initial={latest} />
       )}
 
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1 sm:grid-cols-[repeat(5,auto)] sm:grid-rows-[auto_auto] sm:grid-flow-col sm:justify-start">
+      {/* Each fact is a label over its value; they wrap onto more rows when the space is narrow */}
+      <dl className="flex flex-wrap gap-x-8 gap-y-3">
         {facts.map(([term, value]) => (
-          <div key={term} className="contents">
+          <div key={term} className="flex min-w-0 flex-col">
             <dt className="text-small text-muted">{term}</dt>
             <dd className="font-bold">{value}</dd>
           </div>

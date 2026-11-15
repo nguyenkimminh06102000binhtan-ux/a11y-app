@@ -5,6 +5,7 @@ import { getOwnedSite } from "@/lib/site";
 import { getRunsPage } from "@/lib/scans";
 import { RunList } from "@/components/RunList";
 import { Pagination } from "@/components/Pagination";
+import { Skeleton, SkeletonText, SkeletonList } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Scans · Audit" };
 
@@ -17,7 +18,14 @@ export default function ScansPage({ params, searchParams }: PageProps<"/sites/[i
       <h2 id="scans-heading" className="mt-0">
         Scans
       </h2>
-      <Suspense fallback={<p>Loading scans…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading scans…">
+            <SkeletonText lines={1} />
+            <SkeletonList rows={5} />
+          </Skeleton>
+        }
+      >
         <Scans params={params} searchParams={searchParams} />
       </Suspense>
     </section>

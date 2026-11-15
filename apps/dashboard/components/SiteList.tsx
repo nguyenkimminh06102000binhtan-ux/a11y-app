@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SiteSummary } from "@/lib/sites";
+import { RelativeTime } from "@/components/RelativeTime";
 
 type Step = { text: string; href: string };
 
@@ -21,15 +22,12 @@ export function nextStep(site: SiteSummary): Step {
   return { text: "No issues found · scan more pages", href: `${base}/pages` };
 }
 
-function formatDay(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
-function lastScanText(site: SiteSummary): string {
-  if (site.scanning) return "Scanning now…";
-  if (!site.lastScan) return "Never";
-  const day = formatDay(site.lastScan.at);
-  return site.lastScan.status === "failed" ? `Failed · ${day}` : day;
+/** "2 hours ago", "Failed · yesterday", "Scanning now…" or "Never" */
+function LastScan({ site }: { site: SiteSummary }) {
+  if (site.scanning) return <>Scanning now…</>;
+  if (!site.lastScan) return <>Never</>;
+  const when = <RelativeTime iso={site.lastScan.at.toISOString()} />;
+  return site.lastScan.status === "failed" ? <>Failed · {when}</> : when;
 }
 
 /** "48 · 7 critical", or a dash (read as "not checked yet") before any page has been checked. */
@@ -94,7 +92,7 @@ export function SiteList({ sites }: { sites: SiteSummary[] }) {
                 <td className="px-4 py-3 whitespace-nowrap">
                   <OpenIssues site={site} />
                 </td>
-                <td className="px-4 py-3 text-small whitespace-nowrap">{lastScanText(site)}</td>
+                <td className="px-4 py-3 text-small whitespace-nowrap"><LastScan site={site} /></td>
                 <td className="px-4 py-1">
                   <StepLink site={site} />
                 </td>
@@ -118,7 +116,7 @@ export function SiteList({ sites }: { sites: SiteSummary[] }) {
                 <OpenIssues site={site} />
               </dd>
               <dt className="text-muted">Last scan</dt>
-              <dd>{lastScanText(site)}</dd>
+              <dd><LastScan site={site} /></dd>
             </dl>
             <div className="mt-1">
               <StepLink site={site} />

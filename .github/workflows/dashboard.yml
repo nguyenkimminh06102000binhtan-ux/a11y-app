@@ -1,0 +1,77 @@
+# Tests the dashboard on pull requests and pushes to main that touch it: typecheck, lint, then every page with
+# axe (WCAG 2.2 A/AA), layout and behavior tests against a local Supabase (real magic-link sign-in, no bypass).
+# It only tests: Vercel deploys the dashboard as before.
+name: Dashboard
+
+on:
+  pull_request:
+    paths:
+      - "apps/dashboard/**"
+      - "packages/db/**"
+      - "packages/tokens/**"
+      - "packages/widget-config/**"
+      - "supabase/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/dashboard.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/dashboard/**"
+      - "packages/db/**"
+      - "packages/tokens/**"
+      - "packages/widget-config/**"
+      - "supabase/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard-${{ github.ref }}
+  cancel-in-progress: true # a newer push makes this run's result moot
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.1 # same as devEngines in package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter dashboard typecheck
+      - name: Lint
+        run: pnpm --filter dashboard lint
+
+      # The local test stack from supabase/config.toml: database, auth and a test mailbox, nothing else.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.101.0
+      - name: Start the local Supabase
+        run: supabase start
+      - name: Create the tables (Drizzle migrations)
+        run: pnpm --filter @app/db db:migrate
+        env:
+          MIGRATION_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres # the local stack's default
+
+      - name: Install the browser for Playwright
+        run: pnpm --filter dashboard exec playwright install --with-deps chromium
+      - name: Dashboard tests (Playwright + axe)
+        run: pnpm --filter dashboard test
+
+      - name: Keep the trace of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-playwright-traces
+          path: apps/dashboard/test-results/
+          retention-days: 7

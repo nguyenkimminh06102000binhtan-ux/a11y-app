@@ -5,6 +5,7 @@ import { getOwnedSite } from "@/lib/site";
 import { getLatestAudit } from "@/lib/audit";
 import { Card } from "@/components/ui/Card";
 import { ButtonLink, buttonClass } from "@/components/ui/Button";
+import { Skeleton, SkeletonText, SkeletonCards } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Reports · Audit" };
 
@@ -15,7 +16,14 @@ export default function ReportsPage({ params }: PageProps<"/sites/[id]/audit/rep
       <h2 id="reports-heading" className="mt-0">
         Reports
       </h2>
-      <Suspense fallback={<p>Loading reports…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading reports…">
+            <SkeletonText lines={1} />
+            <SkeletonCards count={2} />
+          </Skeleton>
+        }
+      >
         <Reports params={params} />
       </Suspense>
     </section>

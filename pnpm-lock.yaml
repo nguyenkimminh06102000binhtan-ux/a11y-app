@@ -244,6 +244,12 @@ importers:
         specifier: ^1.5.0
         version: 1.5.0(typescript@5.9.3)
     devDependencies:
+      '@axe-core/playwright':
+        specifier: ^4.14.0
+        version: 4.14.0(playwright-core@1.65.0)
+      '@playwright/test':
+        specifier: ^1.65.0
+        version: 1.65.0
       '@tailwindcss/turbopack':
         specifier: 4.3.3
         version: 4.3.3

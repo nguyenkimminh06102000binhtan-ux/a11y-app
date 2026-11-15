@@ -4,6 +4,7 @@ import { db, widgetSettings, eq } from "@app/db";
 import { readSiteSettings } from "@app/widget-config";
 import { getOwnedSite } from "@/lib/site";
 import { WidgetSettingsForm } from "./WidgetSettingsForm";
+import { Skeleton, SkeletonForm } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Customize · Widget" };
 
@@ -12,7 +13,13 @@ export default function CustomizePage({ params }: PageProps<"/sites/[id]/widget"
   return (
     <section aria-labelledby="customize-heading">
       <h2 id="customize-heading" className="mt-0">Customize</h2>
-      <Suspense fallback={<p>Loading settings…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading settings…">
+            <SkeletonForm fields={5} />
+          </Skeleton>
+        }
+      >
         <Customize params={params} />
       </Suspense>
     </section>

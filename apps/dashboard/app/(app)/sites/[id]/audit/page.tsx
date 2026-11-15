@@ -7,10 +7,12 @@ import { getLatestRun, describeScanError } from "@/lib/runs";
 import { getSitePages, pageLabel } from "@/lib/pages";
 import { formatResetDate, nextMonthStartUtc } from "@/lib/month";
 import { ScanProgress } from "@/components/ScanProgress";
+import { RelativeTime } from "@/components/RelativeTime";
 import { ScanPagesForm } from "@/components/ScanPagesForm";
 import { ImpactPill } from "@/components/ImpactPill";
 import { Card } from "@/components/ui/Card";
 import { ButtonLink } from "@/components/ui/Button";
+import { Skeleton, SkeletonText, SkeletonCards } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Overview · Audit" };
 
@@ -21,7 +23,14 @@ export default function OverviewPage({ params, searchParams }: PageProps<"/sites
   return (
     <>
       <h2 className="mt-0">Overview</h2>
-      <Suspense fallback={<p>Loading scans…</p>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading overview…">
+            <SkeletonText lines={2} />
+            <SkeletonCards count={2} />
+          </Skeleton>
+        }
+      >
         <Overview params={params} searchParams={searchParams as Promise<{ started?: string }>} />
       </Suspense>
     </>
@@ -48,8 +57,12 @@ async function Overview({ params, searchParams }: { params: Promise<{ id: string
       {pagesChecked > 0 && (
         <p className="-mt-1 text-muted">
           Across the {pagesChecked} {pagesChecked === 1 ? "page" : "pages"} checked so far, each from its latest scan
-          {lastCheckedAt &&
-            ` (most recent: ${lastCheckedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC)`}
+          {lastCheckedAt && (
+            <>
+              {" "}
+              (most recent <RelativeTime iso={lastCheckedAt.toISOString()} />)
+            </>
+          )}
           . Automated checks find part of the issues; a manual review covers the rest.
         </p>
       )}
