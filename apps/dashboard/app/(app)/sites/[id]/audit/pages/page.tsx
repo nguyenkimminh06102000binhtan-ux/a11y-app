@@ -10,6 +10,7 @@ import { AddPagesPanel } from "@/components/AddPagesPanel";
 import { PageScanList, type PageRow } from "@/components/PageScanList";
 import { ScanProgress } from "@/components/ScanProgress";
 import { FocusedAlert } from "@/components/FocusedAlert";
+import { ArrivalToast } from "@/components/ui/Toaster";
 
 export const metadata: Metadata = { title: "Pages · Audit" };
 
@@ -22,7 +23,9 @@ type PageProps = {
 export default function PagesPage({ params, searchParams }: PageProps) {
   return (
     <>
-      <h2 className="mt-0">Pages</h2>
+      <h2 id="pages-heading" className="mt-0">
+        Pages
+      </h2>
       <Suspense fallback={<p>Loading pages…</p>}>
         <PagesContent params={params} searchParams={searchParams} />
       </Suspense>
@@ -82,9 +85,12 @@ async function PagesContent({ params, searchParams }: PageProps) {
         <FocusedAlert>That page was scanned this month, so it stays on the list until {resetsOn}.</FocusedAlert>
       )}
       {removed && (
-        <FocusedAlert key={n} tone="success">
-          Removed {pageLabel(removed, site.domain)} from the list.
-        </FocusedAlert>
+        <ArrivalToast
+          key={n}
+          message={`Removed ${pageLabel(removed, site.domain)} from the list.`}
+          focus="#pages-heading"
+          clear={["removed", "n"]}
+        />
       )}
 
       <AddPagesPanel siteId={site.id} domain={site.domain} />

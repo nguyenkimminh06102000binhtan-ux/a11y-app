@@ -7,7 +7,7 @@ import { SiteList } from "@/components/SiteList";
 import { SitesHeader } from "@/components/SitesHeader";
 import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/Button";
-import { FocusedAlert } from "@/components/FocusedAlert";
+import { ArrivalToast } from "@/components/ui/Toaster";
 import { normalizeDomain } from "@/lib/domain";
 
 export const metadata: Metadata = { title: "Sites" };
@@ -48,18 +48,12 @@ export default function Home({ searchParams }: PageProps<"/">) {
   );
 }
 
-/** After deleting a site: "brand.com was deleted." (only a well-formed domain is echoed back) */
+/** After deleting a site: a toast "brand.com was deleted.", focus on the Sites heading (only a well-formed domain is echoed back) */
 async function Deleted({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { deleted } = await searchParams;
   const domain = typeof deleted === "string" ? normalizeDomain(deleted) : null;
   if (!domain) return null;
-  return (
-    <div className="mb-4">
-      <FocusedAlert key={domain} tone="success">
-        <strong className="wrap-anywhere">{domain}</strong> was deleted.
-      </FocusedAlert>
-    </div>
-  );
+  return <ArrivalToast key={domain} message={`${domain} was deleted.`} focus="#main h1" clear={["deleted"]} />;
 }
 
 async function SiteCount() {

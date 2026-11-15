@@ -8,6 +8,7 @@ import { NavLink } from "@/components/NavLink";
 import { AppMenu, AppMenuView } from "@/components/AppMenu";
 import { Badge } from "@/components/ui/Badge";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { Toaster } from "@/components/ui/Toaster";
 
 async function signOut() {
   "use server";
@@ -49,6 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {children}
+      <Toaster />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { DEFAULTABLE, DEFAULTABLE_LABELS, DEFAULT_PLACEMENT, onStateColor, type Placement, type SiteSettings } from "@app/widget-config";
 import { saveWidgetSettings, type WidgetSettingsField, type WidgetSettingsState } from "@/app/actions";
 import { PositionFields, type PlacementDraft } from "./PositionFields";
+import { toast } from "@/components/ui/Toaster";
 
 
 const DEFAULT_STATE_COLOR = "#5b47c8"; // packages/tokens --bcn-state
@@ -21,7 +22,7 @@ const draft = (p: Placement): PlacementDraft => ({ spot: p.spot, side: String(p.
 /**
  * The widget's settings for one site, in sections (more will come: position, language…).
  * - Errors appear next to their field (aria-invalid + aria-describedby), and focus moves to the first one.
- * - After saving, a status message is announced; the form keeps what was submitted, valid or not.
+ * - After saving, a toast confirms it; after a refused save, a status message says so. The form keeps what was submitted.
  * - Works without JavaScript too: it's a plain form posting to a server action.
  */
 export function WidgetSettingsForm({ siteId, settings }: { siteId: string; settings: SiteSettings }) {
@@ -38,6 +39,11 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
     const [samePhone, setSamePhone] = useState(!savedPosition?.phone);
     const [phone, setPhone] = useState(draft(savedPosition?.phone ?? savedPosition?.desktop ?? DEFAULT_PLACEMENT));
     const errors = state.errors ?? {};
+
+    // Saved: a toast (focus stays on Save, for another change)
+    useEffect(() => {
+        if (state.status === "saved") toast("Saved. Visitors see the changes on their next page view.");
+    }, [state]);
 
     useEffect(() => {
         const first = FIELD_ORDER.find((field) => state.errors?.[field]);
@@ -139,7 +145,6 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                 <button type="submit">{pending ? "Saving…" : "Save widget settings"}</button>
                 {/* Always rendered, so screen readers announce it when the text appears */}
                 <p role="status">
-                    {state.status === "saved" && "Saved. Visitors see the changes on their next page view, within seconds."}
                     {state.status === "invalid" && "Not saved: please fix the fields marked above."}
                 </p>
             </div>

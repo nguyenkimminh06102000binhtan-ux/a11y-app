@@ -33,6 +33,15 @@
   --text-small--line-height: 1.45;
   --text-caption: 0.8125rem;
   --text-caption--line-height: 1.4;
+
+  /* Toasts slide up a little (only without "Reduce motion": used as motion-safe:animate-toast-in) */
+  --animate-toast-in: toast-in 0.2s ease-out;
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
 }
 
 /*
