@@ -1,4 +1,7 @@
 import { CATALOG } from "@app/widget-config";
+import { alignLeft } from "./align-left";
+import { font } from "./font";
+import { lineHeight } from "./line-height";
 import { focusOutline } from "./focus-outline";
 import { highlightLinks } from "./highlight-links";
 import { pauseAnimations } from "./pause-animations";
@@ -11,7 +14,10 @@ export type { Behavior, Feature, LevelFeature, ToggleFeature } from "./types";
 /** What each catalog entry does. A missing or extra entry, or one of the wrong kind, is a type error. */
 const IMPLEMENTATIONS: Implementations = {
     "text-size": textSizeFeature,
+    "line-height": lineHeight,
+    font,
     "text-spacing": textSpacing,
+    "align-left": alignLeft,
     "pause-animations": pauseAnimations,
     "highlight-links": highlightLinks,
     "focus-outline": focusOutline,

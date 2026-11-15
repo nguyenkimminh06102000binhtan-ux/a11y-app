@@ -24,6 +24,12 @@ async function turnOn(page: Page, label: string) {
     await page.getByRole("checkbox", { name: label }).check();
 }
 
+/** Open the panel and pick a level of a level setting, e.g. choose(page, "Font", "Wide"). */
+async function choose(page: Page, setting: string, level: string) {
+    await toggle(page).click();
+    await page.getByRole("group", { name: setting }).getByRole("radio", { name: level }).check();
+}
+
 /** A silent 2-second WAV as a blob URL on the page: autoplay tests need no files and no network. */
 async function silentWavUrl(page: Page): Promise<string> {
     return page.evaluate(() => {
@@ -147,6 +153,21 @@ const PROBES: Record<string, Probe> = {
             await page.getByRole("radio", { name: "Larger (150%)" }).check();
         },
         read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).fontSize),
+    },
+    "line-height": {
+        fixture: `<p class="probe">Some text</p>`,
+        turnOn: (page) => choose(page, "Line height", "Double (2)"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).lineHeight),
+    },
+    font: {
+        fixture: `<p class="probe">Some text</p>`,
+        turnOn: (page) => choose(page, "Font", "Wide"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).fontFamily),
+    },
+    "align-left": {
+        fixture: `<p class="probe" style="text-align: center">Some text</p>`,
+        turnOn: (page) => turnOn(page, "Align left"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).textAlign),
     },
     "highlight-links": {
         fixture: `<a class="probe" href="/probe">A link</a>`,
@@ -359,7 +380,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 await page.evaluate((value) => localStorage.setItem("a11yw:settings:v1", JSON.stringify({ textSize: value, textSpacing: true })), textSize);
                 await page.reload();
                 await toggle(page).click();
-                await expect(page.getByRole("radio", { name: "Default" }), String(textSize)).toBeChecked();
+                await expect(page.getByRole("group", { name: "Text size" }).getByRole("radio", { name: "Default" }), String(textSize)).toBeChecked();
                 await expect(page.getByRole("checkbox", { name: "Text spacing" })).toBeChecked(); // the rest is kept
             }
         });
@@ -369,13 +390,14 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             const headings = panel(page).getByRole("heading", { level: 3 });
             await expect(headings).toHaveText(["Content", "Appearance", "Navigation"]);
             for (const [section, settings] of [
-                ["Content", ["Text size", "Text spacing"]],
+                ["Content", ["Text size", "Line height", "Font", "Text spacing", "Align left"]],
                 ["Appearance", ["Pause animations"]],
                 ["Navigation", ["Highlight links", "Stronger focus outline"]],
             ] as const) {
                 const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
                 for (const name of settings) {
-                    await expect(list.getByRole(name === "Text size" ? "group" : "checkbox", { name })).toBeVisible();
+                    const isLevels = ["Text size", "Line height", "Font"].includes(name);
+                    await expect(list.getByRole(isLevels ? "group" : "checkbox", { name })).toBeVisible();
                 }
                 await expect(list.getByRole("listitem")).toHaveCount(settings.length);
             }
@@ -387,7 +409,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
                 expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
             }
             // Text size's segments follow its number of levels
-            expect(await panel(page).locator(".level-options").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length)).toBe(4);
+            expect(await panel(page).locator(".level-options").first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length)).toBe(4);
         });
 
         test("Text spacing applies WCAG 1.4.12 values to the page, not the widget", async ({ page }) => {
@@ -1095,6 +1117,132 @@ test.describe("staying mounted (/)", () => {
     });
 });
 
+
+test.describe("Line height, Font and Align left (/)", () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+    });
+
+    const ratio = (page: Page, selector: string) =>
+        page.locator(selector).first().evaluate((el) => {
+            const s = getComputedStyle(el);
+            return parseFloat(s.lineHeight) / parseFloat(s.fontSize);
+        });
+
+    test("Line height: each level on the page, not the widget; it beats Text spacing; Default puts the page's back", async ({ page }) => {
+        const before = await page.locator("body > p").first().evaluate((el) => getComputedStyle(el).lineHeight);
+        for (const [level, value] of [["Comfortable (1.5)", 1.5], ["Roomy (1.75)", 1.75], ["Double (2)", 2]] as const) {
+            await choose(page, "Line height", level);
+            expect(await ratio(page, "body > p"), level).toBeCloseTo(value, 1);
+            await toggle(page).click(); // close, for the next choose()
+        }
+        expect(await ratio(page, "a11yw-root .feature-hint")).toBeCloseTo(1.4, 1); // the widget keeps its own
+
+        await turnOn(page, "Text spacing"); // its line height is 1.5: the chosen 2 still wins
+        expect(await ratio(page, "body > p")).toBeCloseTo(2, 1);
+        await page.getByRole("checkbox", { name: "Text spacing" }).uncheck();
+
+        await page.getByRole("group", { name: "Line height" }).getByRole("radio", { name: "Default" }).check();
+        expect(await page.locator("body > p").first().evaluate((el) => getComputedStyle(el).lineHeight)).toBe(before);
+    });
+
+    test("Font: nothing downloaded until picked, then only that font, from our CDN; code, icons and the widget keep theirs", async ({ page }) => {
+        const fontRequests: string[] = [];
+        page.on("request", (r) => {
+            if (r.url().includes("/fonts/")) fontRequests.push(new URL(r.url()).pathname);
+        });
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<style>.fa { font-family: "FontAwesome" !important; } .material-icons { font-family: "Material Icons"; }</style>
+                 <p id="font-text">Reading text, đọc tiếng Việt</p>
+                 <code id="font-code">const x = 1;</code> <pre id="font-pre"><span>let y = 2;</span></pre>
+                 <i id="font-fa" class="fa fa-star"></i> <span id="font-material" class="material-icons">home</span>`
+            );
+        });
+        const family = (id: string) => page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).fontFamily);
+        const pageFont = await family("font-text");
+        const codeFont = await family("font-code");
+        const widgetFont = await page.locator("a11yw-root .title").evaluate((el) => getComputedStyle(el).fontFamily);
+
+        await toggle(page).click();
+        expect(fontRequests).toEqual([]); // the panel alone downloads nothing
+
+        await page.getByRole("group", { name: "Font" }).getByRole("radio", { name: "Wide" }).check();
+        expect(await family("font-text")).toMatch(/^"AccessPilot Wide"/);
+        await expect.poll(() => page.evaluate(async () => (await document.fonts.ready, document.fonts.check('16px "AccessPilot Wide"', "đ")))).toBe(true);
+        expect(fontRequests.length).toBeGreaterThan(0);
+        expect(fontRequests.every((path) => /^\/fonts\/(wide\.[0-9a-f]{10}\.css|lexend-[a-z-]+\.[0-9a-f]{10}\.woff2)$/.test(path)), fontRequests.join(", ")).toBe(true);
+        expect(fontRequests.some((path) => path.includes("vietnamese"))).toBe(true); // the page has Vietnamese: its part is fetched too
+
+        expect(await family("font-code")).toBe(codeFont);
+        expect(await page.locator("#font-pre span").evaluate((el) => getComputedStyle(el).fontFamily)).toBe(codeFont);
+        expect(await family("font-fa")).toMatch(/^"?FontAwesome"?$/); // the browser may drop the quotes
+        expect(await family("font-material")).toMatch(/^"?Material Icons"?$/);
+        expect(await page.locator("a11yw-root .title").evaluate((el) => getComputedStyle(el).fontFamily)).toBe(widgetFont);
+
+        // Switching font swaps the stylesheet; Default removes it and gives the page its font back
+        fontRequests.length = 0;
+        await page.getByRole("group", { name: "Font" }).getByRole("radio", { name: "Simple" }).check();
+        expect(await family("font-text")).toMatch(/^"AccessPilot Simple"/);
+        await expect(page.locator("link#a11yw-font")).toHaveAttribute("href", /\/fonts\/simple\.[0-9a-f]{10}\.css$/);
+        await expect.poll(() => fontRequests.some((path) => path.startsWith("/fonts/andika-"))).toBe(true);
+        expect(fontRequests.some((path) => path.includes("lexend") || path.includes("atkinson"))).toBe(false);
+        await expect(page.locator("link#a11yw-font")).toHaveCount(1);
+
+        await page.getByRole("group", { name: "Font" }).getByRole("radio", { name: "Default" }).check();
+        await expect(page.locator("link#a11yw-font")).toHaveCount(0);
+        expect(await family("font-text")).toBe(pageFont);
+    });
+
+    test("Font: a chosen font comes back after reload, and after a single-page app replaces <head>", async ({ page }) => {
+        await choose(page, "Font", "Clear");
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        await expect(page.locator("link#a11yw-font")).toHaveAttribute("href", /\/fonts\/clear\.[0-9a-f]{10}\.css$/);
+        await page.evaluate(() => document.getElementById("a11yw-font")!.remove());
+        await expect(page.locator("link#a11yw-font")).toHaveCount(1);
+        await page.getByRole("button", { name: "Accessibility" }).click();
+        await page.getByRole("button", { name: "Reset all" }).click();
+        await expect(page.locator("link#a11yw-font")).toHaveCount(0);
+    });
+
+    test("fonts are served with their licenses, and cross-origin headers for customers' sites", async ({ request }) => {
+        for (const name of ["clear", "wide", "simple"]) {
+            const license = await request.get(`/fonts/${name}-LICENSE.txt`);
+            expect(license.ok(), name).toBe(true);
+            expect(await license.text()).toContain("SIL OPEN FONT LICENSE");
+        }
+        const headers = await (await request.get("/_headers")).text();
+        expect(headers).toMatch(/\/fonts\/\*\n\s+Cache-Control: public, max-age=31536000, immutable\n\s+Access-Control-Allow-Origin: \*/);
+    });
+
+    test("Align left: centered and justified text lines up at the start (the right on RTL pages); centered layouts stay", async ({ page }) => {
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<p id="al-center" style="text-align: center">Centered text</p>
+                 <p id="al-justify" style="text-align: justify">Justified text</p>
+                 <h2 id="al-heading" style="text-align: center">Centered heading</h2>
+                 <p id="al-rtl" dir="rtl" style="text-align: center">نص في الوسط</p>
+                 <div id="al-layout" style="text-align: center"><button type="button">Centered button</button></div>`
+            );
+        });
+        await turnOn(page, "Align left");
+        const align = (id: string) => page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).textAlign);
+        for (const id of ["al-center", "al-justify", "al-heading", "al-rtl"]) expect(await align(id), id).toBe("start");
+        const rtl = await page.locator("#al-rtl").evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return el.getBoundingClientRect().right - range.getBoundingClientRect().right;
+        });
+        expect(rtl).toBeLessThan(2); // starts on the right
+        expect(await align("al-layout")).toBe("center");
+        await page.getByRole("checkbox", { name: "Align left" }).uncheck();
+        expect(await align("al-center")).toBe("center");
+    });
+});
 
 test.describe("data-a11yw-ignore with setting names (/)", () => {
     test.beforeEach(async ({ page }) => {

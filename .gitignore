@@ -11,3 +11,5 @@ apps/dashboard/.next-test
 apps/dashboard/test-results
 apps/dashboard/playwright-report
 apps/dashboard/tests/.state
+
+apps/widget/public/fonts

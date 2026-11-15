@@ -1,4 +1,4 @@
-import { FEATURES, type ToggleFeature } from "../features";
+import { FEATURES, type LevelFeature, type ToggleFeature } from "../features";
 import type { Settings } from "./settings";
 import { rescanShadowRoots } from "../core/shadow-roots";
 import { scopeFor } from "../features/scope";
@@ -20,12 +20,18 @@ const shadowSheet = "replaceSync" in CSSStyleSheet.prototype ? new CSSStyleSheet
 // Kept even if its component is removed: it may be put back, and we're never told about a root twice.
 const fallbackRoots = new Set<ShadowRoot>();
 
-/** The CSS for every active setting. Empty when nothing is on. */
-/** The CSS for every active setting, minus any `skip` names. Empty when nothing is on. */
+/**
+ * The CSS for every active setting, minus any `skip` names. Empty when nothing is on.
+ * Level settings come last, so a chosen level wins over an on/off setting's value (Line height 2 over Text spacing's 1.5).
+ */
 export function cssFor(settings: Settings, skip: (id: string) => boolean = () => false): string {
-    return FEATURES.filter((f): f is ToggleFeature => f.kind !== "levels" && settings[f.key] && !!f.css && !skip(f.id))
-        .map((f) => f.css!(scopeFor(f.id, f.inherited)))
-        .join("\n");
+    const toggles = FEATURES.filter((f): f is ToggleFeature => f.kind !== "levels" && settings[f.key] && !!f.css && !skip(f.id)).map((f) =>
+        f.css!(scopeFor(f.id, f.inherited))
+    );
+    const levels = FEATURES.filter((f): f is LevelFeature => f.kind === "levels" && settings[f.key] > 0 && !!f.css && !skip(f.id)).map((f) =>
+        f.css!(settings[f.key], scopeFor(f.id, f.inherited))
+    );
+    return [...toggles, ...levels].filter(Boolean).join("\n");
 }
 
 /** Apply the visitor's settings to the page, every open shadow root and every same-origin iframe on it. */

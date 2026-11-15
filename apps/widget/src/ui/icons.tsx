@@ -85,6 +85,24 @@ const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
             <path d="M23 22 V8 M19.5 11.5 L23 8 L26.5 11.5" />
         </>
     ),
+    "line-height": (
+        <>
+            <path d="M10 7 H25 M10 14 H25 M10 21 H25" />
+            <path d="M5 4 V24 M2.5 6.5 L5 4 L7.5 6.5 M2.5 21.5 L5 24 L7.5 21.5" />
+        </>
+    ),
+    font: (
+        <>
+            <path d="M4 23 L10 6 L16 23 M6.2 17 H13.8" />
+            <circle cx="21.5" cy="18.5" r="3.5" />
+            <path d="M25 15 V23" />
+        </>
+    ),
+    "align-left": (
+        <>
+            <path d="M4 6 H24 M4 11 H17 M4 16 H24 M4 21 H15" />
+        </>
+    ),
     "text-spacing": (
         <>
             <path d="M3 14 H25 M7 10 L3 14 L7 18 M21 10 L25 14 L21 18" />

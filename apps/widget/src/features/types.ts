@@ -16,9 +16,14 @@ export type ToggleImpl = {
     behavior?: Behavior; // JavaScript run while the setting is on
 };
 
-/** What a level setting does: called with the chosen level's index (0 = the page's own state). */
+/**
+ * What a level setting does, given the chosen level's index (0 = the page's own state): page CSS for levels above
+ * 0 (written after the on/off settings' CSS, so a chosen level wins over them), and/or JavaScript on every change.
+ */
 export type LevelImpl = {
-    apply(level: number): void;
+    css?: (level: number, scope: string) => string;
+    inherited?: boolean;
+    apply?(level: number): void;
 };
 
 /** On or off: a checkbox tile. */
@@ -31,3 +36,6 @@ export type Feature = ToggleFeature | LevelFeature;
 
 /** Exactly one implementation per catalog entry, of the matching kind. */
 export type Implementations = { [E in Entry as E["id"]]: E extends { kind: "levels" } ? LevelImpl : ToggleImpl };
+
+/** The level count of a catalog setting, to check a per-level table against: `TABLE satisfies { length: LevelCount<"id"> }`. */
+export type LevelCount<Id extends Entry["id"]> = Extract<Entry, { id: Id; kind: "levels" }>["levels"]["length"];

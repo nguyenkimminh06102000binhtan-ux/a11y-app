@@ -2,6 +2,7 @@ import * as esbuild from "esbuild";
 import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
+import { buildFonts } from "./fonts.mjs";
 
 const OUT = "dist";
 // The dashboard's origin, where the widget asks for its config. Set it for each deployment:
@@ -21,6 +22,9 @@ const shared = {
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
+
+// 0. The Font setting's fonts and their stylesheets, next to the app (dist/fonts/).
+shared.define.__FONT_CSS__ = JSON.stringify(await buildFonts(OUT, { hash: true }));
 
 // 1. Build the app and hash its exact bytes.
 const app = await esbuild.build({ ...shared, entryPoints: ["src/entries/app.ts"], outfile: "app.js" });
@@ -44,10 +48,11 @@ const loader = await esbuild.build({
 });
 await writeFile(`${OUT}/l.js`, loader.outputFiles[0].contents);
 
-// 3. Response headers for the CDN (Cloudflare Pages reads dist/_headers). Both files are loaded by customers' sites:
+// 3. Response headers for the CDN (Cloudflare Pages reads dist/_headers). All files are loaded by customers' sites:
 //    - l.js keeps its name across releases: cache it briefly, so a release reaches every site within minutes.
-//    - app.<hash>.js gets a new name whenever it changes: cache it for a year.
-//    - CORS: the loader fetches the app with an integrity check (crossorigin="anonymous"), which needs it.
+//    - app.<hash>.js and fonts/*.<hash>.(woff2|css) get a new name whenever they change: cache them for a year.
+//    - CORS: the loader fetches the app with an integrity check (crossorigin="anonymous"), which needs it; fonts
+//      from another origin always need it.
 //    - CORP: sites that isolate themselves (Cross-Origin-Embedder-Policy) only load scripts that allow it.
 const SHARED_HEADERS = `  Access-Control-Allow-Origin: *
   Cross-Origin-Resource-Policy: cross-origin
@@ -59,6 +64,10 @@ await writeFile(
 ${SHARED_HEADERS}
 
 /app.*
+  Cache-Control: public, max-age=31536000, immutable
+${SHARED_HEADERS}
+
+/fonts/*
   Cache-Control: public, max-age=31536000, immutable
 ${SHARED_HEADERS}
 `

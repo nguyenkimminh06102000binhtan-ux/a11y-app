@@ -143,11 +143,25 @@ These names are a public contract: never rename one once customers use it.
 ## Widget: settings
 | Setting | What it does |
 |---|---|
-| Text size | Default, 125%, 150%, 200%. Enlarges text only (no page zoom), so pages reflow instead of scrolling sideways. |
-| Highlight links | Yellow background and underline on every link. |
-| Text spacing | WCAG 1.4.12 values: line height 1.5, letters 0.12em, words 0.16em, paragraphs 2em. |
-| Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
-| Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
+Grouped in the panel by section. Each setting's words, section and levels are defined once, in the catalog in
+`packages/widget-config` (shared with the dashboard); what it does is in `apps/widget/src/features/`.
+
+| Section | Setting | What it does |
+|---|---|---|
+| Content | Text size | Default, 125%, 150%, 200%. Enlarges text only (no page zoom), so pages reflow instead of scrolling sideways. |
+| Content | Line height | Default, 1.5, 1.75, 2. Wins over Text spacing's 1.5. |
+| Content | Font | Default, Clear (Atkinson Hyperlegible Next), Wide (Lexend), Simple (Andika); see below. Code and icon fonts keep theirs. |
+| Content | Text spacing | WCAG 1.4.12 values: line height 1.5, letters 0.12em, words 0.16em, paragraphs 2em. |
+| Content | Align left | Centered and justified text blocks line up at the start (the right on right-to-left pages). Layout `div`s don't move. |
+| Appearance | Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
+| Navigation | Highlight links | Yellow background and underline on every link. |
+| Navigation | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
+
+**Fonts.** SIL Open Font License 1.1, from their Fontsource packages (the Google Fonts releases), served unchanged
+from our CDN next to the app (`dist/fonts/`, with each license): never from Google, so visitors' IPs aren't sent
+to a third party. `scripts/fonts.mjs` writes one stylesheet per font; the widget links it only when a visitor picks
+that font, and each `@font-face` covers a unicode range, so pages fetch only the parts their text uses. Clear has
+no Vietnamese: those letters use the system font. Same-origin iframes get the system font too.
 
 Settings are saved per site in the visitor's browser (`localStorage`), applied inside open web components and
 same-origin iframes too, and survive single-page-app navigation. Turning a setting off restores the page exactly.

@@ -62,12 +62,48 @@ export const CATALOG = [
         ],
     },
     {
+        kind: "levels",
+        id: "line-height",
+        key: "lineHeight",
+        section: "content",
+        label: "Line height",
+        hint: "Adds space between the lines of text.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Comfortable (1.5)", short: "1.5" },
+            { label: "Roomy (1.75)", short: "1.75" },
+            { label: "Double (2)", short: "2" },
+        ],
+    },
+    {
+        kind: "levels",
+        id: "font",
+        key: "font",
+        section: "content",
+        label: "Font",
+        hint: "Clear: letters that are hard to mix up. Wide: more room between letters. Simple: school-style letters.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Clear", short: "Clear" },
+            { label: "Wide", short: "Wide" },
+            { label: "Simple", short: "Simple" },
+        ],
+    },
+    {
         kind: "toggle",
         id: "text-spacing",
         key: "textSpacing",
         section: "content",
         label: "Text spacing",
         hint: "Adds space between lines, letters, words and paragraphs.",
+    },
+    {
+        kind: "toggle",
+        id: "align-left",
+        key: "alignLeft",
+        section: "content",
+        label: "Align left",
+        hint: "Lines text up on one side instead of centering or stretching it.",
     },
     // Appearance
     {

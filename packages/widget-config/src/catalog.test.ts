@@ -40,6 +40,6 @@ test("bySection keeps section order and leaves out empty sections", () => {
         groups.map((g) => g.section.id),
         ["content", "appearance", "navigation"]
     );
-    assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "text-spacing"]);
+    assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "line-height", "font", "text-spacing", "align-left"]);
     assert.deepEqual(bySection([]), []);
 });

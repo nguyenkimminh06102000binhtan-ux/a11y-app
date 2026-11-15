@@ -18,6 +18,12 @@ export default function AccessibilityPage() {
       </ul>
       <h2>Known issues</h2>
       <p>[Known issues and when we expect to fix them.]</p>
+      <h2>Fonts in the widget</h2>
+      <p>
+        The widget’s Font setting offers Atkinson Hyperlegible Next (Braille Institute of America), Lexend (The Lexend Project) and
+        Andika (SIL International). All three are free fonts under the SIL Open Font License 1.1. We serve them unchanged, from our
+        own servers, and only when a visitor picks one.
+      </p>
       <h2>Tell us about a barrier</h2>
       <p>If something gets in your way, tell us at [CONTACT EMAIL]. We aim to reply within [N] working days.</p>
     </LegalPage>

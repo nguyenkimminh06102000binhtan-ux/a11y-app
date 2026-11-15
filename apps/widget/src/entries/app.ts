@@ -7,6 +7,7 @@ import { adoptInto, applyToFrame, applyToPage, restoreDocumentCss } from "../set
 import { watchShadowRoots } from "../core/shadow-roots";
 import { keepMounted } from "../ui/keep-mounted";
 import { textSize } from "../features/text-size";
+import { font } from "../features/font";
 import { FEATURES } from "../features";
 import { warnUnknownIgnoreIds } from "../core/ignore";
 import { watchIframes } from "../core/iframes";
@@ -66,6 +67,7 @@ Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, posit
   keepMounted(host, () => {
     restoreDocumentCss();
     textSize.restore();
+    font.restore();
   });
 
   // Help site owners spot typos like data-a11yw-ignore="text-sise"

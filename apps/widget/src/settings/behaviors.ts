@@ -12,7 +12,8 @@ export function applyBehaviors(settings: Settings): void {
       const level = settings[feature.key];
       if (appliedLevel.get(feature.key) === level) continue;
       appliedLevel.set(feature.key, level);
-      safely(() => feature.apply(level));
+      const apply = feature.apply;
+      if (apply) safely(() => apply(level));
       continue;
     }
 
