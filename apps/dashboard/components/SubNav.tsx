@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 
 /** A subsection. Without href it's planned ("Soon"): shown and announced, but not a link and not focusable. */
-export type SubNavItem = { label: string; href?: string; count?: number };
+export type SubNavItem = {
+  label: string;
+  href?: string;
+  count?: number;
+  /** Also current on the pages under it (Scans for /scans/<run>): marked aria-current="true" there, not "page" */
+  nested?: boolean;
+};
 
 /**
  * The subsections of a site's section (Audit: Overview, Issues…). A column beside the content from 768px,
@@ -27,12 +33,13 @@ export function SubNav({ label, items }: { label: string; items: SubNavItem[] })
               </li>
             );
           }
-          const current = pathname === item.href;
+          const exact = pathname === item.href;
+          const current = exact || (item.nested === true && pathname.startsWith(`${item.href}/`));
           return (
             <li key={item.label}>
               <Link
                 href={item.href}
-                aria-current={current ? "page" : undefined}
+                aria-current={exact ? "page" : current ? "true" : undefined}
                 className={`flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 no-underline md:border-transparent ${
                   current ? "border-state bg-state-tint font-bold text-state" : "border-line text-ink hover:bg-subtle"
                 }`}
