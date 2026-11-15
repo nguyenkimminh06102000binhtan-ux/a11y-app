@@ -10,6 +10,7 @@ const ctx = await esbuild.context({
     app: "src/entries/app.ts",
     "parts/image-descriptions": "src/parts/image-descriptions.ts",
     "parts/smart-contrast": "src/parts/smart-contrast.ts",
+    "parts/reading-aid": "src/parts/reading-aid.ts",
   },
   outdir: "public",
   bundle: true,
@@ -26,6 +27,7 @@ const ctx = await esbuild.context({
     __PARTS__: JSON.stringify({ // dev: no hashes
       "image-descriptions": { file: "parts/image-descriptions.js", integrity: "" },
       "smart-contrast": { file: "parts/smart-contrast.js", integrity: "" },
+      "reading-aid": { file: "parts/reading-aid.js", integrity: "" },
     }),
 
   }, // dev: no hash in the name

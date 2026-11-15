@@ -1,4 +1,5 @@
 import { CATALOG } from "@app/widget-config";
+import { bigCursor } from "./big-cursor";
 import { color } from "./color";
 import { contrast } from "./contrast";
 import { font } from "./font";
@@ -8,6 +9,7 @@ import { lineHeight } from "./line-height";
 import { focusOutline } from "./focus-outline";
 import { highlightLinks } from "./highlight-links";
 import { pauseAnimations } from "./pause-animations";
+import { readingAid } from "./reading-aid";
 import { textSizeFeature } from "./text-size";
 import { textAlign } from "./text-align";
 import { textSpacing } from "./text-spacing";
@@ -27,6 +29,8 @@ const IMPLEMENTATIONS: Implementations = {
     color,
     "hide-images": hideImages,
     "pause-animations": pauseAnimations,
+    "reading-aid": readingAid,
+    "big-cursor": bigCursor,
     "highlight-links": highlightLinks,
     "focus-outline": focusOutline,
 };

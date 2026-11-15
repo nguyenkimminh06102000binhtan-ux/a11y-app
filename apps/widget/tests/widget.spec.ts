@@ -146,9 +146,14 @@ type Probe = {
 };
 
 /** Settings that recolor the whole screen through the lens (core/lens.ts): no area can be excluded from them. */
-const SCREEN_WIDE = ["color"];
+const SCREEN_WIDE = ["color", "reading-aid"]; // reading-aid: a layer over the screen, following the pointer
 
 const PROBES: Record<string, Probe> = {
+    "big-cursor": {
+        fixture: `<p class="probe">Some text</p>`,
+        turnOn: (page) => choose(page, "Big cursor", "Black"),
+        read: (page, area) => page.locator(`#${area} .probe`).evaluate((el) => getComputedStyle(el).cursor),
+    },
     contrast: {
         fixture: `<p class="probe">Some text</p>`,
         turnOn: (page) => choose(page, "Contrast", "Dark"),
@@ -423,11 +428,11 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             for (const [section, settings] of [
                 ["Content", ["Text size", "Text spacing", "Line height", "Font", "Align text", "Image descriptions"]],
                 ["Appearance", ["Contrast", "Color", "Hide images", "Pause animations"]],
-                ["Navigation", ["Highlight links", "Stronger focus outline"]],
+                ["Navigation", ["Reading aid", "Big cursor", "Highlight links", "Stronger focus outline"]],
             ] as const) {
                 const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
                 for (const name of settings) {
-                    const isLevels = ["Text size", "Text spacing", "Line height", "Font", "Align text", "Contrast", "Color"].includes(name);
+                    const isLevels = ["Text size", "Text spacing", "Line height", "Font", "Align text", "Contrast", "Color", "Reading aid", "Big cursor"].includes(name);
                     await expect(list.getByRole(isLevels ? "group" : "checkbox", { name })).toBeVisible();
                 }
                 await expect(list.getByRole("listitem")).toHaveCount(settings.length);
@@ -435,7 +440,7 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             // Every section reachable and accessible on phones, tablets, desktops and at 200% zoom (1280×900 → 640×450)
             for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
                 await page.setViewportSize({ width, height });
-                await panel(page).getByRole("heading", { name: "Navigation" }).scrollIntoViewIfNeeded();
+                await panel(page).getByRole("checkbox", { name: "Stronger focus outline" }).scrollIntoViewIfNeeded(); // the last setting
                 await expect(panel(page).getByRole("checkbox", { name: "Stronger focus outline" })).toBeInViewport();
                 expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
             }
@@ -1710,6 +1715,98 @@ test.describe("Contrast › Smart (/)", () => {
         await expect.poll(() => page.locator("#sc-long p").last().evaluate((el) => getComputedStyle(el).color), { timeout: 15_000 }).not.toBe("rgb(176, 176, 176)");
         const longTasks = await page.evaluate(() => (window as unknown as { longTasks: number[] }).longTasks);
         expect(longTasks, longTasks.join(", ")).toEqual([]); // the browser reports every task of 50ms or more
+    });
+});
+
+test.describe("Reading aid and Big cursor (/)", () => {
+    const guide = (page: Page) => page.locator("a11yw-root .a11yw-guide");
+    const partRequests: string[] = [];
+
+    test.beforeEach(async ({ page }) => {
+        partRequests.length = 0;
+        page.on("request", (r) => {
+            if (r.url().includes("/parts/reading-aid")) partRequests.push(r.url());
+        });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<div id="ra" style="height:700px;background:#fff">
+                   <p style="margin:0;padding-top:400px"><a id="ra-link" href="#x">A link to tab to</a></p>
+                 </div>`
+            );
+        });
+    });
+
+    test("Guide: downloaded when chosen; a full-width bar under the pointer's line that follows the mouse, focus and taps", async ({ page }) => {
+        expect(partRequests).toEqual([]);
+        await choose(page, "Reading aid", "Guide");
+        await expect(guide(page)).toBeVisible(); // at once, in the middle of the screen
+        const box = async () => (await guide(page).boundingBox())!;
+        expect((await box()).y).toBe(Math.round(page.viewportSize()!.height / 2 + 14));
+        expect(partRequests).toHaveLength(1);
+        await closeButton(page).click();
+        await page.mouse.move(300, 200);
+        await expect.poll(async () => (await box()).y).toBe(214);
+        expect((await box()).width).toBe(page.viewportSize()!.width);
+        await expect(page.locator("a11yw-root .a11yw-aid")).toHaveAttribute("aria-hidden", "true");
+
+        await page.mouse.move(300, 300);
+        await expect.poll(async () => (await box()).y).toBe(314);
+
+        await page.locator("#ra-link").focus(); // keyboard: to the focused element
+        const link = (await page.locator("#ra-link").boundingBox())!;
+        await expect.poll(async () => (await box()).y).toBe(Math.round(link.y + link.height / 2 + 14));
+
+        await page.evaluate(() => {
+            document.dispatchEvent(new PointerEvent("pointerdown", { clientY: 150, pointerType: "touch", bubbles: true }));
+            document.dispatchEvent(new PointerEvent("pointermove", { clientY: 600, pointerType: "touch", bubbles: true })); // a finger scrolling: ignored
+        });
+        await expect.poll(async () => (await box()).y).toBe(164);
+
+        await toggle(page).click();
+        await page.getByRole("group", { name: "Reading aid" }).getByRole("radio", { name: "Default" }).check();
+        await expect(page.locator("a11yw-root .a11yw-aid")).toHaveCount(0);
+    });
+
+    test("Mask: dims above and below a window at the pointer; clicks go through; the panel stays above it, undimmed", async ({ page }) => {
+        await toggle(page).click();
+        const title = (await page.locator("a11yw-root .title").boundingBox())!;
+        const titlePixel = () => pixel(page, title.x + 2, title.y + title.height + 4);
+        const panelBefore = await titlePixel();
+        const pageBefore = await pixel(page, 100, 100);
+
+        await page.getByRole("group", { name: "Reading aid" }).getByRole("radio", { name: "Mask" }).check();
+        await expect(page.locator("a11yw-root .a11yw-shade-top")).toBeVisible(); // at once
+        await page.mouse.move(100, 600); // the window around y=600: the top of the screen is dimmed
+        await expect.poll(async () => (await pixel(page, 100, 100))[0]).toBeLessThan(pageBefore[0] - 60); // dimmed
+        expect((await pixel(page, 100, 600))[0]).toBe(pageBefore[0]); // the window is clear
+        expect(await titlePixel()).toEqual(panelBefore); // the panel is above the mask
+
+        // Clicks and hit-testing go through: the page element is what's under a dimmed point
+        expect(await page.evaluate(() => document.elementFromPoint(100, 100)?.localName)).not.toBe("a11yw-root");
+        expect(await widgetViolations(page)).toEqual([]);
+    });
+
+    test("Big cursor: a big arrow on the page, a big hand on links and buttons, the text cursor in fields, in the panel too; Default restores", async ({ page }) => {
+        await page.evaluate(() => document.body.insertAdjacentHTML("afterbegin", `<input id="bc-input"> <input id="bc-check" type="checkbox"> <button id="bc-button">Go</button>`));
+        const cursor = (sel: string) => page.locator(sel).first().evaluate((el) => getComputedStyle(el).cursor);
+        await choose(page, "Big cursor", "Black");
+        expect(await cursor("#ra")).toMatch(/^url\("data:image\/svg\+xml,.*fill%3D%22%23000%22.*"\) 8 4, auto$/);
+        expect(await cursor("#ra-link")).toMatch(/^url\("data:image\/svg\+xml,.*"\) 22 5, pointer$/);
+        expect(await cursor("#bc-button")).toMatch(/, pointer$/);
+        expect(await cursor("#bc-check")).toMatch(/, pointer$/);
+        expect(await cursor("#bc-input")).toBe("text");
+        expect(await cursor("a11yw-root .close")).toMatch(/^url\(.*, pointer$/); // the panel gets it too
+        expect(await cursor("a11yw-root .title")).toMatch(/^url\(.*, auto$/);
+
+        await page.getByRole("group", { name: "Big cursor" }).getByRole("radio", { name: "White" }).check();
+        expect(await cursor("#ra")).toMatch(/fill%3D%22%23fff%22/);
+
+        await page.getByRole("group", { name: "Big cursor" }).getByRole("radio", { name: "Default" }).check();
+        expect(await cursor("#ra")).toBe("auto");
+        expect(await cursor("a11yw-root .close")).toBe("pointer");
     });
 });
 

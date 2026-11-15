@@ -172,6 +172,32 @@ export const CATALOG = [
     },
     // Navigation
     {
+        kind: "levels",
+        id: "reading-aid",
+        key: "readingAid",
+        section: "navigation",
+        label: "Reading aid",
+        hint: "Guide: a bar under the line you're reading. Mask: dims everything but a few lines. Both follow the pointer or keyboard.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Guide", short: "Guide" },
+            { label: "Mask", short: "Mask" },
+        ],
+    },
+    {
+        kind: "levels",
+        id: "big-cursor",
+        key: "bigCursor",
+        section: "navigation",
+        label: "Big cursor",
+        hint: "A bigger arrow and hand, in black or white.",
+        levels: [
+            { label: "Default", short: "Default" },
+            { label: "Black", short: "Black" },
+            { label: "White", short: "White" },
+        ],
+    },
+    {
         kind: "toggle",
         id: "highlight-links",
         key: "highlightLinks",

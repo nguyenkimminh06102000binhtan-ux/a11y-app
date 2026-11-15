@@ -29,9 +29,10 @@ export type PartContext = {
 
 /** What a part file hands over. */
 export type Part = {
-    start(context: PartContext): void;
+    start(context: PartContext, option?: string): void; // option: e.g. which level ("guide" or "mask")
     stop(): void;
     refresh?(): void; // after any setting changes, while running
+    update?(option?: string): void; // the option changed while running
 };
 
 const CONTEXT: PartContext = { onElementsAdded, onNewShadowRoot, deepQueryAll, ignoredBy };
@@ -81,16 +82,23 @@ export function loadPart(name: PartName): Promise<Part | null> {
  * A setting's start/stop that downloads its part the first time it's turned on. On/off while loading is handled;
  * refresh() reaches the part only while it runs.
  */
-export function partBehavior(name: PartName): { start(): void; stop(): void; refresh(): void } {
+export function partBehavior(name: PartName): { start(option?: string): void; stop(): void; refresh(): void } {
     let on = false;
+    let option: string | undefined;
     let running: Part | null = null;
     return {
-        start() {
+        start(next?: string) {
             on = true;
-            void loadPart(name).then((part) => {
-                if (!part || !on || running) return;
-                running = part;
-                safely(() => part.start(CONTEXT));
+            option = next;
+            const part = running;
+            if (part) {
+                if (part.update) safely(() => part.update!(next));
+                return;
+            }
+            void loadPart(name).then((loaded) => {
+                if (!loaded || !on || running) return;
+                running = loaded;
+                safely(() => loaded.start(CONTEXT, option));
             });
         },
         stop() {

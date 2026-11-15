@@ -158,6 +158,8 @@ Grouped in the panel by section. Each setting's words, section and levels are de
 | Appearance | Color | Default, Muted `saturate(0.5)`, Vivid `saturate(2)`, Grayscale: the lens (below). |
 | Appearance | Hide images | Images, video, `input[type=image]` and `svg[role=img]` become striped boxes of the same size (still in the accessibility tree with their alt text); background images removed. Icon SVGs stay. |
 | Appearance | Pause animations | CSS animations/transitions, autoplay video/audio, GIFs, SVG/marquee, script animations, Lottie, jQuery, GSAP, anime.js, YouTube/Vimeo embeds, Swiper/Bootstrap/Slick carousels. The visitor can still press play. |
+| Navigation | Reading aid | Default, Guide (a ruler under the line being read), Mask (dims all but a ~4-line window). Starts mid-screen, then follows the mouse/pen, keyboard focus and taps; clicks go through; the panel stays above it. A part. Covers the screen: no `data-a11yw-ignore`. |
+| Navigation | Big cursor | Default, Black, White: a 48px arrow, a hand on links and buttons (text fields keep the text cursor), in the panel too (via `--a11yw-cursor` on the widget's host). Other sites' iframes keep the normal cursor. |
 | Navigation | Highlight links | Yellow background and underline on every link. |
 | Navigation | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
 

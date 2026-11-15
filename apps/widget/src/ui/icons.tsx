@@ -116,6 +116,17 @@ const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
             <path d="M11 6 V22 M17 6 V22" />
         </>
     ),
+    "reading-aid": (
+        <>
+            <path d="M3 6 H25 M3 22 H25" />
+            <rect x="2" y="11" width="24" height="6" rx="1.5" />
+        </>
+    ),
+    "big-cursor": (
+        <>
+            <path d="M7 3 L7 23 L12 18 L15.5 25.5 L19 24 L15.5 16.5 L22 16.5 Z" stroke-linejoin="round" />
+        </>
+    ),
     "highlight-links": (
         <>
             <path d="M11 17 L17 11" />

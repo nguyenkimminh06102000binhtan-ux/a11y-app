@@ -30,7 +30,7 @@ shared.define.__FONT_CSS__ = JSON.stringify(await buildFonts(OUT, { hash: true }
 
 // 0b. Parts (src/parts/*.ts, see src/core/parts.ts): built and hashed first, so the app can carry their names
 //     and integrity hashes, as the loader carries the app's.
-const PARTS = ["image-descriptions", "smart-contrast"];
+const PARTS = ["image-descriptions", "smart-contrast", "reading-aid"];
 const partFiles = [];
 const parts = {};
 for (const name of PARTS) {
