@@ -67,7 +67,6 @@ export type RuleGroup = {
   ruleId: string;
   title: string;
   impact: string | null;
-  helpUrl: string | null;
   places: Issue[]; // ordered by page, then selector, so "place 3 of 34" is stable
   pages: number;
 };
@@ -88,7 +87,6 @@ export function groupByRule(rows: Issue[]): RuleGroup[] {
         ruleId,
         title: first.help ?? ruleId,
         impact: first.impact,
-        helpUrl: first.helpUrl,
         places,
         pages: new Set(places.map((p) => p.pageUrl)).size,
       };

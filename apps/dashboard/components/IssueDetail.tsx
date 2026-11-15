@@ -4,7 +4,7 @@ import { ImpactPill } from "@/components/ImpactPill";
 import { FocusHeading } from "@/components/FocusHeading";
 import { pageLabel } from "@/lib/page-label";
 import type { RuleGroup } from "@/lib/issues";
-import type { RuleWcag } from "@/lib/wcag";
+import { criterionLabel, understandingUrl, type RuleWcag } from "@/lib/wcag";
 
 type Props = {
   group: RuleGroup;
@@ -51,7 +51,7 @@ export function IssueDetail({ group, place, domain, placeHref, focus, wcag }: Pr
           <p className="font-bold">Best practice (not a WCAG requirement)</p>
         )}
         <p className="text-small text-muted">
-          Rule {group.ruleId} · {total} {total === 1 ? "place" : "places"} on {group.pages} {group.pages === 1 ? "page" : "pages"}
+          {total} {total === 1 ? "place" : "places"} on {group.pages} {group.pages === 1 ? "page" : "pages"}
         </p>
       </div>
 
@@ -102,14 +102,23 @@ export function IssueDetail({ group, place, domain, placeHref, focus, wcag }: Pr
           How to fix
         </h4>
         <p className="whitespace-pre-line wrap-anywhere">{issue.summary ?? group.title}</p>
-        {group.helpUrl && (
-          <p>
-            <a href={group.helpUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center">
-              Learn more about this rule
-              <span className="sr-only"> (opens in a new tab)</span>
-              <span aria-hidden="true"> ↗</span>
-            </a>
-          </p>
+        {/* Learn more: the W3C's explanation of each WCAG criterion it relates to */}
+        {wcag.criteria.some((c) => understandingUrl(c)) && (
+          <ul className="flex flex-col">
+            {wcag.criteria.map((c) => {
+              const url = understandingUrl(c);
+              if (!url) return null;
+              return (
+                <li key={c.id}>
+                  <a href={url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center">
+                    Understanding WCAG {criterionLabel(c)}
+                    <span className="sr-only"> (W3C, opens in a new tab)</span>
+                    <span aria-hidden="true"> ↗</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
     </article>

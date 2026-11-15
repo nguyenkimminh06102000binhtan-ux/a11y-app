@@ -108,6 +108,19 @@ export function criterionLabel(c: Criterion): string {
   return c.name ? `${c.id} ${c.name}` : c.id;
 }
 
+/**
+ * The W3C's "Understanding WCAG 2.2" page for a criterion, or null when we don't have its name (the page's
+ * address is its name: "Contrast (Minimum)" → contrast-minimum.html).
+ */
+export function understandingUrl(c: Criterion): string | null {
+  if (!c.name) return null;
+  const slug = c.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `https://www.w3.org/WAI/WCAG22/Understanding/${slug}.html`;
+}
+
 /** Sort criteria by number: 1.4.3 before 1.4.10 before 2.1.1. */
 export function compareCriteria(a: string, b: string): number {
   const pa = a.split(".").map(Number);

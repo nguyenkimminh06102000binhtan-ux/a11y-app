@@ -28,7 +28,7 @@ async function AuditNav({ params }: { params: Promise<{ id: string }> }) {
         { label: "Issues", href: `${base}/issues`, count: pagesChecked > 0 ? rows.length : undefined },
         { label: "Pages", href: `${base}/pages` },
         { label: "Scans", href: `${base}/scans`, nested: true },
-        { label: "Reports" },
+        { label: "Reports", href: `${base}/reports` },
       ]}
     />
   );
