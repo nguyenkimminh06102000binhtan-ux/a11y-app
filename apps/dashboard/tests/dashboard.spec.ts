@@ -244,7 +244,7 @@ test.describe("is the widget installed?", () => {
     await page.goto("/");
     await settled(page);
     const row = (domain: string) => page.locator("table tbody tr", { has: page.getByRole("link", { name: domain, exact: true }) });
-    await expect(row("shop.example")).toContainText("Seen 5 minutes ago");
+    await expect(row("shop.example")).toContainText(/Seen \d+ minutes? ago/); // seeded 5 minutes ago; a slow run makes it more
     await expect(row("site-01.example")).toContainText(/Last seen \w{3} \d{1,2}/);
     await expect(row("busy.example")).toContainText("Not installed yet");
   });
