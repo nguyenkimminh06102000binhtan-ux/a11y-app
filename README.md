@@ -165,6 +165,12 @@ Grouped in the panel by section. Each setting's words, section and levels are de
 | Navigation | Highlight links | Yellow background and underline on every link. |
 | Navigation | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
 
+**Panel footer.** Reset all, Move to the left/right, Hide (for this visit, or 30 days: `a11yw:hidden:v1` in
+session/local storage; settings stay on; a notice says how to bring it back), the owner's **Accessibility
+statement** link when set (Widget › Customize; served as `statementUrl`, http(s) only, checked on save and on
+read), and the shortcut: **Alt+A** (Option+A on Mac) opens and closes the panel from anywhere, brings a hidden
+button back, and is ignored while typing in a text field.
+
 **The lens.** Color recolors the screen through one transparent full-screen layer
 (`<a11yw-lens>`, `src/core/lens.ts`) with `backdrop-filter`, placed just before the widget: page layout doesn't change
 (a `filter` on page containers would make their fixed headers scroll) and the widget keeps its colors. Clicks and

@@ -47,7 +47,7 @@ function whenPageLoaded(): Promise<void> {
   });
 }
 
-Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, position }]) => {
+Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, position, statementUrl }]) => {
   setOwnerDefaults(defaults);
   if (!enabled) {
     // Not one of the account's sites: no widget, and undo anything applied from an older answer.
@@ -62,7 +62,7 @@ Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, posit
   const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
   applyTheme(host, theme); // before the first render, so the brand color never flashes
   applyPosition(host, position); // likewise, so the button never jumps from the default corner
-  render(h(Widget, {}), container);
+  render(h(Widget, { statementUrl }), container);
 
   // Single-page apps can remove the widget, our <style> or the text-size variable while navigating: put them back.
   keepMounted(host, () => {

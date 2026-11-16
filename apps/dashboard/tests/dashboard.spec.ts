@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
-import type { Seeded } from "./seed";
+import { LONG_DOMAIN, type Seeded } from "./seed";
 
 /*
  * Every dashboard page at phone, tablet and desktop widths: no axe violations (WCAG 2.2 A/AA), no sideways
@@ -130,6 +130,33 @@ test.describe("open states", () => {
     await expect(page.getByRole("button", { name: /^Dismiss/ })).toBeVisible();
     await expect(save).toBeFocused();
     await expectAccessible(page);
+  });
+
+  test("Accessibility statement link: a wrong address is refused next to the field; a right one is saved and served", async ({ page }) => {
+    const s = seeded();
+    await page.goto(`${site(s.longSite)}/widget`);
+    await settled(page);
+    const field = page.getByLabel(/Accessibility statement link/);
+    const save = page.getByRole("button", { name: "Save widget settings" });
+
+    await field.fill("javascript:alert(1)");
+    await save.click();
+    await expect(field).toBeFocused();
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await expect(field).toHaveAccessibleDescription(/Enter a full web address/);
+    await expect(field).toHaveValue("javascript:alert(1)"); // what was typed stays, to fix it
+    await expectAccessible(page);
+
+    await field.fill("https://shop.example/accessibility");
+    await save.click();
+    await expect(page.getByRole("button", { name: /^Dismiss/ })).toBeVisible();
+    await expect(field).not.toHaveAttribute("aria-invalid");
+    const served = await (await page.request.get(`/api/widget/config?account=${s.widgetKey}&host=${LONG_DOMAIN}`)).json();
+    expect(served.statementUrl).toBe("https://shop.example/accessibility");
+
+    await field.fill(""); // empty: no link
+    await save.click();
+    await expect.poll(async () => (await (await page.request.get(`/api/widget/config?account=${s.widgetKey}&host=${LONG_DOMAIN}`)).json()).statementUrl).toBeUndefined();
   });
 
   test("On by default: grouped like the widget's panel, and a choice is saved", async ({ page }) => {

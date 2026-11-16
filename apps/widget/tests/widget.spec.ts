@@ -2031,6 +2031,106 @@ test.describe("Profiles (/)", () => {
     });
 });
 
+test.describe("Shortcut, Hide and statement link (/)", () => {
+    const hiddenNotice = (page: Page) => page.locator("a11yw-root").getByRole("status").filter({ hasText: "Accessibility button hidden" });
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => document.body.insertAdjacentHTML("afterbegin", `<p><a id="sk-link" href="#x">A page link</a> <input id="sk-input" aria-label="Search"></p>`));
+    });
+
+    test("Alt+A opens the panel from the page and closes it back to where the visitor was; not while typing", async ({ page }) => {
+        await expect(toggle(page)).toHaveAttribute("aria-keyshortcuts", "Alt+A");
+        await page.locator("#sk-link").focus();
+        await page.keyboard.press("Alt+KeyA");
+        await expect(panel(page)).toBeVisible();
+        await expect(closeButton(page)).toBeFocused();
+        await page.keyboard.press("Alt+KeyA");
+        await expect(panel(page)).toBeHidden();
+        await expect(page.locator("#sk-link")).toBeFocused(); // back where they were
+
+        await page.locator("#sk-input").focus();
+        await page.keyboard.press("Alt+KeyA");
+        await expect(panel(page)).toBeHidden(); // typing: the key is the page's
+
+        // The physical key counts, whatever character it types (Option+A types "å" on a Mac)
+        await page.locator("#sk-link").focus();
+        await page.evaluate(() => document.getElementById("sk-link")!.dispatchEvent(new KeyboardEvent("keydown", { key: "å", code: "KeyA", altKey: true, bubbles: true, composed: true })));
+        await expect(panel(page)).toBeVisible();
+        await expect(panel(page)).toContainText(/Shortcut: (Alt|Option)\+A/);
+    });
+
+    test("Hide for this visit: a choice first (Cancel goes back), then the button hides, settings stay, a notice says how to get it back", async ({ page, context }) => {
+        await turnOn(page, "Highlight links");
+        await page.getByRole("button", { name: "Hide" }).click();
+        const choice = panel(page).getByRole("group", { name: "Hide the accessibility button?" });
+        await expect(choice).toBeVisible();
+        await expect(choice.getByRole("button", { name: "For this visit" })).toBeFocused();
+        expect(await widgetViolations(page)).toEqual([]);
+        await choice.getByRole("button", { name: "Cancel" }).click();
+        await expect(page.getByRole("button", { name: "Hide" })).toBeFocused();
+
+        await page.getByRole("button", { name: "Hide" }).click();
+        await panel(page).getByRole("button", { name: "For this visit" }).click();
+        await expect(toggle(page)).toBeHidden();
+        await expect(panel(page)).toBeHidden();
+        await expect(hiddenNotice(page)).toHaveText(/Press (Alt|Option)\+A to show it again/);
+        await expect(hiddenNotice(page)).toBeFocused(); // nothing on the page had focus before: focus lands on the notice
+        expect(await widgetViolations(page)).toEqual([]);
+        expect(await page.locator("#sk-link").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 0)"); // settings stay
+
+        await page.reload(); // same tab: still hidden
+        await expect(page.locator("a11yw-root")).toBeAttached();
+        await expect(toggle(page)).toBeHidden();
+        const other = await context.newPage(); // a new tab: shown
+        await other.goto("/");
+        await expect(other.getByRole("button", { name: "Accessibility" })).toBeVisible();
+    });
+
+    test("Hide for 30 days survives a new tab; it shows again once the date passes; Alt+A brings it back and clears it", async ({ page, context }) => {
+        await toggle(page).click();
+        await page.getByRole("button", { name: "Hide" }).click();
+        await panel(page).getByRole("button", { name: "For 30 days" }).click();
+        await expect(toggle(page)).toBeHidden();
+        const until = Number(await page.evaluate(() => localStorage.getItem("a11yw:hidden:v1")));
+        expect(until - Date.now()).toBeGreaterThan(29.9 * 24 * 60 * 60 * 1000);
+
+        const other = await context.newPage();
+        await other.goto("/");
+        await expect(other.locator("a11yw-root")).toBeAttached();
+        await expect(other.getByRole("button", { name: "Accessibility" })).toBeHidden();
+
+        await other.keyboard.press("Alt+KeyA"); // back, with the panel open
+        await expect(other.getByRole("region", { name: "Accessibility settings" })).toBeVisible();
+        await expect(other.getByRole("button", { name: "Accessibility" })).toBeVisible();
+        expect(await other.evaluate(() => localStorage.getItem("a11yw:hidden:v1"))).toBeNull();
+
+        await other.evaluate(() => localStorage.setItem("a11yw:hidden:v1", String(Date.now() - 1000))); // the date has passed
+        await other.reload();
+        await expect(other.getByRole("button", { name: "Accessibility" })).toBeVisible();
+    });
+
+    test("the owner's accessibility statement link: shown when set, never a javascript: address", async ({ page }) => {
+        await toggle(page).click();
+        await expect(panel(page).getByRole("link", { name: "Accessibility statement" })).toHaveCount(0);
+
+        await serveConfig(page, { ...CONFIG, statementUrl: "https://shop.example/accessibility" });
+        await page.reload();
+        await toggle(page).click();
+        await expect(panel(page).getByRole("link", { name: "Accessibility statement" })).toHaveAttribute("href", "https://shop.example/accessibility");
+        for (const [width, height] of [[320, 640], [1280, 900], [640, 450]] as const) {
+            await page.setViewportSize({ width, height });
+            expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
+        }
+
+        await serveConfig(page, { ...CONFIG, statementUrl: "javascript:alert(1)" });
+        await page.reload();
+        await toggle(page).click();
+        await expect(panel(page).getByRole("link", { name: "Accessibility statement" })).toHaveCount(0);
+    });
+});
+
 test.describe("data-a11yw-ignore with setting names (/)", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
@@ -2410,7 +2510,7 @@ test.describe("visitors move the button (/)", () => {
         expect(Math.round(p.x)).toBe(24); // …and moved with the button
         expect(p.y + p.height).toBeLessThanOrEqual(b.y);
         await expect(moveButton(page, "right")).toBeFocused(); // same button, now offering the way back
-        await expect(page.locator("a11yw-root").locator("p[role=status]")).toHaveText("Moved to the left.");
+        await expect(panel(page).getByRole("status")).toHaveText("Moved to the left.");
         expect(await widgetViolations(page)).toEqual([]);
 
         await page.reload();

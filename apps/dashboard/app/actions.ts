@@ -19,6 +19,7 @@ import {
   SETTINGS_VERSION,
   SpotSchema,
   StateColorSchema,
+  StatementUrlSchema,
   isMiddle,
   type Placement,
   type SiteSettings,
@@ -133,7 +134,7 @@ export async function scanPages(_previous: ScanPagesState, formData: FormData): 
   redirect(`${back}?started=${result.started}`);
 }
 
-export type WidgetSettingsField = "stateColor" | `${"desktop" | "phone"}${"Spot" | "Side" | "Edge"}`;
+export type WidgetSettingsField = "stateColor" | "statement" | `${"desktop" | "phone"}${"Spot" | "Side" | "Edge"}`;
 
 export type WidgetSettingsState = {
   status: "idle" | "saved" | "invalid";
@@ -198,11 +199,29 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
   // On by default: unknown values are dropped, never an error
   const defaults = v.parse(DefaultSettingsSchema, formData.getAll("defaults").map(String));
 
-  if (Object.keys(errors).length > 0) {
-    return { status: "invalid", errors, settings: { v: SETTINGS_VERSION, appearance: { stateColor: submittedColor, position }, defaults } };
+  // Accessibility statement link: optional, a full web address
+  const submittedStatement = String(formData.get("statement") ?? "").trim();
+  let statement: string | undefined;
+  if (submittedStatement) {
+    const url = v.safeParse(StatementUrlSchema, submittedStatement);
+    if (url.success) statement = url.output;
+    else errors.statement = url.issues[0].message;
   }
 
-  const settings: SiteSettings = { v: SETTINGS_VERSION, appearance: { ...(stateColor && { stateColor }), position }, defaults };
+  if (Object.keys(errors).length > 0) {
+    return {
+      status: "invalid",
+      errors,
+      settings: { v: SETTINGS_VERSION, appearance: { stateColor: submittedColor, position }, defaults, links: { statement: submittedStatement || undefined } },
+    };
+  }
+
+  const settings: SiteSettings = {
+    v: SETTINGS_VERSION,
+    appearance: { ...(stateColor && { stateColor }), position },
+    defaults,
+    links: { ...(statement && { statement }) },
+  };
   await db
     .insert(widgetSettings)
     .values({ siteId: site.id, settings })

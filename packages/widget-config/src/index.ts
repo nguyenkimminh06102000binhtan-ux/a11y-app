@@ -332,6 +332,29 @@ export const DefaultSettingsSchema = v.pipe(
     v.transform((keys) => DEFAULTABLE.filter((key) => keys.includes(key)))
 );
 
+// ─── Links in the panel ────────────────────────────────────────────────────────────────────────────────────
+
+export const MAX_URL = 500;
+const BAD_URL = "Enter a full web address, like https://shop.com/accessibility.";
+
+/**
+ * The owner's accessibility statement page: a full http(s) address. Anything else (javascript:, data:, relative)
+ * is refused on save and dropped when read, so the widget never gets a link that runs code.
+ */
+export const StatementUrlSchema = v.pipe(
+    v.string(),
+    v.trim(),
+    v.maxLength(MAX_URL, `Use at most ${MAX_URL} characters.`),
+    v.check((value) => {
+        try {
+            const url = new URL(value);
+            return (url.protocol === "https:" || url.protocol === "http:") && !!url.hostname;
+        } catch {
+            return false;
+        }
+    }, BAD_URL)
+);
+
 // ─── Where the widget button sits ──────────────────────────────────────────────────────────────────────────
 
 /** The six spots for the button. Named, not numbered, so every place that reads them says what it means. */
@@ -404,10 +427,12 @@ export const SiteSettingsSchema = v.object({
         {}
     ),
     defaults: v.fallback(DefaultSettingsSchema, []),
+    /** Links shown in the panel. Missing = none. */
+    links: v.fallback(v.object({ statement: v.fallback(v.optional(StatementUrlSchema), undefined) }), {}),
 });
 export type SiteSettings = v.InferOutput<typeof SiteSettingsSchema>;
 
-export const DEFAULT_SITE_SETTINGS: SiteSettings = { v: SETTINGS_VERSION, appearance: {}, defaults: [] };
+export const DEFAULT_SITE_SETTINGS: SiteSettings = { v: SETTINGS_VERSION, appearance: {}, defaults: [], links: {} };
 
 /** Stored JSON (or nothing) → complete settings. Never throws. Old versions get upgraded here when there are some. */
 export function readSiteSettings(input: unknown): SiteSettings {
@@ -429,6 +454,8 @@ export const WidgetConfigSchema = v.object({
     theme: v.fallback(v.object({ state: v.fallback(v.optional(StateColorSchema), undefined) }), {}),
     /** Where the button sits, from 641px wide (desktop) and up to 640px (phone). Missing = DEFAULT_PLACEMENT for both. */
     position: v.fallback(v.optional(v.object({ desktop: PlacementSchema, phone: PlacementSchema })), undefined),
+    /** The owner's accessibility statement page, linked from the panel. Missing = no link. */
+    statementUrl: v.fallback(v.optional(StatementUrlSchema), undefined),
     /** Settings on by default for visitors who haven't chosen yet. Only `true` entries. */
     defaults: v.fallback(
         v.pipe(
@@ -465,6 +492,7 @@ export function toWidgetConfig(settings: SiteSettings, enabled: boolean): Widget
         ...(settings.appearance.position && {
             position: { desktop: settings.appearance.position.desktop, phone: settings.appearance.position.phone ?? settings.appearance.position.desktop },
         }),
+        ...(settings.links.statement && { statementUrl: settings.links.statement }),
     };
 }
 

@@ -68,6 +68,17 @@ export function FeatureIcon({ id }: { id: string }) {
     );
 }
 
+/** Hide: an eye, crossed out. */
+export function HideIcon() {
+    return (
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12 C5.5 7.5 8.5 5.5 12 5.5 C15.5 5.5 18.5 7.5 21 12 C18.5 16.5 15.5 18.5 12 18.5 C8.5 18.5 5.5 16.5 3 12 Z" />
+            <circle cx="12" cy="12" r="3" />
+            <path d="M4 20 L20 4" />
+        </svg>
+    );
+}
+
 /** Shown on a tile that's on: the non-color sign that goes with the tint (never color alone). */
 export function CheckBadge() {
     return (

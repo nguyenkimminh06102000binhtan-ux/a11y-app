@@ -15,6 +15,7 @@ const FIELD_ORDER: WidgetSettingsField[] = [
     "stateColor",
     "desktopSpot", "desktopSide", "desktopEdge",
     "phoneSpot", "phoneSide", "phoneEdge",
+    "statement",
 ];
 
 const draft = (p: Placement): PlacementDraft => ({ spot: p.spot, side: String(p.side), edge: String(p.edge) });
@@ -146,6 +147,30 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                     </fieldset>
                 ))}
             </fieldset>
+
+            <div className="flex w-full max-w-xl flex-col">
+                <label htmlFor="statement" className="text-lg font-bold">
+                    Accessibility statement link <span className="font-normal">(optional)</span>
+                </label>
+                <p id="statement-hint" className="mb-2 text-sm">
+                    A page on your site about its accessibility. Visitors find the link at the bottom of the widget&apos;s panel.
+                </p>
+                <input
+                    id="statement"
+                    name="statement"
+                    type="url"
+                    inputMode="url"
+                    autoComplete="url"
+                    defaultValue={shown.links?.statement ?? ""}
+                    aria-invalid={errors.statement ? true : undefined}
+                    aria-describedby={errors.statement ? "statement-hint statement-error" : "statement-hint"}
+                />
+                {errors.statement && (
+                    <p id="statement-error" className="mt-2 font-bold text-state">
+                        {errors.statement}
+                    </p>
+                )}
+            </div>
 
             <div className="flex flex-wrap items-center gap-3">
                 <button type="submit">{pending ? "Saving…" : "Save widget settings"}</button>

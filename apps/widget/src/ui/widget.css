@@ -631,3 +631,77 @@
     max-height: calc(100vh - 32px);
   }
 }
+
+/* Footer: the statement link and the shortcut, under the buttons */
+.footer-links {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25em 1em;
+  margin: 0;
+  font-size: 0.875em;
+}
+
+.footer-link {
+  color: var(--bcn-state-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.footer-shortcut {
+  color: var(--bcn-frame);
+}
+
+/* Hide: the choice replaces the footer's buttons */
+.hide-choice {
+  flex: 1 1 100%;
+}
+
+.hide-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.hide-choice .feature-hint {
+  margin: 0.125em 0 0.5em;
+}
+
+.hide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.hide-actions .reset {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+/* After hiding: where the button was, for a few seconds */
+.hidden-notice {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: max-content;
+  max-width: min(18em, calc(100vw - 32px));
+  margin: 0;
+  padding: 0.625em 0.875em;
+  font-size: 0.9375em;
+  line-height: 1.4;
+  color: var(--bcn-bg);
+  background: var(--bcn-text);
+  border: 1px solid transparent; /* shows in forced-colors mode */
+  border-radius: 0.75em;
+  box-shadow: 0 0.25em 1em rgb(0 0 0 / 0.25);
+}
+
+:host([data-x="left"]) .hidden-notice {
+  right: auto;
+  left: 0;
+}
+
+:host([data-y="top"]) .hidden-notice {
+  bottom: auto;
+  top: 0;
+}

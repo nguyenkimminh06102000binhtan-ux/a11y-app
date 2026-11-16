@@ -18,6 +18,7 @@ import {
     readSiteSettings,
     stateTint,
     toWidgetConfig,
+    StatementUrlSchema,
 } from "./index.ts";
 
 // ─── Served config (what the widget receives) ───
@@ -67,7 +68,7 @@ test("stored settings: one bad field falls back alone, the others are kept", () 
         appearance: { stateColor: "yellow" }, // not #rrggbb: our default color
         defaults: ["pauseAnimations", "nope", "focusOutline", "focusOutline"], // unknown dropped, duplicates merged, fixed order
     });
-    assert.deepEqual(settings, { v: 1, appearance: {}, defaults: ["focusOutline", "pauseAnimations"] });
+    assert.deepEqual(settings, { v: 1, appearance: {}, defaults: ["focusOutline", "pauseAnimations"], links: {} });
 });
 
 test("toWidgetConfig: what the owner chose becomes what the widget gets", () => {
@@ -187,4 +188,26 @@ test("the tint matches the tokens package's fallback", () => {
 test("contrast math matches WCAG", () => {
     assert.equal(contrastRatio("#000000", "#ffffff"), 21);
     assert.equal(contrastRatio("#777777", "#777777"), 1);
+});
+
+test("statement link: full http(s) addresses only, trimmed", () => {
+    assert.equal(v.parse(StatementUrlSchema, "  https://shop.com/accessibility  "), "https://shop.com/accessibility");
+    assert.ok(v.safeParse(StatementUrlSchema, "http://shop.com/a11y").success);
+    for (const bad of ["javascript:alert(1)", "data:text/html,hi", "/accessibility", "shop.com/accessibility", "ftp://shop.com/x", "https://" + "a".repeat(500) + ".com"]) {
+        assert.equal(v.safeParse(StatementUrlSchema, bad).success, false, bad);
+    }
+});
+
+test("statement link: stored and served; a bad stored or served value is dropped, the rest kept", () => {
+    const stored = readSiteSettings({ v: 1, appearance: { stateColor: "#123456" }, defaults: [], links: { statement: "https://shop.com/a11y" } });
+    assert.equal(stored.links.statement, "https://shop.com/a11y");
+    assert.equal(toWidgetConfig(stored, true).statementUrl, "https://shop.com/a11y");
+    const bad = readSiteSettings({ v: 1, appearance: { stateColor: "#123456" }, defaults: [], links: { statement: "javascript:alert(1)" } });
+    assert.equal(bad.links.statement, undefined);
+    assert.equal(bad.appearance.stateColor, "#123456");
+    assert.equal("statementUrl" in toWidgetConfig(bad, true), false);
+    const served = parseConfig({ v: 1, enabled: true, theme: {}, defaults: {}, statementUrl: "javascript:alert(1)" });
+    assert.equal(served?.statementUrl, undefined);
+    assert.equal(served?.enabled, true);
+    assert.deepEqual(readSiteSettings(undefined).links, {}); // old stored settings: no links
 });
