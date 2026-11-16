@@ -146,8 +146,8 @@ type Probe = {
 };
 
 /** Settings that recolor the whole screen through the lens (core/lens.ts): no area can be excluded from them. */
-/** Buttons, not settings: their opt-out is tested with them (Page structure leaves opted-out areas out of its lists). */
-const ACTIONS = ["page-structure"];
+/** Opt-out tested with the feature itself (Page structure's lists, Read aloud's voice). */
+const TESTED_WITH_THEMSELVES = ["page-structure", "read-aloud"];
 
 const SCREEN_WIDE = ["color", "reading-aid"]; // reading-aid: a layer over the screen, following the pointer
 
@@ -427,11 +427,12 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
         test("settings are grouped under section headings, in order, and empty sections don't show", async ({ page }) => {
             await toggle(page).click();
             const headings = panel(page).getByRole("heading", { level: 3 });
-            await expect(headings).toHaveText(["Profiles", "Content", "Appearance", "Navigation"]);
+            await expect(headings).toHaveText(["Profiles", "Content", "Appearance", "Navigation", "Tools"]);
             for (const [section, settings] of [
                 ["Content", ["Text size", "Text spacing", "Line height", "Font", "Align text", "Image descriptions"]],
                 ["Appearance", ["Contrast", "Color", "Hide images", "Pause animations"]],
                 ["Navigation", ["Reading aid", "Big cursor", "Highlight links", "Stronger focus outline", "Page structure"]],
+                ["Tools", ["Read aloud"]],
             ] as const) {
                 const list = panel(page).getByRole("list", { name: section }); // each list is named by its heading
                 for (const name of settings) {
@@ -444,8 +445,8 @@ for (const path of ["/", "/hostile.html", "/components.html"]) {
             // Every section reachable and accessible on phones, tablets, desktops and at 200% zoom (1280×900 → 640×450)
             for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
                 await page.setViewportSize({ width, height });
-                await panel(page).getByRole("button", { name: "Page structure" }).scrollIntoViewIfNeeded(); // the last item
-                await expect(panel(page).getByRole("button", { name: "Page structure" })).toBeInViewport();
+                await panel(page).getByRole("checkbox", { name: "Read aloud" }).scrollIntoViewIfNeeded(); // the last item
+                await expect(panel(page).getByRole("checkbox", { name: "Read aloud" })).toBeInViewport();
                 expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
             }
             // Text size's segments follow its number of levels
@@ -2131,6 +2132,194 @@ test.describe("Shortcut, Hide and statement link (/)", () => {
     });
 });
 
+test.describe("Read aloud (/)", () => {
+    type Spoken = { text: string; lang: string; rate: number; voice?: string };
+    const player = (page: Page) => page.getByRole("region", { name: "Read aloud" });
+    const spoken = (page: Page) => page.evaluate(() => (window as unknown as { __speech: { spoken: Spoken[] } }).__speech.spoken);
+    const texts = async (page: Page) => (await spoken(page)).map((s) => s.text);
+    const finish = (page: Page) => page.evaluate(() => (window as unknown as { __speech: { finish(): void } }).__speech.finish());
+    const speechState = (page: Page) => page.evaluate(() => (window as unknown as { __speech: { state: string } }).__speech.state);
+    const partRequests: string[] = [];
+
+    test.beforeEach(async ({ page }) => {
+        partRequests.length = 0;
+        page.on("request", (r) => {
+            if (r.url().includes("/parts/read-aloud")) partRequests.push(r.url());
+        });
+        // A fake voice: headless Chrome has none. It records what would be said; finish() ends the current sentence.
+        await page.addInitScript(() => {
+            const spoken: unknown[] = [];
+            let current: { onend?: () => void } | null = null;
+            let state = "idle";
+            class FakeUtterance {
+                lang = "";
+                rate = 1;
+                voice: { name: string } | null = null;
+                onend: (() => void) | null = null;
+                onerror: (() => void) | null = null;
+                constructor(public text: string) {}
+            }
+            const voices = [
+                { name: "Network voice", lang: "en-US", localService: false },
+                { name: "On-device voice", lang: "en-US", localService: true },
+                { name: "Voix", lang: "fr-FR", localService: true },
+            ];
+            const synth = {
+                speak(u: FakeUtterance) {
+                    spoken.push({ text: u.text, lang: u.lang, rate: u.rate, voice: u.voice?.name });
+                    current = u as unknown as { onend?: () => void };
+                    state = "speaking";
+                },
+                cancel() {
+                    current = null;
+                    state = "idle";
+                },
+                pause() {
+                    state = "paused";
+                },
+                resume() {
+                    state = "speaking";
+                },
+                getVoices: () => voices,
+            };
+            Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+            (window as unknown as Record<string, unknown>).SpeechSynthesisUtterance = FakeUtterance;
+            (window as unknown as Record<string, unknown>).__speech = {
+                spoken,
+                finish() {
+                    const u = current;
+                    current = null;
+                    u?.onend?.();
+                },
+                get state() {
+                    return state;
+                },
+            };
+        });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.evaluate(() => {
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                `<main id="ra-main">
+                   <h2 id="ra-h">Our story</h2>
+                   <p id="ra-p1">First sentence here. Second one follows! And a third?</p>
+                   <p id="ra-p2">Another paragraph. <a id="ra-link" href="#linked">A link</a> inside it.</p>
+                   <p id="ra-form">Name <input aria-label="Name" value="secret value"> <input aria-label="Password" type="password" value="hunter2"></p>
+                   <p aria-hidden="true">Hidden words</p>
+                   <div data-a11yw-ignore="read-aloud"><p>Ignored words</p></div>
+                   <p id="ra-fr" lang="fr">Bonjour tout le monde.</p>
+                 </main>`
+            );
+        });
+    });
+
+    test("turning it on downloads the part and shows the player, and says nothing", async ({ page }) => {
+        expect(partRequests).toEqual([]);
+        await turnOn(page, "Read aloud");
+        await expect(player(page)).toBeVisible();
+        await expect(player(page)).toContainText("Click any text to hear it, or press Play.");
+        expect(partRequests).toHaveLength(1);
+        expect(await spoken(page)).toEqual([]);
+    });
+
+    test("clicking text reads it sentence by sentence, then the next block, in the page's language with an on-device voice", async ({ page }) => {
+        await turnOn(page, "Read aloud");
+        await closeButton(page).click();
+        await page.locator("#ra-p1").click();
+        await expect.poll(() => spoken(page)).toEqual([{ text: "First sentence here.", lang: "en", rate: 1, voice: "On-device voice" }]);
+        expect(await page.locator("#ra-p1").evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("solid");
+        expect(await page.evaluate(() => String([...((CSS as unknown as { highlights: Map<string, Set<Range>> }).highlights.get("a11yw-reading") ?? [])][0]))).toBe("First sentence here."); // the sentence, highlighted
+        await finish(page);
+        await finish(page);
+        await finish(page);
+        expect(await texts(page)).toEqual(["First sentence here.", "Second one follows!", "And a third?", "Another paragraph."]); // on to the next block
+        expect(await page.locator("#ra-p1").evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none"); // moved on
+    });
+
+    test("clicking a link follows it and doesn't read", async ({ page }) => {
+        await turnOn(page, "Read aloud");
+        await closeButton(page).click();
+        await page.locator("#ra-link").click();
+        await expect(page).toHaveURL(/#linked$/);
+        expect(await spoken(page)).toEqual([]);
+    });
+
+    test("form values, hidden and opted-out text are never read; other languages get their own voice", async ({ page }) => {
+        await turnOn(page, "Read aloud");
+        await closeButton(page).click();
+        await page.locator("#ra-form").click({ position: { x: 4, y: 4 } });
+        await expect.poll(() => texts(page)).toEqual(["Name"]);
+        await finish(page);
+        const all = await spoken(page);
+        expect(all.at(-1)).toEqual({ text: "Bonjour tout le monde.", lang: "fr", rate: 1, voice: "Voix" });
+        expect(JSON.stringify(all)).not.toMatch(/secret value|hunter2|Hidden words|Ignored words/);
+    });
+
+    test("the player: pause and resume, next and previous, speed, stop; by keyboard; accessible at every width", async ({ page }) => {
+        await turnOn(page, "Read aloud");
+        await closeButton(page).click();
+        await page.locator("#ra-p1").click();
+        await expect.poll(() => texts(page)).toEqual(["First sentence here."]);
+
+        const pause = player(page).getByRole("button", { name: "Pause" });
+        await pause.focus();
+        await page.keyboard.press("Enter");
+        expect(await speechState(page)).toBe("paused");
+        await expect(player(page).getByRole("button", { name: "Play" })).toBeFocused();
+        await page.keyboard.press("Enter");
+        expect(await speechState(page)).toBe("speaking");
+
+        await player(page).getByRole("button", { name: "Next" }).click();
+        expect((await texts(page)).at(-1)).toBe("Another paragraph.");
+        await player(page).getByRole("button", { name: "Previous" }).click();
+        expect((await texts(page)).at(-1)).toBe("First sentence here.");
+
+        await player(page).getByLabel("Speed").selectOption("Fast"); // the sentence again, faster
+        expect((await spoken(page)).at(-1)).toMatchObject({ text: "First sentence here.", rate: 1.25 });
+
+        await player(page).getByRole("button", { name: "Stop" }).click();
+        expect(await speechState(page)).toBe("idle");
+        expect(await page.locator("#ra-p1").evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none");
+        await expect(player(page)).toBeVisible(); // stays while Read aloud is on
+
+        for (const [width, height] of [[320, 640], [768, 1024], [1280, 900], [640, 450]] as const) {
+            await page.setViewportSize({ width, height });
+            const box = (await player(page).boundingBox())!;
+            expect(box.x).toBeGreaterThanOrEqual(0);
+            expect(box.x + box.width).toBeLessThanOrEqual(width);
+            expect(await widgetViolations(page), `${width}×${height}`).toEqual([]);
+        }
+    });
+
+    test("Play reads the selected text; a saved 'on' shows the player at the next visit", async ({ page }) => {
+        await turnOn(page, "Read aloud");
+        await closeButton(page).click();
+        await page.evaluate(() => {
+            const text = document.getElementById("ra-p2")!.firstChild!;
+            const range = document.createRange();
+            range.setStart(text, 0);
+            range.setEnd(text, "Another paragraph.".length);
+            getSelection()!.removeAllRanges();
+            getSelection()!.addRange(range);
+        });
+        await player(page).getByRole("button", { name: "Play" }).click();
+        expect(await texts(page)).toEqual(["Another paragraph."]);
+
+        await page.reload();
+        await expect(player(page)).toBeVisible(); // without opening the panel
+    });
+
+    test("a browser without speech: the player says so", async ({ page }) => {
+        await page.addInitScript(() => Object.defineProperty(window, "speechSynthesis", { value: undefined, configurable: true }));
+        await page.reload();
+        await expect(toggle(page)).toBeVisible();
+        await turnOn(page, "Read aloud");
+        await expect(player(page)).toContainText("Your browser can't read aloud.");
+        await expect(player(page).getByRole("button", { name: "Play" })).toBeDisabled();
+    });
+});
+
 test.describe("data-a11yw-ignore with setting names (/)", () => {
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
@@ -2143,7 +2332,7 @@ test.describe("data-a11yw-ignore with setting names (/)", () => {
         );
         expect(ids.length).toBeGreaterThan(0);
         expect(new Set(ids).size).toBe(ids.length);
-        expect(ids.filter((id) => !PROBES[id] && !SCREEN_WIDE.includes(id) && !ACTIONS.includes(id))).toEqual([]); // add a PROBES entry for a new setting
+        expect(ids.filter((id) => !PROBES[id] && !SCREEN_WIDE.includes(id) && !TESTED_WITH_THEMSELVES.includes(id))).toEqual([]); // add a PROBES entry for a new setting
         expect(Object.keys(PROBES).filter((id) => !ids.includes(id))).toEqual([]);     // no checks for settings that don't exist
     });
 

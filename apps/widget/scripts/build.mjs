@@ -31,7 +31,7 @@ shared.define.__FONT_CSS__ = JSON.stringify(await buildFonts(OUT, { hash: true }
 
 // 0b. Parts (src/parts/*.ts, see src/core/parts.ts): built and hashed first, so the app can carry their names
 //     and integrity hashes, as the loader carries the app's.
-const PARTS = ["image-descriptions", "smart-contrast", "reading-aid", "pause-animations", "page-structure"];
+const PARTS = ["image-descriptions", "smart-contrast", "reading-aid", "pause-animations", "page-structure", "read-aloud"];
 const partEntry = (name) => (existsSync(`src/parts/${name}.ts`) ? `src/parts/${name}.ts` : `src/parts/${name}/index.ts`); // a file, or a folder
 const partFiles = [];
 const parts = {};

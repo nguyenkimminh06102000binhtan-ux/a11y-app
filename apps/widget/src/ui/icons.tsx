@@ -181,6 +181,12 @@ const FEATURE_PATHS: Record<string, preact.JSX.Element> = {
             <path d="M4 5 V23 M4 11 H8 M4 17 H8 M8 17 V23 H12" />
         </>
     ),
+    "read-aloud": (
+        <>
+            <path d="M4 11 H8 L14 6 V22 L8 17 H4 Z" />
+            <path d="M18 10 A5 5 0 0 1 18 18 M21 7 A9 9 0 0 1 21 21" />
+        </>
+    ),
     "highlight-links": (
         <>
             <path d="M11 17 L17 11" />

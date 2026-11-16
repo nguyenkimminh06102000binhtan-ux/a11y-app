@@ -44,7 +44,7 @@ test("bySection keeps section order and leaves out empty sections", () => {
     const groups = bySection(CATALOG);
     assert.deepEqual(
         groups.map((g) => g.section.id),
-        ["content", "appearance", "navigation"]
+        ["content", "appearance", "navigation", "tools"]
     );
     assert.deepEqual(groups[0].items.map((e) => e.id), ["text-size", "text-spacing", "line-height", "font", "text-align", "image-descriptions"]);
     assert.deepEqual(bySection([]), []);

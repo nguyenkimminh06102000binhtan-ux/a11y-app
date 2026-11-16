@@ -228,6 +228,15 @@ export const CATALOG = [
         label: "Page structure",
         hint: "Lists the page's headings, landmarks and links, to jump to any of them.",
     },
+    // Tools
+    {
+        kind: "toggle",
+        id: "read-aloud",
+        key: "readAloud",
+        section: "tools",
+        label: "Read aloud",
+        hint: "Click any text to hear it. A player lets you pause, skip and change speed.",
+    },
 ] as const satisfies readonly CatalogEntry[];
 
 type Entry = (typeof CATALOG)[number];

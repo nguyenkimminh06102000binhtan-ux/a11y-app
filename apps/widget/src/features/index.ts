@@ -10,6 +10,7 @@ import { focusOutline } from "./focus-outline";
 import { highlightLinks } from "./highlight-links";
 import { pageStructure } from "./page-structure";
 import { pauseAnimations } from "./pause-animations";
+import { readAloud } from "./read-aloud";
 import { readingAid } from "./reading-aid";
 import { textSizeFeature } from "./text-size";
 import { textAlign } from "./text-align";
@@ -35,6 +36,7 @@ const IMPLEMENTATIONS: Implementations = {
     "highlight-links": highlightLinks,
     "focus-outline": focusOutline,
     "page-structure": pageStructure,
+    "read-aloud": readAloud,
 };
 
 /**

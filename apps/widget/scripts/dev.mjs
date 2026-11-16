@@ -13,6 +13,7 @@ const ctx = await esbuild.context({
     "parts/reading-aid": "src/parts/reading-aid.ts",
     "parts/pause-animations": "src/parts/pause-animations/index.ts",
     "parts/page-structure": "src/parts/page-structure.ts",
+    "parts/read-aloud": "src/parts/read-aloud.ts",
   },
   outdir: "public",
   bundle: true,
@@ -32,6 +33,7 @@ const ctx = await esbuild.context({
       "reading-aid": { file: "parts/reading-aid.js", integrity: "" },
       "pause-animations": { file: "parts/pause-animations.js", integrity: "" },
       "page-structure": { file: "parts/page-structure.js", integrity: "" },
+      "read-aloud": { file: "parts/read-aloud.js", integrity: "" },
     }),
 
   }, // dev: no hash in the name
