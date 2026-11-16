@@ -42,9 +42,9 @@ const CONTEXT: PartContext = { onElementsAdded, onNewShadowRoot, deepQueryAll, o
 /** Where a part file hands itself over: `window[PART_HANDOFF](name, part)`. Shared with parts/handoff.ts. */
 export const PART_HANDOFF = "__a11ywPart";
 
-type Handoff = (name: string, part: Part) => void;
-const waiting = new Map<string, (part: Part) => void>();
-const loads = new Map<PartName, Promise<Part | null>>();
+type Handoff = (name: string, part: unknown) => void;
+const waiting = new Map<string, (part: unknown) => void>();
+const loads = new Map<PartName, Promise<unknown>>();
 
 function listen(): void {
     const w = window as unknown as Record<string, Handoff | undefined>;
@@ -53,13 +53,13 @@ function listen(): void {
     Object.defineProperty(window, PART_HANDOFF, { value: handoff, configurable: true, enumerable: false });
 }
 
-/** Download a part once. Resolves to null if it can't load. */
-export function loadPart(name: PartName): Promise<Part | null> {
-    let load = loads.get(name);
+/** Download a part once. Resolves to null if it can't load. Most parts are a Part; the panel is a PanelPart (ui/launcher.ts). */
+export function loadPart<T = Part>(name: PartName): Promise<T | null> {
+    let load = loads.get(name) as Promise<T | null> | undefined;
     if (load) return load;
-    load = new Promise<Part | null>((resolve) => {
+    load = new Promise<T | null>((resolve) => {
         listen();
-        waiting.set(name, resolve); // a part hands itself over while its script runs, before the load event
+        waiting.set(name, resolve as (part: unknown) => void); // a part hands itself over while its script runs, before the load event
         const { file, integrity } = __PARTS__[name];
         const script = document.createElement("script");
         script.src = CDN_BASE + file;

@@ -4,7 +4,7 @@ import type { Part } from "../core/parts";
 const PART_HANDOFF = "__a11ywPart";
 
 /** Called by a part file as it runs: hands itself to the app that asked for it. */
-export function handOver(name: string, part: Part): void {
-    const handoff = (window as unknown as Record<string, ((name: string, part: Part) => void) | undefined>)[PART_HANDOFF];
+export function handOver(name: string, part: Part | object): void {
+    const handoff = (window as unknown as Record<string, ((name: string, part: unknown) => void) | undefined>)[PART_HANDOFF];
     handoff?.(name, part);
 }

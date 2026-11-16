@@ -1337,7 +1337,7 @@ test.describe("Image descriptions (/)", () => {
     test.beforeEach(async ({ page }) => {
         partRequests.length = 0;
         page.on("request", (r) => {
-            if (r.url().includes("/parts/")) partRequests.push(new URL(r.url()).pathname);
+            if (r.url().includes("/parts/image-descriptions")) partRequests.push(new URL(r.url()).pathname);
         });
         await page.goto("/");
         await expect(toggle(page)).toBeVisible();
@@ -1445,7 +1445,7 @@ test.describe("Image descriptions (/)", () => {
     test("a part whose bytes don't match its integrity hash is refused: the setting does nothing, the page sees no errors", async ({ page }) => {
         const errors: string[] = [];
         page.on("pageerror", (e) => errors.push(e.message));
-        await page.route("**/parts/**", async (route) => {
+        await page.route("**/parts/image-descriptions*", async (route) => {
             const response = await route.fetch();
             route.fulfill({ response, body: (await response.text()) + "\n;window.tampered = true;" });
         });
@@ -2317,6 +2317,73 @@ test.describe("Read aloud (/)", () => {
         await turnOn(page, "Read aloud");
         await expect(player(page)).toContainText("Your browser can't read aloud.");
         await expect(player(page).getByRole("button", { name: "Play" })).toBeDisabled();
+    });
+});
+
+test.describe("The panel as a part (/)", () => {
+    const panelRequests = (page: Page) => {
+        const times: number[] = [];
+        page.on("request", (r) => {
+            if (r.url().includes("/parts/panel.")) times.push(Date.now());
+        });
+        return times;
+    };
+
+    test("downloaded once, after the page has loaded, while idle; the first click opens it at once", async ({ page }) => {
+        const requests = panelRequests(page);
+        let loadedAt = 0;
+        page.on("load", () => (loadedAt = Date.now()));
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await expect.poll(() => requests.length).toBe(1);
+        expect(requests[0]).toBeGreaterThanOrEqual(loadedAt);
+        await expect(page.locator("a11yw-root #panel")).toBeAttached(); // mounted, closed
+        await expect(panel(page)).toBeHidden();
+        await toggle(page).click();
+        await expect(closeButton(page)).toBeFocused();
+        expect(requests).toHaveLength(1);
+    });
+
+    test("with Save data on, nothing is downloaded until the first click", async ({ page }) => {
+        await page.addInitScript(() => Object.defineProperty(navigator, "connection", { value: { saveData: true } }));
+        const requests = panelRequests(page);
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await page.waitForTimeout(2500); // longer than the idle fallback
+        expect(requests).toHaveLength(0);
+        await toggle(page).click();
+        await expect(closeButton(page)).toBeFocused();
+        expect(requests).toHaveLength(1);
+    });
+
+    test("clicked while it's still downloading: the button says busy, then the panel opens with focus inside", async ({ page }) => {
+        await page.route("**/parts/panel.*", async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await route.continue();
+        });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await toggle(page).click();
+        await expect(toggle(page)).toHaveAttribute("aria-busy", "true");
+        await expect(closeButton(page)).toBeFocused({ timeout: 10_000 });
+        await expect(toggle(page)).not.toHaveAttribute("aria-busy");
+        await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
+    });
+
+    test("if it can't load: a notice; saved settings still apply; Alt+A still brings a hidden button back", async ({ page }) => {
+        await page.route("**/parts/panel.*", (route) => route.abort());
+        await page.addInitScript(() => {
+            localStorage.setItem("a11yw:settings:v1", JSON.stringify({ highlightLinks: true }));
+            sessionStorage.setItem("a11yw:hidden:v1", "1");
+        });
+        await page.goto("/");
+        await expect(page.locator("a11yw-root")).toBeAttached();
+        await expect(toggle(page)).toBeHidden();
+        expect(await page.locator("a[href]").first().evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 0)"); // the main script applied it
+        await page.keyboard.press("Alt+KeyA");
+        await expect(toggle(page)).toBeVisible();
+        await expect(page.locator("a11yw-root").getByRole("status").filter({ hasText: "Couldn't open the settings" })).toBeVisible();
+        expect(await widgetViolations(page)).toEqual([]);
     });
 });
 

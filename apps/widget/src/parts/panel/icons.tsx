@@ -1,6 +1,6 @@
 /*
  * The widget's icons: inline SVG, so there are no extra requests. Drawn with `currentColor`, so each icon takes
- * the text color of the element around it; the stroke styles are in widget.css (.icon).
+ * the text color of the element around it; the stroke styles are in ui/launcher.css (.icon).
  * All are decorative (aria-hidden): the button or label around them carries the name.
  */
 
@@ -14,21 +14,6 @@ export function Mark({ class: className = "" }: { class?: string }) {
         </svg>
     );
 }
-
-/** The launcher's icon: the accessibility figure as a solid silhouette, the symbol visitors look for. Bold at small sizes. */
-export function AccessibilityIcon() {
-    return (
-        <svg class="icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-            <circle class="solid" cx="16" cy="7.4" r="2.9" />
-            <path
-                class="solid"
-                d="M7 11.4 H25 A1.5 1.5 0 0 1 25 14.4 H19.2 V19.4 L21.9 26.4 A1.6 1.6 0 0 1 18.9 27.6 L16 20.9 L13.1 27.6 A1.6 1.6 0 0 1 10.1 26.4 L12.8 19.4 V14.4 H7 A1.5 1.5 0 0 1 7 11.4 Z"
-            />
-        </svg>
-    );
-}
-
-
 
 export function CloseIcon() {
     return (

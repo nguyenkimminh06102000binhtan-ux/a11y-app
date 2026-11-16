@@ -1,0 +1,398 @@
+/*
+ * The panel's own styles (header, sections, tiles, level rows, footer, hide choice). Added to the widget's shadow
+ * root when the panel part loads. The host reset, launcher, focus rings and placement are in ui/launcher.css,
+ * in the main script: they're the same shadow root, so those rules apply to the panel too.
+ */
+
+.panel {
+  /* Placed against the screen, next to the button: see section 3 below */
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
+  border-radius: 1em;
+  box-shadow: 0 0.25em 1.5em rgb(0 0 0 / 0.2);
+  overflow: hidden;
+  /* rounded corners clip the header and footer; .panel-body scrolls */
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.625em;
+  padding: 0.75em 0.75em 0.75em 1em;
+  border-bottom: 1px solid var(--bcn-frame);
+}
+
+/* The mark in the header, in color: frame ring, state beam, text core */
+.brand-mark {
+  width: 1.75em;
+  height: 1.75em;
+}
+
+.brand-mark .mark-ring {
+  stroke: var(--bcn-frame);
+}
+
+.brand-mark .mark-beam {
+  stroke: var(--bcn-state-ink);
+}
+
+.brand-mark .mark-core {
+  fill: var(--bcn-text);
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.125em;
+  font-weight: 700;
+}
+
+.close {
+  font: inherit;
+  flex: none;
+  width: 2.75em;
+  /* ~44px at default text size; WCAG 2.5.8 requires at least 24px */
+  height: 2.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--bcn-text);
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
+  border-radius: 50%;
+  cursor: var(--a11yw-cursor-hand, pointer); /* the Big cursor setting's hand, if on */
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  /* lets it shrink and scroll inside the panel */
+  overflow: auto;
+  padding: 0 1em;
+}
+
+.panel-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  padding: 0.75em 1em;
+  border-top: 1px solid var(--bcn-frame);
+}
+
+/* Reset all and Move: side by side, stacked when the panel is narrow (or the text is large) */
+.panel-footer .reset {
+  flex: 1 1 auto; /* as wide as its words: one row when both fit, else one each (and words wrap only if they must) */
+  width: auto;
+}
+
+/* Sections (Content, Appearance…), one after another in the scrolling body */
+.section {
+  padding: 0.875em 0;
+}
+
+.section + .section {
+  border-top: 1px solid var(--bcn-frame);
+}
+
+.section-title {
+  margin: 0 0 0.625em;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+/* Settings in a section: level settings across the full width, on/off tiles two per row */
+.features {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625em;
+  margin: 0;
+  padding: 0;
+}
+
+.feature-levels,
+.feature-action {
+  grid-column: 1 / -1;
+}
+
+/* An action (Page structure): a full-width button that opens something, its hint below */
+.action {
+  font: inherit;
+  font-weight: 700;
+  width: 100%;
+  min-height: 2.75em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 0.75em;
+  color: var(--bcn-text);
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
+  border-radius: 0.625em;
+  text-align: start;
+  cursor: var(--a11yw-cursor-hand, pointer);
+}
+
+.action-label {
+  flex: 1;
+}
+
+.action-arrow {
+  width: 1.25em;
+  height: 1.25em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feature-action .feature-hint {
+  margin-top: 0.375em;
+}
+
+.feature-icon {
+  width: 1.75em;
+  height: 1.75em;
+  color: var(--bcn-frame);
+}
+
+.feature-hint {
+  margin: 0;
+  font-size: 0.875em;
+  line-height: 1.4;
+  color: var(--bcn-frame);
+}
+
+/* Off/on tile. The checkbox is invisible but covers the whole tile, so it gets every click and keypress. */
+.tile {
+  position: relative;
+  display: grid;
+  /* the face fills the cell, so tiles in a row share one height */
+}
+
+.tile-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: var(--a11yw-cursor-hand, pointer); /* the Big cursor setting's hand, if on */
+}
+
+.tile-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375em;
+  padding: 1em 0.625em 0.875em;
+  text-align: center;
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
+  border-radius: 0.875em;
+}
+
+.tile-label {
+  font-weight: 700;
+}
+
+/* Profiles: compact tiles, icon beside the words, so six of them stay short */
+.tile-compact .tile-face {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5em;
+  padding: 0.625em 2em 0.625em 0.625em; /* room for the check badge on the right */
+  text-align: start;
+}
+
+.tile-compact .feature-icon {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.tile-text {
+  min-width: 0;
+  overflow-wrap: anywhere; /* a long word never pushes the tile wider than its column */
+}
+
+/* Narrow screens: the icon above the words, so the words get the tile's full width */
+@media (max-width: 440px) {
+  .tile-compact .tile-face {
+    flex-direction: column;
+    padding: 0.625em;
+  }
+}
+
+.check-badge {
+  display: none;
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.check-badge circle {
+  fill: var(--bcn-state);
+}
+
+.check-badge path {
+  fill: none;
+  stroke: var(--bcn-on-state);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* On: the shared "on" look (tint, state border) plus the check badge. Uses ~, not :has(), so older browsers get it too. */
+.tile-input:checked~.tile-face {
+  background: var(--bcn-state-tint);
+  border-color: var(--bcn-state-ink);
+}
+
+.tile-input:checked~.tile-face .check-badge {
+  display: block;
+}
+
+.tile-input:checked~.tile-face .feature-icon {
+  color: var(--bcn-state-ink);
+}
+
+.reset {
+  font: inherit;
+  font-weight: 700;
+  width: 100%;
+  min-height: 2.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  color: var(--bcn-text);
+  background: var(--bcn-bg);
+  border: 2px solid var(--bcn-frame);
+  border-radius: 0.625em;
+  cursor: var(--a11yw-cursor-hand, pointer); /* the Big cursor setting's hand, if on */
+}
+
+.reset .icon {
+  color: var(--bcn-frame);
+}
+
+.levels {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.levels-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0;
+  font-weight: 700;
+}
+
+.levels .feature-hint {
+  margin: 0.25em 0 0.625em;
+}
+
+/* A row of 4 segments: real radios, laid over each segment like the tiles */
+.level-options {
+  display: grid;
+  grid-template-columns: repeat(var(--levels, 4), minmax(0, 1fr)); /* one segment per level (set by LevelRow) */
+  border: 2px solid var(--bcn-frame);
+  border-radius: 0.625em;
+  overflow: hidden;
+}
+
+.level {
+  position: relative;
+  display: grid;
+}
+
+.level+.level .level-face {
+  border-left: 1px solid var(--bcn-frame);
+}
+
+.level-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: var(--a11yw-cursor-hand, pointer); /* the Big cursor setting's hand, if on */
+}
+
+.level-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75em;
+  /* ~44px target at default text size */
+  padding: 0 0.25em;
+}
+
+.level-input:checked+.level-face {
+  font-weight: 700;
+  color: var(--bcn-state-ink);
+  background: var(--bcn-state-tint);
+  box-shadow: inset 0 0 0 2px var(--bcn-state-ink);
+}
+
+
+/* Footer: the statement link and the shortcut, under the buttons */
+.footer-links {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25em 1em;
+  margin: 0;
+  font-size: 0.875em;
+}
+
+.footer-link {
+  color: var(--bcn-state-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.footer-shortcut {
+  color: var(--bcn-frame);
+}
+
+/* Hide: the choice replaces the footer's buttons */
+.hide-choice {
+  flex: 1 1 100%;
+}
+
+.hide-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.hide-choice .feature-hint {
+  margin: 0.125em 0 0.5em;
+}
+
+.hide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.hide-actions .reset {
+  flex: 1 1 auto;
+  width: auto;
+}

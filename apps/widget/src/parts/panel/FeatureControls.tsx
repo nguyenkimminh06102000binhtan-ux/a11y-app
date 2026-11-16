@@ -1,5 +1,5 @@
 import type { Profile } from "@app/widget-config";
-import type { ActionFeature, LevelFeature, ToggleFeature } from "../features";
+import type { ActionFeature, LevelFeature, ToggleFeature } from "../../features";
 import { CheckBadge, FeatureIcon } from "./icons";
 
 /** A level setting across the panel's width: native radios in a fieldset, so arrow keys move between levels and the legend names the group. */

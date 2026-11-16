@@ -177,6 +177,12 @@ button back, and is ignored while typing in a text field.
 (a `filter` on page containers would make their fixed headers scroll) and the widget keeps its colors. Clicks and
 scrolling go through it. It covers the whole screen, so `data-a11yw-ignore` can't exclude an area from it.
 
+**Main script vs panel.** The main script (`app.<hash>.js`, 18 KB limit) holds only what every page view needs:
+applying saved settings to the page, and the launcher (plain DOM: the button, Alt+A, Hide, notices;
+`src/ui/launcher.ts`). The panel (Preact and all its UI, `src/parts/panel/`, 14 KB limit) is a part: downloaded and
+mounted closed once the page is idle (on the first click if the visitor has Save data on), so the first click is
+normally instant. The settings stay in the main script; the panel gets them in `PanelContext`.
+
 **Parts.** Heavier features are separate files (`src/parts/*.ts` → `dist/parts/<name>.<hash>.js`, 8 KB limit each),
 downloaded only when a visitor turns them on (or arrives with them saved on). The app carries each part's name and
 integrity hash, like the loader carries the app's, so a changed byte is refused; a part that can't load (CSP,

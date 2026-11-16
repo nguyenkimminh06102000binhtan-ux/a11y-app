@@ -1,7 +1,6 @@
 // The real widget. Mounts an isolated UI once the page has finished loading.
-import { h, render } from "preact";
 import { mount } from "../ui/mount";
-import { Widget } from "../ui/Widget";
+import { mountLauncher } from "../ui/launcher";
 import { DEFAULTS, loadSettings, setOwnerDefaults } from "../settings/settings";
 import { adoptInto, applyToFrame, applyToPage, restoreDocumentCss } from "../settings/apply";
 import { watchShadowRoots } from "../core/shadow-roots";
@@ -62,7 +61,7 @@ Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, posit
   const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
   applyTheme(host, theme); // before the first render, so the brand color never flashes
   applyPosition(host, position); // likewise, so the button never jumps from the default corner
-  render(h(Widget, { statementUrl }), container);
+  mountLauncher(container, { statementUrl });
 
   // Single-page apps can remove the widget, our <style> or the text-size variable while navigating: put them back.
   keepMounted(host, () => {

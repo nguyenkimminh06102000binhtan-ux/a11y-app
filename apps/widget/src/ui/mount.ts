@@ -1,5 +1,5 @@
 import { HOST_TAG } from "../core/host";
-import css from "./widget.css";
+import css from "./launcher.css";
 import tokens from "@app/tokens/tokens.css"; // shared colors: --bcn-bg, --bcn-text, --bcn-frame, --bcn-state, --bcn-state-tint
 
 

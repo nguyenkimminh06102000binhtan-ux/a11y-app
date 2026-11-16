@@ -31,8 +31,8 @@ shared.define.__FONT_CSS__ = JSON.stringify(await buildFonts(OUT, { hash: true }
 
 // 0b. Parts (src/parts/*.ts, see src/core/parts.ts): built and hashed first, so the app can carry their names
 //     and integrity hashes, as the loader carries the app's.
-const PARTS = ["image-descriptions", "smart-contrast", "reading-aid", "pause-animations", "page-structure", "read-aloud"];
-const partEntry = (name) => (existsSync(`src/parts/${name}.ts`) ? `src/parts/${name}.ts` : `src/parts/${name}/index.ts`); // a file, or a folder
+const PARTS = ["image-descriptions", "smart-contrast", "reading-aid", "pause-animations", "page-structure", "read-aloud", "panel"];
+const partEntry = (name) => [`src/parts/${name}.ts`, `src/parts/${name}/index.ts`, `src/parts/${name}/index.tsx`].find((path) => existsSync(path)); // a file, or a folder
 const partFiles = [];
 const parts = {};
 for (const name of PARTS) {
@@ -102,8 +102,9 @@ ${SHARED_HEADERS}
 // 4. Size limits (gzipped, roughly what the CDN sends). Raise them on purpose, never quietly.
 const LIMITS = [
   { name: "l.js", bytes: loader.outputFiles[0].contents, max: 1024 },
-  { name: appFile, bytes: appBytes, max: 25 * 1024 },
-  ...partFiles.map((part) => ({ ...part, max: 8 * 1024 })), // each part, downloaded only when its setting is on
+  { name: appFile, bytes: appBytes, max: 18 * 1024 }, // every page view: settings engine and launcher only
+  // each part, downloaded only when needed; the panel (Preact and its UI) once the page is idle
+  ...partFiles.map((part) => ({ ...part, max: part.name.startsWith("parts/panel.") ? 14 * 1024 : 8 * 1024 })),
 ];
 
 let overLimit = false;
