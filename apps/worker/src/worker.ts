@@ -1,3 +1,4 @@
+import { Sentry } from "./sentry"; // first: error reporting starts before anything else
 import { chromium } from "playwright";
 import { db, closeDb, scans, sites, eq, sql } from "@app/db";
 import { runScan } from "./runScan";
@@ -100,6 +101,8 @@ async function main() {
             continue;
           }
           const message = err instanceof Error ? err.message : String(err);
+          // A warning, not an error: most failed scans are the customer's site (down, slow, blocking us), not a bug
+          Sentry.captureException(err, { level: "warning", tags: { kind: "scan-failed", scan_id: scan.id, site_id: site.id } });
           await db
             .update(scans)
             .set({ status: "failed", error: message, finishedAt: new Date() })
@@ -108,6 +111,7 @@ async function main() {
         }
       } catch (err) {
         console.error(`Database unavailable (${describe(err)}). Retrying in ${backoff / 1000}s…`);
+        if (backoff === POLL_MS) Sentry.captureException(err, { tags: { kind: "database-unavailable" } }); // once per outage, not every retry
         await sleep(backoff);
         backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
       }
@@ -119,7 +123,10 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    Sentry.captureException(err, { tags: { kind: "worker-crashed" } });
+    process.exitCode = 1;
+  })
+  .finally(() => Sentry.flush(5000)); // send what's queued before the process ends

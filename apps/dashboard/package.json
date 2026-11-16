@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@app/db": "workspace:*",
+    "@app/observability": "workspace:*",
     "@app/tokens": "workspace:*",
     "@app/widget-config": "workspace:*",
+    "@sentry/nextjs": "11.10.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "axe-core": "4.14.0",

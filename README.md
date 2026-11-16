@@ -74,6 +74,35 @@ Authentication settings in the Supabase dashboard (the local test stack has the 
 - Sign-in links never create accounts (only Sign up does); the first site typed at sign-up is made when the
   confirmation link is opened (`lib/account.ts` › `finishSignIn`).
 
+### Email (production)
+Supabase sends every auth email (confirm sign-up, sign-in link, reset password); its built-in sender only reaches
+the project team and a few emails an hour, so production uses **Resend** over SMTP. The app itself sends no email.
+- **Resend:** domain `accesspilot.org` verified (its DKIM `resend._domainkey` and sending records are in Cloudflare
+  DNS, DNS only). An API key with **Sending access** to that domain only, used nowhere but Supabase.
+- **Supabase › Authentication › Emails › SMTP Settings:** host `smtp.resend.com`, port `465`, user `resend`,
+  password = that API key, sender `no-reply@accesspilot.org`, name `AccessPilot`. **Rate Limits:** about 100
+  emails an hour (Supabase starts at 30 once custom SMTP is on).
+- **Receiving:** Google Workspace hosts `accesspilot.org` mail (MX `smtp.google.com`, its SPF and DKIM).
+  `support@` and `privacy@` are aliases of the owner's Workspace user (Admin › Users › Alternate email addresses);
+  replies go out "as" them via Gmail › Send mail as. Don't enable Cloudflare Email Routing: it would replace
+  Google's MX and stop that mail.
+- **DMARC:** TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:privacy@accesspilot.org` (reports only). Tighten to
+  `p=quarantine` once reports show both Google and Resend passing.
+- **Check after any change:** sign up, request a sign-in link and a password reset with real Gmail and Outlook
+  addresses; each lands in the inbox, and Gmail's "Show original" says SPF, DKIM and DMARC: PASS.
+
+### Error monitoring (Sentry)
+Errors only: no performance tracing, no session replay. The dashboard (server, browser) and the worker report;
+the widget doesn't (its errors would come from customers' visitors). Nothing personal is sent:
+`@app/observability` turns off Sentry v11's default collection (user info, cookies, headers, bodies, query
+parameters, local variables) and scrubs every event and breadcrumb (emails, tokens, keys, auth values in
+addresses). Reporting is on only in deployed production and preview with a DSN set: never in dev or the tests.
+- **Sentry:** EU data region; projects `dashboard` (Next.js) and `worker` (Node.js); an alert on every new issue.
+- **Vercel (dashboard):** `NEXT_PUBLIC_SENTRY_DSN` (Production and Preview). For readable stack traces, the build
+  uploads source maps (then deletes them) when `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are set.
+- **Worker:** `SENTRY_DSN` and `SENTRY_ENVIRONMENT=production`. Failed scans are warnings (usually the customer's
+  site), tagged with the scan and site ids; a database outage is reported once, not every retry; crashes as errors.
+
 ### Shared packages
 ```bash
 pnpm --filter @app/tokens test           # every color pairing we use still has enough contrast
