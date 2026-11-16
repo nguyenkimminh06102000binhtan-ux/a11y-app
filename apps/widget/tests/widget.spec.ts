@@ -1709,17 +1709,29 @@ test.describe("Contrast › Smart (/)", () => {
         expect((await measure(page, "sc-gray", [0, 0, 0])).rgb).toEqual([255, 255, 255]); // no inline fix left to beat Dark
     });
 
-    test("a long page never blocks the main thread for 50ms or more", async ({ page }) => {
-        await page.evaluate(() => {
-            const html = Array.from({ length: 5000 }, (_, i) => `<p style="color:#b0b0b0">Paragraph ${i}</p>`).join("");
+    // 20,000 paragraphs: enough that doing them all at once takes well over 50ms (checked by breaking the slicing)
+    test("on a long page, our code never runs for 50ms or more at a time", async ({ page }) => {
+        await page.evaluate(async () => {
+            const html = Array.from({ length: 20000 }, (_, i) => `<p style="color:#b0b0b0">Paragraph ${i}</p>`).join("");
             document.getElementById("sc")!.insertAdjacentHTML("beforeend", `<div id="sc-long">${html}</div>`);
-            (window as unknown as { longTasks: number[] }).longTasks = [];
-            new PerformanceObserver((list) => list.getEntries().forEach((e) => (window as unknown as { longTasks: number[] }).longTasks.push(e.duration))).observe({ type: "longtask" });
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            // Chrome's long-animation-frame report names each script that ran in a slow frame, and for how long. The
+            // browser's own layout of 5,000 paragraphs (and a busy test machine) can make frames slow; what we promise is
+            // that the widget's scripts never hold the main thread for 50ms.
+            const w = window as unknown as { ours: Array<{ url: string; ms: number }> };
+            w.ours = [];
+            new PerformanceObserver((list) =>
+                list.getEntries().forEach((frame) =>
+                    (frame as unknown as { scripts: Array<{ sourceURL: string; duration: number }> }).scripts
+                        .filter((script) => /\/(app\.|l\.js|parts\/)/.test(script.sourceURL))
+                        .forEach((script) => w.ours.push({ url: script.sourceURL.split("/").pop()!, ms: Math.round(script.duration) }))
+                )
+            ).observe({ type: "long-animation-frame" });
         });
         await choose(page, "Contrast", "Smart");
         await expect.poll(() => page.locator("#sc-long p").last().evaluate((el) => getComputedStyle(el).color), { timeout: 15_000 }).not.toBe("rgb(176, 176, 176)");
-        const longTasks = await page.evaluate(() => (window as unknown as { longTasks: number[] }).longTasks);
-        expect(longTasks, longTasks.join(", ")).toEqual([]); // the browser reports every task of 50ms or more
+        const ours = await page.evaluate(() => (window as unknown as { ours: Array<{ url: string; ms: number }> }).ours);
+        expect(ours.filter((run) => run.ms >= 50), JSON.stringify(ours)).toEqual([]);
     });
 });
 
@@ -2383,6 +2395,74 @@ test.describe("The panel as a part (/)", () => {
         await page.keyboard.press("Alt+KeyA");
         await expect(toggle(page)).toBeVisible();
         await expect(page.locator("a11yw-root").getByRole("status").filter({ hasText: "Couldn't open the settings" })).toBeVisible();
+        expect(await widgetViolations(page)).toEqual([]);
+    });
+});
+
+test.describe("The owner's choices: hidden features and profiles, level defaults, visitors hiding (/)", () => {
+    const NONE = { features: [] as string[], profiles: [] as string[] };
+
+    test("a hidden setting isn't shown and stays off, even if a visitor had it on; an emptied section disappears", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, hidden: { ...NONE, features: ["highlight-links", "read-aloud"] } });
+        await page.addInitScript(() => localStorage.setItem("a11yw:settings:v1", JSON.stringify({ highlightLinks: true })));
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        expect(await page.locator("a[href]").first().evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgb(255, 255, 0)");
+        await toggle(page).click();
+        await expect(panel(page).getByRole("checkbox", { name: "Highlight links" })).toHaveCount(0);
+        await expect(panel(page).getByRole("heading", { level: 3 })).toHaveText(["Profiles", "Content", "Appearance", "Navigation"]); // Tools had only Read aloud
+        await expect(panel(page).getByRole("checkbox", { name: "Motor & keyboard" })).toHaveCount(0); // it turns on Highlight links
+    });
+
+    test("level defaults: the owner's level is where visitors start, and Reset all goes back to it", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, defaults: { textSize: 2, highlightLinks: true } });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await toggle(page).click();
+        const level = (name: string) => page.getByRole("group", { name: "Text size" }).getByRole("radio", { name });
+        await expect(level("Larger (150%)")).toBeChecked();
+        await level("Default").check();
+        await page.getByRole("button", { name: "Reset all" }).click();
+        await expect(level("Larger (150%)")).toBeChecked();
+        await expect(page.getByRole("checkbox", { name: "Highlight links" })).toBeChecked();
+    });
+
+    test("profiles: hidden by the owner, or because one of their settings is hidden; none left = no Profiles section", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, hidden: { features: ["big-cursor"], profiles: ["seizure-safe"] } });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await toggle(page).click();
+        const tiles = panel(page).getByRole("list", { name: "Profiles" }).getByRole("checkbox");
+        await expect(tiles).toHaveCount(3);
+        for (const name of ["Seizure safe", "Vision", "Motor & keyboard"]) await expect(panel(page).getByRole("checkbox", { name })).toHaveCount(0);
+
+        await serveConfig(page, { ...CONFIG, hidden: { features: ["pause-animations", "font"], profiles: ["vision"] } });
+        await page.reload();
+        await toggle(page).click();
+        await expect(panel(page).getByRole("heading", { name: "Profiles" })).toHaveCount(0);
+    });
+
+    test("visitors can't hide the button when the owner says so; a button they hid before shows again", async ({ page }) => {
+        await serveConfig(page, { ...CONFIG, allowHide: false });
+        await page.addInitScript(() => sessionStorage.setItem("a11yw:hidden:v1", "1"));
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await toggle(page).click();
+        await expect(panel(page).getByRole("button", { name: "Reset all" })).toBeVisible();
+        await expect(panel(page).getByRole("button", { name: "Hide" })).toHaveCount(0);
+        expect(await widgetViolations(page)).toEqual([]);
+    });
+
+    test("narrow screens: the footer's buttons sit side by side, so the settings keep most of the height", async ({ page }) => {
+        await page.setViewportSize({ width: 320, height: 640 });
+        await page.goto("/");
+        await expect(toggle(page)).toBeVisible();
+        await toggle(page).click();
+        const tops = await Promise.all(["Reset all", /^Move to the/, "Hide"].map(async (name) => (await panel(page).getByRole("button", { name }).boundingBox())!.y));
+        expect(new Set(tops.map(Math.round)).size).toBe(1); // one row
+        const body = (await panel(page).locator(".panel-body").boundingBox())!;
+        const whole = (await panel(page).boundingBox())!;
+        expect(body.height / whole.height).toBeGreaterThan(0.5);
         expect(await widgetViolations(page)).toEqual([]);
     });
 });

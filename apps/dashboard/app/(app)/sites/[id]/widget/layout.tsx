@@ -41,6 +41,7 @@ async function WidgetNav({ params }: { params: Promise<{ id: string }> }) {
       label="Widget sections"
       items={[
         { label: "Customize", href: base },
+        { label: "Features", href: `${base}/features` },
         { label: "Addons" },
         { label: "Stats" },
         { label: "Accessibility Statement" },

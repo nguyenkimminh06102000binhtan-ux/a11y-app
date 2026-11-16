@@ -61,6 +61,7 @@ const PAGES: [string, (s: Seeded) => string][] = [
   ["Reports", (s) => `${site(s.shop)}/audit/reports`],
   ["Printable report", (s) => `/reports/${s.shop}`],
   ["Customize", (s) => `${site(s.shop)}/widget`],
+  ["Features", (s) => `${site(s.shop)}/widget/features`],
   ["Settings", (s) => `${site(s.shop)}/widget/settings`],
   ["Customize, widget never seen", (s) => `${site(s.longSite)}/widget`],
   ["Customize, widget not seen for 10 days", (s) => `${site(s.site01)}/widget`],
@@ -159,27 +160,44 @@ test.describe("open states", () => {
     await expect.poll(async () => (await (await page.request.get(`/api/widget/config?account=${s.widgetKey}&host=${LONG_DOMAIN}`)).json()).statementUrl).toBeUndefined();
   });
 
-  test("On by default: grouped like the widget's panel, and a choice is saved", async ({ page }) => {
+  test("Features: grouped like the panel; show/hide, level defaults and visitor hiding are saved and served; a hidden feature can't be on by default", async ({ page }) => {
     const s = seeded();
+    await page.goto(`${site(s.site01)}/widget/features`);
+    await settled(page);
+    for (const section of ["Content", "Appearance", "Navigation", "Tools", "Profiles", "Visitors"]) {
+      await expect(page.getByRole("group", { name: section })).toBeVisible();
+    }
+    await expect(page.getByRole("checkbox", { name: "Show in panel: Text size" })).toBeChecked();
+
+    await page.getByRole("combobox", { name: "On by default: Text size" }).selectOption("Larger (150%)");
+    await page.getByRole("checkbox", { name: "On by default: Stronger focus outline" }).check();
+    await page.getByRole("checkbox", { name: "Show in panel: Big cursor" }).uncheck();
+    await expect(page.getByRole("combobox", { name: "On by default: Big cursor" })).toBeDisabled(); // hidden: can't be on by default
+    await expect(page.getByRole("checkbox", { name: "Show in panel: Vision" })).toHaveAccessibleDescription("Not shown: Big cursor is hidden.");
+    await page.getByRole("checkbox", { name: "Show in panel: Seizure safe" }).uncheck();
+    await page.getByRole("checkbox", { name: "Let visitors hide the accessibility button" }).uncheck();
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Save features" }).click();
+    await expect(page.getByRole("button", { name: /^Dismiss/ })).toBeVisible();
+
+    const served = await (await page.request.get(`/api/widget/config?account=${s.widgetKey}&host=site-01.example`)).json();
+    expect(served.defaults).toEqual({ textSize: 2, focusOutline: true });
+    expect(served.hidden).toEqual({ features: ["big-cursor"], profiles: ["seizure-safe"] });
+    expect(served.allowHide).toBe(false);
+
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "On by default: Text size" })).toHaveValue("2");
+    await expect(page.getByRole("checkbox", { name: "Show in panel: Big cursor" })).not.toBeChecked();
+
+    // Customize no longer has these, and saving it keeps them
     await page.goto(`${site(s.site01)}/widget`);
     await settled(page);
-    const onByDefault = page.getByRole("group", { name: "On by default" });
-    for (const [section, settings] of [
-      ["Content", ["Text spacing"]],
-      ["Appearance", ["Pause animations"]],
-      ["Navigation", ["Highlight links", "Stronger focus outline"]],
-    ] as const) {
-      const group = onByDefault.getByRole("group", { name: section });
-      await expect(group.getByRole("checkbox")).toHaveCount(settings.length);
-      for (const name of settings) await expect(group.getByRole("checkbox", { name })).toBeVisible();
-    }
-
-    const box = onByDefault.getByRole("checkbox", { name: "Stronger focus outline" });
-    await box.check();
+    await expect(page.getByRole("group", { name: "On by default" })).toHaveCount(0);
     await page.getByRole("button", { name: "Save widget settings" }).click();
     await expect(page.getByRole("button", { name: /^Dismiss/ })).toBeVisible();
-    await page.reload();
-    await expect(page.getByRole("group", { name: "On by default" }).getByRole("checkbox", { name: "Stronger focus outline" })).toBeChecked();
+    const after = await (await page.request.get(`/api/widget/config?account=${s.widgetKey}&host=site-01.example`)).json();
+    expect(after.defaults).toEqual({ textSize: 2, focusOutline: true });
+    expect(after.allowHide).toBe(false);
   });
 });
 

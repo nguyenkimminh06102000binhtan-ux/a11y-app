@@ -1,7 +1,7 @@
 // The real widget. Mounts an isolated UI once the page has finished loading.
 import { mount } from "../ui/mount";
 import { mountLauncher } from "../ui/launcher";
-import { DEFAULTS, loadSettings, setOwnerDefaults } from "../settings/settings";
+import { DEFAULTS, loadSettings, setOwnerChoices } from "../settings/settings";
 import { adoptInto, applyToFrame, applyToPage, restoreDocumentCss } from "../settings/apply";
 import { watchShadowRoots } from "../core/shadow-roots";
 import { keepMounted } from "../ui/keep-mounted";
@@ -24,7 +24,7 @@ const config = fetchConfig(account);
 // Apply the visitor's settings now, not after load, so they don't see the page unadjusted first.
 // The owner's defaults come from the last page view's config; a site where the widget isn't allowed gets nothing.
 const lastConfig = cachedConfig(account);
-if (lastConfig) setOwnerDefaults(lastConfig.defaults);
+if (lastConfig) setOwnerChoices(lastConfig.defaults, lastConfig.hidden);
 if (lastConfig?.enabled !== false) applyToPage(loadSettings());
 watchShadowRoots(adoptInto); // from now on, every open shadow root on the page gets the shared stylesheet
 watchIframes(applyToFrame); // same-origin iframes get the CSS settings too (after watchShadowRoots: it starts the observer)
@@ -46,8 +46,8 @@ function whenPageLoaded(): Promise<void> {
   });
 }
 
-Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, position, statementUrl }]) => {
-  setOwnerDefaults(defaults);
+Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, position, statementUrl, hidden, allowHide }]) => {
+  setOwnerChoices(defaults, hidden);
   if (!enabled) {
     // Not one of the account's sites: no widget, and undo anything applied from an older answer.
     // The visitor's saved choices stay, for when the site is added.
@@ -61,7 +61,7 @@ Promise.all([config, whenPageLoaded()]).then(([{ enabled, theme, defaults, posit
   const host = (container.getRootNode() as ShadowRoot).host as HTMLElement;
   applyTheme(host, theme); // before the first render, so the brand color never flashes
   applyPosition(host, position); // likewise, so the button never jumps from the default corner
-  mountLauncher(container, { statementUrl });
+  mountLauncher(container, { statementUrl, hidden, allowHide });
 
   // Single-page apps can remove the widget, our <style> or the text-size variable while navigating: put them back.
   keepMounted(host, () => {

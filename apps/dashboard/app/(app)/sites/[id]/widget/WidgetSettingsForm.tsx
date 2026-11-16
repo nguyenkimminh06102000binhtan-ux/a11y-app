@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { DEFAULTABLE_ENTRIES, DEFAULT_PLACEMENT, bySection, onStateColor, type Placement, type SiteSettings } from "@app/widget-config";
+import { DEFAULT_PLACEMENT, onStateColor, type Placement, type SiteSettings } from "@app/widget-config";
 import { saveWidgetSettings, type WidgetSettingsField, type WidgetSettingsState } from "@/app/actions";
 import { PositionFields, type PlacementDraft } from "./PositionFields";
 import { toast } from "@/components/ui/Toaster";
@@ -129,24 +129,6 @@ export function WidgetSettingsForm({ siteId, settings }: { siteId: string; setti
                 )}
             </fieldset>
 
-            <fieldset aria-describedby="defaults-hint">
-                <legend className="mb-1 text-lg font-bold">On by default</legend>
-                <p id="defaults-hint" className="mb-3 text-sm">
-                    For visitors who haven&apos;t changed anything yet. They can still turn these off.
-                </p>
-                {/* Grouped like the widget's panel, with the same section names and words */}
-                {bySection(DEFAULTABLE_ENTRIES).map(({ section, items }) => (
-                    <fieldset key={section.id} className="mb-2">
-                        <legend className="font-bold">{section.label}</legend>
-                        {items.map(({ key, label }) => (
-                            <label key={key} className="flex min-h-11 items-center gap-2 font-normal">
-                                <input type="checkbox" name="defaults" value={key} defaultChecked={shown.defaults.includes(key)} />
-                                {label}
-                            </label>
-                        ))}
-                    </fieldset>
-                ))}
-            </fieldset>
 
             <div className="flex w-full max-w-xl flex-col">
                 <label htmlFor="statement" className="text-lg font-bold">

@@ -19,13 +19,16 @@ import {
     stateTint,
     toWidgetConfig,
     StatementUrlSchema,
+    cleanHidden,
+    profileHiddenBecause,
+    PROFILES,
 } from "./index.ts";
 
 // ─── Served config (what the widget receives) ───
 
 test("a valid config is kept as is", () => {
     const config = { v: 1, enabled: true, theme: { state: "#5B47C8" }, defaults: { focusOutline: true } };
-    assert.deepEqual(parseConfig(config), { v: 1, enabled: true, theme: { state: "#5b47c8" }, defaults: { focusOutline: true } });
+    assert.deepEqual(parseConfig(config), { v: 1, enabled: true, theme: { state: "#5b47c8" }, defaults: { focusOutline: true }, hidden: { features: [], profiles: [] }, allowHide: true });
 });
 
 test("anything that isn't a version-1 config is rejected whole", () => {
@@ -42,7 +45,7 @@ test("invalid parts are dropped, the rest is kept", () => {
         defaults: { focusOutline: true, textSpacing: "yes", unknownSetting: true, highlightLinks: false },
         somethingNewer: { size: "xl" }, // a field from a newer dashboard: ignored
     });
-    assert.deepEqual(parsed, { v: 1, enabled: true, theme: {}, defaults: { focusOutline: true } });
+    assert.deepEqual(parsed, { v: 1, enabled: true, theme: {}, defaults: { focusOutline: true }, hidden: { features: [], profiles: [] }, allowHide: true });
 });
 
 test("enabled: false is respected", () => {
@@ -50,7 +53,7 @@ test("enabled: false is respected", () => {
 });
 
 test("the fallback keeps the widget working", () => {
-    assert.deepEqual(FALLBACK_CONFIG, { v: 1, enabled: true, theme: {}, defaults: {} });
+    assert.deepEqual(FALLBACK_CONFIG, { v: 1, enabled: true, theme: {}, defaults: {}, hidden: { features: [], profiles: [] }, allowHide: true });
 });
 
 // ─── Stored settings (what the owner chose) ───
@@ -66,9 +69,16 @@ test("stored settings: one bad field falls back alone, the others are kept", () 
     const settings = readSiteSettings({
         v: 1,
         appearance: { stateColor: "yellow" }, // not #rrggbb: our default color
-        defaults: ["pauseAnimations", "nope", "focusOutline", "focusOutline"], // unknown dropped, duplicates merged, fixed order
+        defaults: ["pauseAnimations", "nope", "focusOutline", "focusOutline"], // version 1's list: read as a map, unknown dropped
     });
-    assert.deepEqual(settings, { v: 1, appearance: {}, defaults: ["focusOutline", "pauseAnimations"], links: {} });
+    assert.deepEqual(settings, {
+        v: 2,
+        appearance: {},
+        defaults: { pauseAnimations: true, focusOutline: true },
+        hidden: { features: [], profiles: [] },
+        visitors: { allowHide: true },
+        links: {},
+    });
 });
 
 test("toWidgetConfig: what the owner chose becomes what the widget gets", () => {
@@ -78,8 +88,9 @@ test("toWidgetConfig: what the owner chose becomes what the widget gets", () => 
         enabled: true,
         theme: { state: "#c62828" },
         defaults: { highlightLinks: true },
+        hidden: { features: [], profiles: [] }, allowHide: true,
     });
-    assert.deepEqual(toWidgetConfig(DEFAULT_SITE_SETTINGS, false), { v: 1, enabled: false, theme: {}, defaults: {} });
+    assert.deepEqual(toWidgetConfig(DEFAULT_SITE_SETTINGS, false), { v: 1, enabled: false, theme: {}, defaults: {}, hidden: { features: [], profiles: [] }, allowHide: true });
     // and the widget accepts what the server sends
     assert.deepEqual(parseConfig(toWidgetConfig(settings, true)), toWidgetConfig(settings, true));
 });
@@ -143,7 +154,11 @@ test("the color field explains what's wrong", () => {
 });
 
 test("the defaults field keeps known settings only", () => {
-    assert.deepEqual(v.parse(DefaultSettingsSchema, ["textSpacing", "bogus", "highlightLinks"]), ["highlightLinks", "textSpacing"]);
+    assert.deepEqual(v.parse(DefaultSettingsSchema, ["textSpacing", "bogus", "highlightLinks"]), { textSpacing: 1, highlightLinks: true }); // version 1's list
+    assert.deepEqual(
+        v.parse(DefaultSettingsSchema, { textSize: 2, font: 9, textSpacing: true, highlightLinks: 1, readAloud: true, contrast: 0, nope: true }),
+        { textSize: 2, textSpacing: 1 } // levels that exist; true = first level; on/off ones must be true; Read aloud never; 0 isn't "on"
+    );
 });
 
 // ─── Color math ───
@@ -210,4 +225,34 @@ test("statement link: stored and served; a bad stored or served value is dropped
     assert.equal(served?.statementUrl, undefined);
     assert.equal(served?.enabled, true);
     assert.deepEqual(readSiteSettings(undefined).links, {}); // old stored settings: no links
+});
+
+test("hidden: known ids only, in catalog order; a profile shows only with all of its settings", () => {
+    const hidden = cleanHidden({ features: ["big-cursor", "nope", "page-structure"], profiles: ["seizure-safe", "nope"] });
+    assert.deepEqual(hidden, { features: ["big-cursor", "page-structure"], profiles: ["seizure-safe"] });
+    const vision = PROFILES.find((p) => p.id === "vision")!;
+    assert.equal(profileHiddenBecause(vision, hidden), "Big cursor is hidden");
+    assert.equal(profileHiddenBecause(PROFILES.find((p) => p.id === "seizure-safe")!, hidden), "hidden");
+    assert.equal(profileHiddenBecause(PROFILES.find((p) => p.id === "dyslexia-friendly")!, hidden), null);
+});
+
+test("a hidden setting isn't served as on by default; hidden and allowHide are served", () => {
+    const settings = readSiteSettings({
+        v: 2,
+        defaults: { bigCursor: 1, textSize: 2 },
+        hidden: { features: ["big-cursor"], profiles: [] },
+        visitors: { allowHide: false },
+    });
+    const config = toWidgetConfig(settings, true);
+    assert.deepEqual(config.defaults, { textSize: 2 });
+    assert.deepEqual(config.hidden, { features: ["big-cursor"], profiles: [] });
+    assert.equal(config.allowHide, false);
+    assert.deepEqual(parseConfig(config), config);
+});
+
+test("an old cached widget's reading of a new config: only true values (levels ignored)", () => {
+    // What a version-1 widget did with defaults: keep keys whose value is exactly true
+    const served = toWidgetConfig(readSiteSettings({ v: 2, defaults: { textSize: 2, highlightLinks: true } }), true);
+    const oldReading = Object.fromEntries(Object.entries(served.defaults).filter(([, value]) => value === true));
+    assert.deepEqual(oldReading, { highlightLinks: true });
 });

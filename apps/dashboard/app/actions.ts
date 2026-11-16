@@ -13,14 +13,18 @@ import { widgetConfigTag } from "@/lib/widget-config";
 import { createSite } from "@/lib/site-create";
 import * as v from "valibot";
 import {
+  CATALOG,
+  DEFAULTABLE_ENTRIES,
   DEFAULT_PLACEMENT,
-  DefaultSettingsSchema,
   OffsetSchema,
+  PROFILES,
+  cleanDefaults,
   SETTINGS_VERSION,
   SpotSchema,
   StateColorSchema,
   StatementUrlSchema,
   isMiddle,
+  readSiteSettings,
   type Placement,
   type SiteSettings,
 } from "@app/widget-config";
@@ -167,11 +171,10 @@ function readPlacement(
   return { spot: resolvedSpot, side, edge };
 }
 
-/** Save one site's widget settings. Each field is checked by its schema from @app/widget-config. */
-export async function saveWidgetSettings(_previous: WidgetSettingsState, formData: FormData): Promise<WidgetSettingsState> {
+/** The signed-in owner's site from the form's siteId, and its stored widget settings. Redirects otherwise. */
+async function ownedWidgetSite(formData: FormData): Promise<{ userId: string; siteId: string; stored: SiteSettings }> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-
   const siteId = String(formData.get("siteId") ?? "");
   if (!isUuid(siteId)) redirect("/");
   const [site] = await db
@@ -179,6 +182,25 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
     .from(sites)
     .where(and(eq(sites.id, siteId), eq(sites.accountId, user.id))); // ownership check
   if (!site) redirect("/");
+  const [row] = await db.select({ settings: widgetSettings.settings }).from(widgetSettings).where(eq(widgetSettings.siteId, site.id));
+  return { userId: user.id, siteId: site.id, stored: readSiteSettings(row?.settings) };
+}
+
+async function storeWidgetSettings(userId: string, siteId: string, settings: SiteSettings): Promise<void> {
+  await db
+    .insert(widgetSettings)
+    .values({ siteId, settings })
+    .onConflictDoUpdate({ target: widgetSettings.siteId, set: { settings, updatedAt: new Date() } });
+  updateTag(widgetConfigTag(userId)); // the config endpoint answers with the new settings right away
+  revalidatePath(`/sites/${siteId}/widget`, "layout");
+}
+
+/**
+ * Widget › Customize: color, position, statement link. Each field is checked by its schema from
+ * @app/widget-config. What's on Features (defaults, hidden, visitors) is kept as stored.
+ */
+export async function saveWidgetSettings(_previous: WidgetSettingsState, formData: FormData): Promise<WidgetSettingsState> {
+  const { userId, siteId, stored } = await ownedWidgetSite(formData);
 
   const errors: NonNullable<WidgetSettingsState["errors"]> = {};
 
@@ -196,9 +218,6 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
   const phone = formData.get("samePhone") === "on" ? undefined : readPlacement(formData, "phone", errors);
   const position = phone ? { desktop, phone } : { desktop };
 
-  // On by default: unknown values are dropped, never an error
-  const defaults = v.parse(DefaultSettingsSchema, formData.getAll("defaults").map(String));
-
   // Accessibility statement link: optional, a full web address
   const submittedStatement = String(formData.get("statement") ?? "").trim();
   let statement: string | undefined;
@@ -212,24 +231,51 @@ export async function saveWidgetSettings(_previous: WidgetSettingsState, formDat
     return {
       status: "invalid",
       errors,
-      settings: { v: SETTINGS_VERSION, appearance: { stateColor: submittedColor, position }, defaults, links: { statement: submittedStatement || undefined } },
+      settings: { ...stored, appearance: { stateColor: submittedColor, position }, links: { statement: submittedStatement || undefined } },
     };
   }
 
   const settings: SiteSettings = {
+    ...stored,
     v: SETTINGS_VERSION,
     appearance: { ...(stateColor && { stateColor }), position },
-    defaults,
     links: { ...(statement && { statement }) },
   };
-  await db
-    .insert(widgetSettings)
-    .values({ siteId: site.id, settings })
-    .onConflictDoUpdate({ target: widgetSettings.siteId, set: { settings, updatedAt: new Date() } });
-
-  updateTag(widgetConfigTag(user.id)); // the config endpoint answers with the new settings right away
-  revalidatePath(`/sites/${site.id}/widget`);
+  await storeWidgetSettings(userId, siteId, settings);
   return { status: "saved", settings };
+}
+
+export type WidgetFeaturesState = { status: "idle" | "saved"; settings?: SiteSettings; at?: number };
+
+/**
+ * Widget › Features: which features and profiles the panel shows, what's on by default (with levels), and whether
+ * visitors may hide the button. Nothing here can be invalid: unknown values are dropped. A hidden setting can't
+ * be on by default (visitors couldn't turn it off). Color, position and the statement link are kept as stored.
+ */
+export async function saveWidgetFeatures(_previous: WidgetFeaturesState, formData: FormData): Promise<WidgetFeaturesState> {
+  const { userId, siteId, stored } = await ownedWidgetSite(formData);
+  const shown = new Set(formData.getAll("show").map(String));
+  const shownProfiles = new Set(formData.getAll("showProfile").map(String));
+  const hidden = {
+    features: CATALOG.map((entry) => entry.id as string).filter((id) => !shown.has(id)),
+    profiles: PROFILES.map((profile) => profile.id as string).filter((id) => !shownProfiles.has(id)),
+  };
+  const submitted: Record<string, unknown> = {};
+  for (const entry of DEFAULTABLE_ENTRIES) {
+    if (!shown.has(entry.id)) continue;
+    const value = formData.get(`default-${entry.key}`);
+    if (entry.kind === "toggle") submitted[entry.key] = value === "on";
+    else submitted[entry.key] = Number(value);
+  }
+  const settings: SiteSettings = {
+    ...stored,
+    v: SETTINGS_VERSION,
+    defaults: cleanDefaults(submitted),
+    hidden,
+    visitors: { allowHide: formData.get("allowHide") === "on" },
+  };
+  await storeWidgetSettings(userId, siteId, settings);
+  return { status: "saved", settings, at: Date.now() };
 }
 
 

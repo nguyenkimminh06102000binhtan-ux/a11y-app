@@ -1,4 +1,4 @@
-import { PROFILES, bySection } from "@app/widget-config";
+import { PROFILES, bySection, profileHiddenBecause, type Hidden } from "@app/widget-config";
 import { FEATURES, type Feature } from "../features";
 import { HOST_TAG } from "../core/host";
 import { loadPart } from "../core/parts";
@@ -22,7 +22,7 @@ const NOTICE_MS = 8000;
 export type PanelContext = {
     root: HTMLElement; // render into this (inside .widget, after the button)
     features: Feature[];
-    profiles: { list: typeof PROFILES; isOn: typeof isOn; turnOn: typeof turnOn; turnOff: typeof turnOff; describe: typeof describe };
+    profiles: { list: ReadonlyArray<(typeof PROFILES)[number]>; isOn: typeof isOn; turnOn: typeof turnOn; turnOff: typeof turnOff; describe: typeof describe };
     bySection: typeof bySection;
     current(): Settings;
     update(next: Settings): void; // save and apply
@@ -32,6 +32,7 @@ export type PanelContext = {
     position: { phone: string; side(): Side; moveTo(to: Side): void; reset(): void };
     shortcutLabel: string;
     statementUrl?: string;
+    allowHide: boolean; // false: no Hide button (the owner's choice)
 };
 
 /** What the panel part hands over. */
@@ -46,7 +47,14 @@ function pageFocus(): HTMLElement | null {
     return el instanceof HTMLElement && el !== document.body && el.localName !== HOST_TAG ? el : null;
 }
 
-export function mountLauncher(container: HTMLElement, { statementUrl }: { statementUrl?: string }): void {
+/**
+ * `hidden`: features and profiles the owner doesn't show (a profile also goes when one of its settings is hidden).
+ * `allowHide` false: visitors can't hide the button, and a button they hid before shows again.
+ */
+export function mountLauncher(
+    container: HTMLElement,
+    { statementUrl, hidden: ownerHidden, allowHide }: { statementUrl?: string; hidden: Hidden; allowHide: boolean }
+): void {
     const widget = document.createElement("div");
     widget.className = "widget";
     const toggle = document.createElement("button");
@@ -67,7 +75,7 @@ export function mountLauncher(container: HTMLElement, { statementUrl }: { statem
     container.append(widget);
 
     let open = false;
-    let hidden = isHidden();
+    let hidden = allowHide && isHidden();
     let current = loadSettings();
     let returnTo: HTMLElement | null = null;
     let panel: Promise<PanelHandle | null> | null = null;
@@ -76,8 +84,8 @@ export function mountLauncher(container: HTMLElement, { statementUrl }: { statem
 
     const context: PanelContext = {
         root,
-        features: FEATURES,
-        profiles: { list: PROFILES, isOn, turnOn, turnOff, describe },
+        features: FEATURES.filter((f) => !ownerHidden.features.includes(f.id)),
+        profiles: { list: PROFILES.filter((p) => !profileHiddenBecause(p, ownerHidden)), isOn, turnOn, turnOff, describe },
         bySection,
         current: () => current,
         update(next) {
@@ -91,6 +99,7 @@ export function mountLauncher(container: HTMLElement, { statementUrl }: { statem
         position: { phone: PHONE, side: visibleSide, moveTo, reset: resetSide },
         shortcutLabel: SHORTCUT_LABEL,
         statementUrl,
+        allowHide,
     };
 
     /** Download and mount the panel (closed), once. Null if it can't load. */

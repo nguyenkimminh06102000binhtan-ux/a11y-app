@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { db, accounts, sites, widgetSettings, eq, and } from "@app/db";
-import { CONFIG_VERSION, readSiteSettings, toWidgetConfig, type WidgetConfig } from "@app/widget-config";
+import { readSiteSettings, toWidgetConfig, type WidgetConfig, FALLBACK_CONFIG } from "@app/widget-config";
 import { isLocalHost } from "@/lib/domain";
 
 
@@ -30,7 +30,7 @@ export async function getWidgetConfig(widgetKey: string, host: string): Promise<
     "use cache";
     cacheLife("hours");
 
-    const disabled: WidgetConfig = { v: CONFIG_VERSION, enabled: false, theme: {}, defaults: {} };
+    const disabled: WidgetConfig = { ...FALLBACK_CONFIG, enabled: false };
 
     const [account] = await db.select({ id: accounts.id }).from(accounts).where(eq(accounts.widgetKey, widgetKey));
     if (!account) return disabled; // same answer as an unregistered domain: doesn't reveal which keys exist

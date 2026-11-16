@@ -13,15 +13,19 @@ function onValue(key: keyof Settings): boolean | number {
 }
 
 /**
- * What a visitor starts with: our defaults plus the site owner's "on by default" settings.
+ * What a visitor starts with: our defaults plus the site owner's "on by default" settings (true, or a level).
  * Visitors who changed anything keep their own choices; Reset all brings back this starting point.
+ * Settings the owner hides stay off, whatever was saved: visitors couldn't turn them off. (Saved choices are kept,
+ * so they come back if the owner shows the setting again.)
  */
 let startingPoint: Settings = { ...DEFAULTS };
+let hiddenKeys = new Set<string>();
 
-export function setOwnerDefaults(defaults: WidgetConfig["defaults"]): void {
+export function setOwnerChoices(defaults: WidgetConfig["defaults"], hidden: WidgetConfig["hidden"]): void {
+    hiddenKeys = new Set(SETTINGS.filter((entry) => hidden.features.includes(entry.id)).map((entry) => entry.key));
     startingPoint = { ...DEFAULTS };
-    for (const key of Object.keys(defaults) as (keyof typeof defaults)[]) {
-        (startingPoint as Record<string, unknown>)[key] = onValue(key);
+    for (const [key, value] of Object.entries(defaults) as Array<[keyof Settings, true | number]>) {
+        if (!hiddenKeys.has(key)) (startingPoint as Record<string, unknown>)[key] = value === true ? onValue(key) : value;
     }
 }
 
@@ -57,6 +61,7 @@ export function loadSettings(): Settings {
     } catch {
         // Corrupt JSON or blocked storage (e.g. Safari private mode, strict cookie settings): use defaults.
     }
+    hiddenKeys.forEach((key) => ((settings as Record<string, unknown>)[key] = DEFAULTS[key as keyof Settings]));
     return settings;
 }
 

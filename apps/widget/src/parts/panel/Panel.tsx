@@ -74,6 +74,7 @@ export function Panel({ ctx, open }: { ctx: PanelContext; open: boolean }) {
             </div>
             <div class="panel-body">
                 {/* Profiles: shortcuts to the settings below, on while all of their settings are in effect */}
+                {profiles.list.length > 0 && (
                 <div class="section" data-section="profiles">
                     <h3 id="section-profiles" class="section-title">
                         Profiles
@@ -92,6 +93,7 @@ export function Panel({ ctx, open }: { ctx: PanelContext; open: boolean }) {
                         ))}
                     </ul>
                 </div>
+                )}
 
                 {/* One heading per section (the panel title is the h2), so screen reader users can jump between them; each list is named by its heading */}
                 {ctx.bySection(ctx.features).map(({ section, items }) => (
@@ -161,10 +163,12 @@ export function Panel({ ctx, open }: { ctx: PanelContext; open: boolean }) {
                             <MoveIcon to={side === "right" ? "left" : "right"} />
                             Move to the {side === "right" ? "left" : "right"}
                         </button>
-                        <button ref={hideRef} type="button" class="reset" onClick={() => setConfirmHide(true)}>
-                            <HideIcon />
-                            Hide
-                        </button>
+                        {ctx.allowHide && (
+                            <button ref={hideRef} type="button" class="reset" onClick={() => setConfirmHide(true)}>
+                                <HideIcon />
+                                Hide
+                            </button>
+                        )}
                     </>
                 )}
                 <p class="footer-links">

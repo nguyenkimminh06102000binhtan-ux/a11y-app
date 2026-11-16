@@ -166,6 +166,13 @@ Grouped in the panel by section. Each setting's words, section and levels are de
 | Navigation | Highlight links | Yellow background and underline on every link. |
 | Navigation | Stronger focus outline | Thick two-tone outline on whatever has keyboard focus. |
 
+**What the owner chooses** (dashboard › Widget › Features): which features and profiles the panel shows, what's on
+by default (on/off settings, or a level: e.g. Text size 150%), and whether visitors may hide the button. Stored as
+settings version 2 (`defaults` is a map; version 1's list of keys is still read, so no migration). Served as
+`defaults`, `hidden: { features, profiles }` and `allowHide`. A hidden setting stays off for visitors, even if they
+had it on, and can't be on by default; a profile shows only when all of its settings are shown; a section with
+nothing shown disappears. Read aloud is never on by default (it shows a player).
+
 **Panel footer.** Reset all, Move to the left/right, Hide (for this visit, or 30 days: `a11yw:hidden:v1` in
 session/local storage; settings stay on; a notice says how to bring it back), the owner's **Accessibility
 statement** link when set (Widget › Customize; served as `statementUrl`, http(s) only, checked on save and on

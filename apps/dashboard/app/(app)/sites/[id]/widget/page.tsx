@@ -8,7 +8,7 @@ import { Skeleton, SkeletonForm } from "@/components/ui/Skeleton";
 
 export const metadata: Metadata = { title: "Customize · Widget" };
 
-/** Widget › Customize: the widget's color and what's on by default, for this site. (Position comes later.) */
+/** Widget › Customize: the widget's color, position and accessibility statement link, for this site. */
 export default function CustomizePage({ params }: PageProps<"/sites/[id]/widget">) {
   return (
     <section aria-labelledby="customize-heading">

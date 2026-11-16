@@ -396,3 +396,17 @@
   flex: 1 1 auto;
   width: auto;
 }
+
+/* Narrow screens: the footer's buttons side by side, icon above the words, so the settings keep most of the height */
+@media (max-width: 440px) {
+  .panel-footer > .reset {
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0.25em;
+    min-height: 3.5em;
+    padding: 0.375em 0.25em;
+    font-size: 0.875em;
+    line-height: 1.2;
+    text-align: center;
+  }
+}

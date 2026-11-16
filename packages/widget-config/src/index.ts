@@ -304,26 +304,66 @@ export function bySection<T extends { readonly section: SectionId }>(items: read
     );
 }
 
-// ─── Settings a site owner can turn on by default ──────────────────────────────────────────────────────────
+// ─── What a site owner chooses for the panel: on by default, shown or hidden ──────────────────────────────
 
-/**
- * Settings an owner can turn on by default. Part of the stored and served contract: only ever add.
- * Served as `true`; for a level setting that means its first level above Default (Text spacing: Wide, which is what
- * it was when it was an on/off setting).
- */
-export const DEFAULTABLE = ["highlightLinks", "textSpacing", "focusOutline", "pauseAnimations"] as const satisfies readonly (ToggleKey | LevelKey)[];
-export type DefaultableSetting = (typeof DEFAULTABLE)[number];
+/** Read aloud shows a player as soon as it's on, so it's never on by default. */
+const NEVER_ON_BY_DEFAULT: readonly string[] = ["readAloud"];
 
-/** Their catalog entries, in panel order (by section), for the dashboard. */
-export const DEFAULTABLE_ENTRIES = SETTINGS.filter((entry): entry is Extract<SettingEntry, { key: DefaultableSetting }> =>
-    (DEFAULTABLE as readonly string[]).includes(entry.key)
-);
+/** Settings an owner can turn on by default, in panel order (by section), for the dashboard. */
+export const DEFAULTABLE_ENTRIES = SETTINGS.filter((entry) => !NEVER_ON_BY_DEFAULT.includes(entry.key));
+export type DefaultableSetting = Exclude<SettingEntry["key"], "readAloud">;
+export const DEFAULTABLE = DEFAULTABLE_ENTRIES.map((entry) => entry.key) as DefaultableSetting[];
 
 /** Their names in the dashboard: the same words as the widget's panel, so site owners recognize them. */
-export const DEFAULTABLE_LABELS = Object.fromEntries(DEFAULTABLE_ENTRIES.map((entry) => [entry.key, entry.label])) as Record<
-    DefaultableSetting,
-    string
->;
+export const DEFAULTABLE_LABELS = Object.fromEntries(DEFAULTABLE_ENTRIES.map((entry) => [entry.key, entry.label])) as Record<DefaultableSetting, string>;
+
+/** An owner's "on by default": `true` for on/off settings, a level above Default for level settings. */
+export type OwnerDefaults = Partial<Record<DefaultableSetting, true | number>>;
+
+/**
+ * Anything → clean owner defaults: known settings only, in catalog order; on/off ones `true`; level ones a level
+ * that exists (above Default). `true` for a level setting means its first level (Text spacing: Wide, as when it
+ * was on/off). Also reads version 1's list of keys (["highlightLinks"]), so stored settings need no migration.
+ */
+export function cleanDefaults(input: unknown): OwnerDefaults {
+    if (!input || typeof input !== "object") return {};
+    const map: Record<string, unknown> = Array.isArray(input) ? Object.fromEntries(input.map((key) => [String(key), true])) : (input as Record<string, unknown>);
+    const clean: Record<string, true | number> = {};
+    for (const entry of DEFAULTABLE_ENTRIES) {
+        const value = map[entry.key];
+        if (entry.kind === "toggle") {
+            if (value === true) clean[entry.key] = true;
+        } else if (value === true) clean[entry.key] = 1;
+        else if (typeof value === "number" && Number.isInteger(value) && value > 0 && value < entry.levels.length) clean[entry.key] = value;
+    }
+    return clean as OwnerDefaults;
+}
+
+/** Feature ids (settings and actions) and profile ids an owner hides from the panel. */
+export type Hidden = { features: string[]; profiles: string[] };
+
+/** Anything → known ids only, each once, in catalog order. */
+export function cleanHidden(input: unknown): Hidden {
+    const o = (input && typeof input === "object" ? input : {}) as { features?: unknown; profiles?: unknown };
+    const has = (list: unknown, id: string) => Array.isArray(list) && list.includes(id);
+    return {
+        features: CATALOG.map((entry) => entry.id as string).filter((id) => has(o.features, id)),
+        profiles: PROFILES.map((profile) => profile.id as string).filter((id) => has(o.profiles, id)),
+    };
+}
+
+/**
+ * Why a profile isn't shown, or null if it is: the owner hid it, or it would turn on a setting the owner hid
+ * (a profile only shows when all of its settings are shown).
+ */
+export function profileHiddenBecause(profile: Profile, hidden: Hidden): string | null {
+    if (hidden.profiles.includes(profile.id)) return "hidden";
+    for (const key of Object.keys(profile.settings)) {
+        const entry = SETTINGS.find((e) => e.key === key);
+        if (entry && hidden.features.includes(entry.id)) return `${entry.label} is hidden`;
+    }
+    return null;
+}
 
 // ─── Field schemas: strict, with the messages the dashboard shows next to the field ───────────────────────
 
@@ -335,11 +375,11 @@ const HEX = /^#[0-9a-f]{6}$/i;
  */
 export const StateColorSchema = v.pipe(v.string(), v.regex(HEX, "Enter a color like #5b47c8."), v.toLowerCase());
 
-/** Settings on by default: known keys only, each once, in a fixed order. */
-export const DefaultSettingsSchema = v.pipe(
-    v.array(v.string()),
-    v.transform((keys) => DEFAULTABLE.filter((key) => keys.includes(key)))
-);
+/** Settings on by default (see cleanDefaults): never fails, drops what it doesn't know. */
+export const DefaultSettingsSchema = v.pipe(v.unknown(), v.transform(cleanDefaults));
+
+/** Hidden features and profiles (see cleanHidden): never fails, drops what it doesn't know. */
+export const HiddenSchema = v.pipe(v.unknown(), v.transform(cleanHidden));
 
 // ─── Links in the panel ────────────────────────────────────────────────────────────────────────────────────
 
@@ -416,7 +456,7 @@ export function isMiddle(spot: Spot): boolean {
 
 // ─── What the site owner chose (stored) ────────────────────────────────────────────────────────────────────
 
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2; // 2: defaults became a map with levels (version 1's list is still read); hidden; visitors
 
 /**
  * Every field has a default, and a field that doesn't validate falls back to it: reading never fails, and one bad
@@ -435,13 +475,24 @@ export const SiteSettingsSchema = v.object({
         }),
         {}
     ),
-    defaults: v.fallback(DefaultSettingsSchema, []),
+    defaults: v.fallback(DefaultSettingsSchema, {}),
+    /** Features and profiles not shown in the panel. Missing = everything shown. */
+    hidden: v.fallback(HiddenSchema, { features: [], profiles: [] }),
+    /** What visitors may do. Missing = everything. */
+    visitors: v.fallback(v.object({ allowHide: v.fallback(v.boolean(), true) }), { allowHide: true }),
     /** Links shown in the panel. Missing = none. */
     links: v.fallback(v.object({ statement: v.fallback(v.optional(StatementUrlSchema), undefined) }), {}),
 });
 export type SiteSettings = v.InferOutput<typeof SiteSettingsSchema>;
 
-export const DEFAULT_SITE_SETTINGS: SiteSettings = { v: SETTINGS_VERSION, appearance: {}, defaults: [], links: {} };
+export const DEFAULT_SITE_SETTINGS: SiteSettings = {
+    v: SETTINGS_VERSION,
+    appearance: {},
+    defaults: {},
+    links: {},
+    hidden: { features: [], profiles: [] },
+    visitors: { allowHide: true },
+};
 
 /** Stored JSON (or nothing) → complete settings. Never throws. Old versions get upgraded here when there are some. */
 export function readSiteSettings(input: unknown): SiteSettings {
@@ -466,15 +517,11 @@ export const WidgetConfigSchema = v.object({
     /** The owner's accessibility statement page, linked from the panel. Missing = no link. */
     statementUrl: v.fallback(v.optional(StatementUrlSchema), undefined),
     /** Settings on by default for visitors who haven't chosen yet. Only `true` entries. */
-    defaults: v.fallback(
-        v.pipe(
-            v.record(v.string(), v.unknown()),
-            v.transform(
-                (map) => Object.fromEntries(DEFAULTABLE.filter((key) => map[key] === true).map((key) => [key, true])) as Partial<Record<DefaultableSetting, true>>
-            )
-        ),
-        {}
-    ),
+    defaults: v.fallback(DefaultSettingsSchema, {}),
+    /** Features and profiles the owner hides: not shown, and hidden settings stay off. */
+    hidden: v.fallback(HiddenSchema, { features: [], profiles: [] }),
+    /** false: visitors can't hide the button (no Hide in the panel). */
+    allowHide: v.fallback(v.boolean(), true),
 });
 export type WidgetConfig = v.InferOutput<typeof WidgetConfigSchema>;
 
@@ -483,7 +530,7 @@ export type WidgetConfig = v.InferOutput<typeof WidgetConfigSchema>;
  * widget with our defaults, because an accessibility tool that vanishes when our server hiccups hurts the
  * people who rely on it.
  */
-export const FALLBACK_CONFIG: WidgetConfig = { v: CONFIG_VERSION, enabled: true, theme: {}, defaults: {} };
+export const FALLBACK_CONFIG: WidgetConfig = { v: CONFIG_VERSION, enabled: true, theme: {}, defaults: {}, hidden: { features: [], profiles: [] }, allowHide: true };
 
 /** Untrusted JSON → WidgetConfig. null if it isn't a config of this version at all (then use FALLBACK_CONFIG). */
 export function parseConfig(input: unknown): WidgetConfig | null {
@@ -497,7 +544,12 @@ export function toWidgetConfig(settings: SiteSettings, enabled: boolean): Widget
         v: CONFIG_VERSION,
         enabled,
         theme: settings.appearance.stateColor ? { state: settings.appearance.stateColor } : {},
-        defaults: Object.fromEntries(settings.defaults.map((key) => [key, true])),
+        // A hidden setting is off for visitors, so it can't be on by default either
+        defaults: Object.fromEntries(
+            Object.entries(settings.defaults).filter(([key]) => !settings.hidden.features.includes(SETTINGS.find((e) => e.key === key)?.id ?? ""))
+        ),
+        hidden: settings.hidden,
+        allowHide: settings.visitors.allowHide,
         ...(settings.appearance.position && {
             position: { desktop: settings.appearance.position.desktop, phone: settings.appearance.position.phone ?? settings.appearance.position.desktop },
         }),
